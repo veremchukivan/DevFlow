@@ -1,6 +1,7 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import type { PaginationQuery } from "@devflow/shared";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
-import { db } from "../../core/db/client.js";
+import { type DbExecutor, db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { taskComments } from "../../core/db/schema/task-comments.js";
 import { tasks } from "../../core/db/schema/tasks.js";
@@ -65,14 +66,17 @@ export async function findTaskInProject(input: {
   return task;
 }
 
-export async function createTaskComment(input: {
-  authorUserId: string;
-  body: string;
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
-  const [comment] = await db
+export async function createTaskComment(
+  input: {
+    authorUserId: string;
+    body: string;
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [comment] = await executor
     .insert(taskComments)
     .values(input)
     .returning({
@@ -83,38 +87,54 @@ export async function createTaskComment(input: {
     throw new Error("Failed to create task comment");
   }
 
-  return findTaskCommentById({
-    commentId: comment.id,
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
-  });
+  return findTaskCommentById(
+    {
+      commentId: comment.id,
+      projectId: input.projectId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId
+    },
+    executor
+  );
 }
 
 export async function listTaskComments(input: {
+  pagination: PaginationQuery;
   projectId: string;
   taskId: string;
   workspaceId: string;
 }) {
-  return taskCommentSelect()
-    .where(
-      and(
-        eq(taskComments.projectId, input.projectId),
-        eq(taskComments.taskId, input.taskId),
-        eq(taskComments.workspaceId, input.workspaceId),
-        isNull(taskComments.deletedAt)
-      )
-    )
-    .orderBy(asc(taskComments.createdAt));
+  const conditions = and(
+    eq(taskComments.projectId, input.projectId),
+    eq(taskComments.taskId, input.taskId),
+    eq(taskComments.workspaceId, input.workspaceId),
+    isNull(taskComments.deletedAt)
+  );
+
+  const [totalRow] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(taskComments)
+    .where(conditions);
+
+  const items = await taskCommentSelect()
+    .where(conditions)
+    .orderBy(asc(taskComments.createdAt), asc(taskComments.id))
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return { items, total: totalRow?.total ?? 0 };
 }
 
-export async function findTaskCommentById(input: {
-  commentId: string;
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
-  const [comment] = await taskCommentSelect()
+export async function findTaskCommentById(
+  input: {
+    commentId: string;
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [comment] = await taskCommentSelect(executor)
     .where(
       and(
         eq(taskComments.id, input.commentId),
@@ -129,14 +149,17 @@ export async function findTaskCommentById(input: {
   return comment;
 }
 
-export async function updateTaskComment(input: {
-  body: string;
-  commentId: string;
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
-  const [comment] = await db
+export async function updateTaskComment(
+  input: {
+    body: string;
+    commentId: string;
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [comment] = await executor
     .update(taskComments)
     .set({
       body: input.body,
@@ -159,17 +182,20 @@ export async function updateTaskComment(input: {
     return undefined;
   }
 
-  return findTaskCommentById(input);
+  return findTaskCommentById(input, executor);
 }
 
-export async function softDeleteTaskComment(input: {
-  commentId: string;
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
+export async function softDeleteTaskComment(
+  input: {
+    commentId: string;
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
   const now = new Date();
-  const [comment] = await db
+  const [comment] = await executor
     .update(taskComments)
     .set({
       deletedAt: now,
@@ -191,8 +217,8 @@ export async function softDeleteTaskComment(input: {
   return comment;
 }
 
-function taskCommentSelect() {
-  return db
+function taskCommentSelect(executor: DbExecutor = db) {
+  return executor
     .select({
       authorDisplayName: users.displayName,
       authorId: users.id,

@@ -1,9 +1,11 @@
 import type {
   AddWorkspaceMemberRequest,
+  PaginationQuery,
   UpdateWorkspaceMemberRequest
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { canManageWorkspaceMembers } from "./workspace-members.policy.js";
 import {
   createWorkspaceMember,
@@ -16,12 +18,24 @@ import {
 } from "./workspace-members.repository.js";
 
 export async function listMembers(input: {
+  pagination: PaginationQuery;
   userId: string;
   workspaceId: string;
 }) {
   await requireWorkspaceMembership(input);
 
-  return listWorkspaceMembers(input.workspaceId);
+  const result = await listWorkspaceMembers({
+    pagination: input.pagination,
+    workspaceId: input.workspaceId
+  });
+
+  return {
+    members: result.members,
+    pageInfo: buildPageInfo({
+      ...input.pagination,
+      total: result.total
+    })
+  };
 }
 
 export async function addMember(input: {
@@ -39,6 +53,14 @@ export async function addMember(input: {
     );
   }
 
+  if (membership.role === "admin" && input.input.role === "admin") {
+    throw new AppError(
+      403,
+      "WORKSPACE_ADMIN_ADD_FORBIDDEN",
+      "Only workspace owners can add admins"
+    );
+  }
+
   const targetUser = await findUserByEmailNormalized(
     normalizeEmail(input.input.email)
   );
@@ -53,6 +75,22 @@ export async function addMember(input: {
   });
 
   if (existingMember) {
+    if (existingMember.status === "invited") {
+      throw new AppError(
+        409,
+        "WORKSPACE_MEMBER_INVITATION_PENDING",
+        "A pending invitation already exists for this user"
+      );
+    }
+
+    if (existingMember.status === "suspended") {
+      throw new AppError(
+        409,
+        "WORKSPACE_MEMBER_SUSPENDED",
+        "This user is currently suspended in this workspace"
+      );
+    }
+
     throw new AppError(
       409,
       "WORKSPACE_MEMBER_ALREADY_EXISTS",
@@ -110,6 +148,22 @@ export async function updateMember(input: {
     );
   }
 
+  if (membership.role === "admin" && targetMember.role === "admin") {
+    throw new AppError(
+      403,
+      "WORKSPACE_ADMIN_MANAGEMENT_FORBIDDEN",
+      "Only workspace owners can modify admins"
+    );
+  }
+
+  if (membership.role === "admin" && input.input.role === "admin") {
+    throw new AppError(
+      403,
+      "WORKSPACE_ADMIN_PROMOTION_FORBIDDEN",
+      "Only workspace owners can promote members to admin"
+    );
+  }
+
   const member = await updateWorkspaceMember({
     role: input.input.role,
     status: input.input.status,
@@ -164,10 +218,43 @@ export async function removeMember(input: {
     );
   }
 
+  if (membership.role === "admin" && targetMember.role === "admin") {
+    throw new AppError(
+      403,
+      "WORKSPACE_ADMIN_MANAGEMENT_FORBIDDEN",
+      "Only workspace owners can remove admins"
+    );
+  }
+
   const deletedMember = await deleteWorkspaceMember({
     userId: input.targetUserId,
     workspaceId: input.workspaceId
   });
+
+  if (!deletedMember) {
+    throw new AppError(
+      404,
+      "WORKSPACE_MEMBER_NOT_FOUND",
+      "Workspace member not found"
+    );
+  }
+}
+
+export async function leaveWorkspace(input: {
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+
+  if (membership.role === "owner") {
+    throw new AppError(
+      400,
+      "WORKSPACE_OWNER_LEAVE_FORBIDDEN",
+      "Workspace owners cannot leave the workspace without transferring ownership"
+    );
+  }
+
+  const deletedMember = await deleteWorkspaceMember(input);
 
   if (!deletedMember) {
     throw new AppError(

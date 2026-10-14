@@ -1,12 +1,17 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { CreateWorkspaceInvitationRequest } from "@devflow/shared";
+import type {
+  CreateWorkspaceInvitationRequest,
+  PaginationQuery
+} from "@devflow/shared";
 
 import { env } from "../../config/env.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { canManageWorkspaceInvitations } from "./workspace-invitations.policy.js";
 import {
   acceptInvitationTx,
-  createWorkspaceInvitation,
+  cancelInvitationTx,
+  createInvitationTx,
   declineInvitationTx,
   deleteWorkspaceInvitation,
   findActiveMemberByEmail,
@@ -35,6 +40,14 @@ export async function createInvitation(input: {
       403,
       "WORKSPACE_INVITATION_FORBIDDEN",
       "You cannot invite members to this workspace"
+    );
+  }
+
+  if (membership.role === "admin" && input.input.role === "admin") {
+    throw new AppError(
+      403,
+      "WORKSPACE_ADMIN_INVITATION_FORBIDDEN",
+      "Only workspace owners can invite admins"
     );
   }
 
@@ -67,39 +80,45 @@ export async function createInvitation(input: {
   }
 
   const targetUser = await findUserByEmailNormalized(emailNormalized);
-  if (targetUser) {
-    await upsertInvitedMember({
-      role: input.input.role,
-      userId: targetUser.id,
-      workspaceId: input.workspaceId
-    });
-  }
-
   const token = generateInvitationToken();
   const tokenHash = hashInvitationToken(token);
   const expiresAt = getInvitationExpiresAt();
 
-  const invitation = await createWorkspaceInvitation({
-    email: input.input.email,
-    emailNormalized,
-    expiresAt,
-    invitedByUserId: input.userId,
-    role: input.input.role,
-    tokenHash,
-    workspaceId: input.workspaceId
-  });
+  try {
+    const invitation = await createInvitationTx({
+      email: input.input.email,
+      emailNormalized,
+      expiresAt,
+      invitedByUserId: input.userId,
+      role: input.input.role,
+      targetUserId: targetUser?.id,
+      tokenHash,
+      workspaceId: input.workspaceId
+    });
 
-  if (!invitation) {
-    throw new Error("Failed to load created workspace invitation");
+    if (!invitation) {
+      throw new Error("Failed to load created workspace invitation");
+    }
+
+    return {
+      invitation,
+      token
+    };
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError(
+        409,
+        "WORKSPACE_INVITATION_ALREADY_EXISTS",
+        "A pending invitation already exists for this email address"
+      );
+    }
+
+    throw error;
   }
-
-  return {
-    invitation,
-    token
-  };
 }
 
 export async function listInvitations(input: {
+  pagination: PaginationQuery;
   userId: string;
   workspaceId: string;
 }) {
@@ -113,7 +132,18 @@ export async function listInvitations(input: {
     );
   }
 
-  return listPendingInvitationsForWorkspace(input.workspaceId);
+  const result = await listPendingInvitationsForWorkspace({
+    pagination: input.pagination,
+    workspaceId: input.workspaceId
+  });
+
+  return {
+    invitations: result.invitations,
+    pageInfo: buildPageInfo({
+      ...input.pagination,
+      total: result.total
+    })
+  };
 }
 
 export async function cancelInvitation(input: {
@@ -141,17 +171,15 @@ export async function cancelInvitation(input: {
     );
   }
 
-  await deleteWorkspaceInvitation(input);
-
   const targetUser = await findUserByEmailNormalized(
     invitation.emailNormalized
   );
-  if (targetUser) {
-    await removeInvitedMemberIfPresent({
-      userId: targetUser.id,
-      workspaceId: input.workspaceId
-    });
-  }
+
+  await cancelInvitationTx({
+    invitationId: input.invitationId,
+    targetUserId: targetUser?.id,
+    workspaceId: input.workspaceId
+  });
 }
 
 export async function resendInvitation(input: {
@@ -187,6 +215,14 @@ export async function resendInvitation(input: {
     );
   }
 
+  if (invitation.rejectedAt) {
+    throw new AppError(
+      409,
+      "WORKSPACE_INVITATION_DECLINED",
+      "Declined invitations cannot be resent; create a new invitation instead"
+    );
+  }
+
   const token = generateInvitationToken();
   const tokenHash = hashInvitationToken(token);
   const expiresAt = getInvitationExpiresAt();
@@ -199,11 +235,7 @@ export async function resendInvitation(input: {
   });
 
   if (!updated) {
-    throw new AppError(
-      404,
-      "WORKSPACE_INVITATION_NOT_FOUND",
-      "Workspace invitation not found"
-    );
+    throw invitationNoLongerActiveError();
   }
 
   return {
@@ -291,12 +323,17 @@ export async function acceptInvitation(input: {
     );
   }
 
-  await acceptInvitationTx({
+  const accepted = await acceptInvitationTx({
     invitationId: row.id,
     role: row.role,
+    tokenHash,
     userId: input.userId,
     workspaceId: row.workspaceId
   });
+
+  if (!accepted) {
+    throw invitationNoLongerActiveError();
+  }
 
   return {
     role: row.role,
@@ -342,11 +379,16 @@ export async function declineInvitation(token: string) {
 
   const targetUser = await findUserByEmailNormalized(row.emailNormalized);
 
-  await declineInvitationTx({
+  const declined = await declineInvitationTx({
     invitationId: row.id,
+    tokenHash,
     userId: targetUser?.id,
     workspaceId: row.workspaceId
   });
+
+  if (!declined) {
+    throw invitationNoLongerActiveError();
+  }
 
   return {
     status: "declined"
@@ -382,5 +424,31 @@ function getInvitationExpiresAt() {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function invitationNoLongerActiveError() {
+  return new AppError(
+    409,
+    "WORKSPACE_INVITATION_NO_LONGER_ACTIVE",
+    "This invitation is no longer active"
+  );
+}
+
+function isUniqueViolation(error: unknown) {
+  if (typeof error === "object" && error !== null) {
+    if ("code" in error && error.code === "23505") {
+      return true;
+    }
+    if (
+      "cause" in error &&
+      typeof error.cause === "object" &&
+      error.cause !== null &&
+      "code" in error.cause &&
+      error.cause.code === "23505"
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 

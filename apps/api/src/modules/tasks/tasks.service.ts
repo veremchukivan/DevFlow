@@ -1,6 +1,12 @@
-import type { CreateTaskRequest, ListTasksQuery, UpdateTaskRequest } from "@devflow/shared";
+import type {
+  CreateTaskRequest,
+  ListTasksQuery,
+  UpdateTaskRequest
+} from "@devflow/shared";
 
+import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   canCreateTask,
@@ -20,7 +26,6 @@ import {
   updateTaskInProject
 } from "./tasks.repository.js";
 
-const maxTaskNumberAttempts = 3;
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -52,64 +57,55 @@ export async function createTask(input: {
     });
   }
 
-  for (let attempt = 0; attempt < maxTaskNumberAttempts; attempt += 1) {
-    try {
-      const task = await createTaskWithNextNumber({
-        assigneeUserId: input.input.assigneeUserId,
-        description: input.input.description,
-        priority: input.input.priority,
-        projectId: input.projectId,
-        reporterUserId: input.userId,
-        statusId: status.id,
-        title: input.input.title,
-        workspaceId: input.workspaceId
-      });
+  // createTaskWithNextNumber uses SELECT FOR UPDATE on the project row, which
+  // serialises concurrent task creation for the same project and makes a
+  // unique-violation on (workspace_id, project_id, number) impossible.
+  // No retry loop is needed.
+  const task = await createTaskWithNextNumber({
+    activity: {
+      actorUserId: input.userId,
+      projectKey: project.key
+    },
+    assigneeUserId: input.input.assigneeUserId,
+    description: input.input.description,
+    priority: input.input.priority,
+    projectId: input.projectId,
+    reporterUserId: input.userId,
+    statusId: status.id,
+    title: input.input.title,
+    workspaceId: input.workspaceId
+  });
 
-      await recordTaskActivity({
-        actorUserId: input.userId,
-        data: {
-          taskKey: `${project.key}-${task.number}`,
-          title: task.title
-        },
-        eventType: "task_created",
-        projectId: input.projectId,
-        taskId: task.id,
-        workspaceId: input.workspaceId
-      });
-
-      return {
-        ...task,
-        projectKey: project.key,
-        status
-      };
-    } catch (error) {
-      if (!isUniqueViolation(error) || attempt === maxTaskNumberAttempts - 1) {
-        throw error;
-      }
-    }
-  }
-
-  throw new AppError(
-    409,
-    "TASK_NUMBER_CONFLICT",
-    "Could not reserve the next task number"
-  );
+  return {
+    ...task,
+    projectKey: project.key,
+    status
+  };
 }
 
 export async function listTasks(input: {
+  filters: ListTasksQuery;
   projectId: string;
   userId: string;
   workspaceId: string;
-  filters?: ListTasksQuery;
 }) {
   await requireWorkspaceMembership(input);
   await requireProject(input);
 
-  return listTasksForProject({
+  const result = await listTasksForProject({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
     filters: input.filters
   });
+
+  return {
+    pageInfo: buildPageInfo({
+      limit: input.filters.limit,
+      offset: input.filters.offset,
+      total: result.total
+    }),
+    tasks: result.tasks
+  };
 }
 
 export async function getTask(input: {
@@ -165,37 +161,45 @@ export async function updateTask(input: {
     });
   }
 
-  await updateTaskInProject({
-    assigneeUserId: input.input.assigneeUserId,
-    description: input.input.description,
-    priority: input.input.priority,
-    projectId: input.projectId,
-    statusId: input.input.statusId,
-    taskId: input.taskId,
-    title: input.input.title,
-    workspaceId: input.workspaceId
+  return db.transaction(async (tx) => {
+    await updateTaskInProject(
+      {
+        assigneeUserId: input.input.assigneeUserId,
+        description: input.input.description,
+        priority: input.input.priority,
+        projectId: input.projectId,
+        statusId: input.input.statusId,
+        taskId: input.taskId,
+        title: input.input.title,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    const updatedTask = await findTaskInProject(input, tx);
+
+    if (!updatedTask) {
+      throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
+    }
+
+    await recordTaskActivity(
+      {
+        actorUserId: input.userId,
+        data: {
+          fields: updatedTaskFields(input.input),
+          taskKey: `${existingTask.projectKey}-${existingTask.number}`,
+          title: updatedTask.title
+        },
+        eventType: "task_updated",
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    return updatedTask;
   });
-
-  const updatedTask = await findTaskInProject(input);
-
-  if (!updatedTask) {
-    throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
-  }
-
-  await recordTaskActivity({
-    actorUserId: input.userId,
-    data: {
-      fields: updatedTaskFields(input.input),
-      taskKey: `${existingTask.projectKey}-${existingTask.number}`,
-      title: updatedTask.title
-    },
-    eventType: "task_updated",
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
-  });
-
-  return updatedTask;
 }
 
 export async function deleteTask(input: {
@@ -217,22 +221,27 @@ export async function deleteTask(input: {
   await requireProject(input);
   const task = await requireTask(input);
 
-  const deletedTask = await softDeleteTaskInProject(input);
+  return db.transaction(async (tx) => {
+    const deletedTask = await softDeleteTaskInProject(input, tx);
 
-  if (!deletedTask) {
-    throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
-  }
+    if (!deletedTask) {
+      throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
+    }
 
-  await recordTaskActivity({
-    actorUserId: input.userId,
-    data: {
-      taskKey: `${task.projectKey}-${task.number}`,
-      title: task.title
-    },
-    eventType: "task_deleted",
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
+    await recordTaskActivity(
+      {
+        actorUserId: input.userId,
+        data: {
+          taskKey: `${task.projectKey}-${task.number}`,
+          title: task.title
+        },
+        eventType: "task_deleted",
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
   });
 }
 
@@ -325,15 +334,6 @@ async function requireAssignableWorkspaceMember(input: {
       "Assignee must be an active workspace member"
     );
   }
-}
-
-function isUniqueViolation(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
-  );
 }
 
 function updatedTaskFields(input: UpdateTaskRequest) {

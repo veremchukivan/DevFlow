@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { pageInfoSchema } from "./pagination.js";
+
 export const createTaskCommentRequestSchema = z.object({
   body: z.string().trim().min(1).max(5000)
 });
@@ -40,7 +42,8 @@ export const taskCommentResponseSchema = z.object({
 });
 
 export const taskCommentListResponseSchema = z.object({
-  comments: z.array(taskCommentSchema)
+  comments: z.array(taskCommentSchema),
+  pageInfo: pageInfoSchema
 });
 
 export type CreateTaskCommentRequest = z.infer<

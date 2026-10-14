@@ -21,7 +21,8 @@ infra/
 
 ```bash
 pnpm install
-docker compose up -d postgres
+cp .env.example .env
+docker compose up -d --build
 pnpm dev
 pnpm typecheck
 pnpm lint
@@ -34,15 +35,20 @@ pnpm build
 Local PostgreSQL runs through Docker Compose:
 
 ```bash
-docker compose up -d postgres
-pnpm db:generate
-pnpm db:migrate
+cp .env.example .env
+# Update POSTGRES_PASSWORD, DATABASE_URL, and DOCKER_DATABASE_URL together.
+docker compose up -d --build
 ```
 
-The default local connection string is:
+Docker applies migrations through the `api-migrate` service before starting the
+API. PostgreSQL, API, and web ports are bound to `127.0.0.1`, so they are only
+reachable from this computer. Use a reverse proxy and a production-specific
+Compose configuration for public deployment.
+
+The default local connection string in `.env.example` is:
 
 ```txt
-postgres://devflow:devflow@localhost:5432/devflow
+postgres://devflow:replace-with-a-unique-local-password@localhost:5432/devflow
 ```
 
 ## Test Database
@@ -50,7 +56,7 @@ postgres://devflow:devflow@localhost:5432/devflow
 API integration tests use a separate PostgreSQL database:
 
 ```txt
-postgres://devflow:devflow@localhost:5432/devflow_test
+postgres://devflow:replace-with-a-unique-local-password@localhost:5432/devflow_test
 ```
 
 Prepare it manually:

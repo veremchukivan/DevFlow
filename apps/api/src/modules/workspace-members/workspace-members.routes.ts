@@ -1,5 +1,6 @@
 import {
   addWorkspaceMemberRequestSchema,
+  paginationQuerySchema,
   updateWorkspaceMemberRequestSchema,
   workspaceMemberParamsSchema,
   workspaceMembersParamsSchema,
@@ -14,6 +15,7 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   addMember,
+  leaveWorkspace,
   listMembers,
   removeMember,
   updateMember
@@ -25,13 +27,16 @@ workspaceMembersRouter.use(requireAuth);
 
 workspaceMembersRouter.get("/", async (req, res) => {
   const params = workspaceMembersParamsSchema.parse(req.params);
-  const members = await listMembers({
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listMembers({
+    pagination,
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });
 
   res.json({
-    members: members.map(toWorkspaceMemberDto)
+    members: result.members.map(toWorkspaceMemberDto),
+    pageInfo: result.pageInfo
   } satisfies WorkspaceMemberListResponse);
 });
 
@@ -64,6 +69,16 @@ workspaceMembersRouter.delete("/:userId", async (req, res) => {
   const params = workspaceMemberParamsSchema.parse(req.params);
   await removeMember({
     targetUserId: params.userId,
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.status(204).send();
+});
+
+workspaceMembersRouter.post("/leave", async (req, res) => {
+  const params = workspaceMembersParamsSchema.parse(req.params);
+  await leaveWorkspace({
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });

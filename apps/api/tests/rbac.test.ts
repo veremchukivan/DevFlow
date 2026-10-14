@@ -223,4 +223,160 @@ describe("RBAC Permissions Integration Tests", () => {
       expect(adminDeleteRes.status).toBe(204);
     });
   });
+
+  describe("Workspace member management permissions (Admin Hijacking Protection)", () => {
+    let secondAdmin: Awaited<ReturnType<typeof createTestUser>>;
+    let targetMember: Awaited<ReturnType<typeof createTestUser>>;
+
+    beforeAll(async () => {
+      secondAdmin = await createTestUser(app, { email: "admin2_rbac@devflow.io" });
+      targetMember = await createTestUser(app, { email: "target_member_rbac@devflow.io" });
+
+      // Owner adds second admin and target member
+      await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/members`)
+        .set("Cookie", owner.cookie)
+        .send({ email: secondAdmin.email, role: "admin" });
+
+      await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/members`)
+        .set("Cookie", owner.cookie)
+        .send({ email: targetMember.email, role: "member" });
+    });
+
+    it("forbids admin from directly adding another user as admin", async () => {
+      const newUser = await createTestUser(app, { email: "new_admin_attempt@devflow.io" });
+
+      const res = await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/members`)
+        .set("Cookie", admin.cookie)
+        .send({ email: newUser.email, role: "admin" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("WORKSPACE_ADMIN_ADD_FORBIDDEN");
+    });
+
+    it("forbids admin from inviting another user as admin", async () => {
+      const res = await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/invitations`)
+        .set("Cookie", admin.cookie)
+        .send({ email: "invite_admin_attempt@devflow.io", role: "admin" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("WORKSPACE_ADMIN_INVITATION_FORBIDDEN");
+    });
+
+    it("forbids admin from promoting a member to admin", async () => {
+      const res = await request(app)
+        .patch(`/api/v1/workspaces/${workspace.id}/members/${targetMember.user.id}`)
+        .set("Cookie", admin.cookie)
+        .send({ role: "admin" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("WORKSPACE_ADMIN_PROMOTION_FORBIDDEN");
+    });
+
+    it("forbids admin from modifying or suspending another admin", async () => {
+      const res = await request(app)
+        .patch(`/api/v1/workspaces/${workspace.id}/members/${secondAdmin.user.id}`)
+        .set("Cookie", admin.cookie)
+        .send({ status: "suspended" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("WORKSPACE_ADMIN_MANAGEMENT_FORBIDDEN");
+    });
+
+    it("forbids admin from removing another admin", async () => {
+      const res = await request(app)
+        .delete(`/api/v1/workspaces/${workspace.id}/members/${secondAdmin.user.id}`)
+        .set("Cookie", admin.cookie);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe("WORKSPACE_ADMIN_MANAGEMENT_FORBIDDEN");
+    });
+
+    it("allows admin to remove a regular member", async () => {
+      const res = await request(app)
+        .delete(`/api/v1/workspaces/${workspace.id}/members/${targetMember.user.id}`)
+        .set("Cookie", admin.cookie);
+
+      expect(res.status).toBe(204);
+    });
+
+    it("allows owner to update or remove an admin", async () => {
+      // Owner suspends admin2
+      const patchRes = await request(app)
+        .patch(`/api/v1/workspaces/${workspace.id}/members/${secondAdmin.user.id}`)
+        .set("Cookie", owner.cookie)
+        .send({ status: "suspended" });
+
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.member.status).toBe("suspended");
+
+      // Owner removes admin2
+      const deleteRes = await request(app)
+        .delete(`/api/v1/workspaces/${workspace.id}/members/${secondAdmin.user.id}`)
+        .set("Cookie", owner.cookie);
+
+      expect(deleteRes.status).toBe(204);
+    });
+  });
+
+  describe("Leave workspace permissions", () => {
+    let leaveUser: Awaited<ReturnType<typeof createTestUser>>;
+
+    beforeAll(async () => {
+      leaveUser = await createTestUser(app, { email: "leave_user@devflow.io" });
+      await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/members`)
+        .set("Cookie", owner.cookie)
+        .send({ email: leaveUser.email, role: "member" });
+    });
+
+    it("forbids owner from leaving their own workspace", async () => {
+      const res = await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/leave`)
+        .set("Cookie", owner.cookie);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("WORKSPACE_OWNER_LEAVE_FORBIDDEN");
+    });
+
+    it("allows member to leave workspace via POST /api/v1/workspaces/:workspaceId/leave", async () => {
+      const res = await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/leave`)
+        .set("Cookie", leaveUser.cookie);
+
+      expect(res.status).toBe(204);
+
+      // Verify user can no longer access workspace
+      const getRes = await request(app)
+        .get(`/api/v1/workspaces/${workspace.id}`)
+        .set("Cookie", leaveUser.cookie);
+
+      expect(getRes.status).toBe(404);
+    });
+
+    it("allows admin to leave workspace via POST /api/v1/workspaces/:workspaceId/members/leave", async () => {
+      const adminToLeave = await createTestUser(app, { email: "admin_leave@devflow.io" });
+      await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/members`)
+        .set("Cookie", owner.cookie)
+        .send({ email: adminToLeave.email, role: "admin" });
+
+      const res = await request(app)
+        .post(`/api/v1/workspaces/${workspace.id}/members/leave`)
+        .set("Cookie", adminToLeave.cookie);
+
+      expect(res.status).toBe(204);
+
+      // Verify admin can no longer access workspace
+      const getRes = await request(app)
+        .get(`/api/v1/workspaces/${workspace.id}`)
+        .set("Cookie", adminToLeave.cookie);
+
+      expect(getRes.status).toBe(404);
+    });
+  });
 });
+

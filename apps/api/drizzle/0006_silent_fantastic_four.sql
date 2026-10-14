@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "workspace_invitations_active_unique" ON "workspace_invitations" USING btree ("workspace_id","email_normalized") WHERE "workspace_invitations"."accepted_at" IS NULL AND "workspace_invitations"."rejected_at" IS NULL;

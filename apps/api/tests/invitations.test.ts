@@ -1,10 +1,16 @@
+import { createHash } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+
+import { workspaceInvitations } from "../src/core/db/schema/workspace-invitations.js";
+import { acceptInvitationTx } from "../src/modules/workspace-invitations/workspace-invitations.repository.js";
 
 import {
   cleanupDatabase,
   createTestApp,
   createTestUser,
   createTestWorkspace,
+  db,
   request
 } from "./helpers/test-app.js";
 
@@ -190,4 +196,82 @@ describe("Workspace Invitations Integration Tests", () => {
     const publicRes = await request(app).get(`/api/v1/invitations/${token}`);
     expect(publicRes.body.invitation.isRejected).toBe(true);
   });
+
+  it("allows creating a replacement for an expired invitation", async () => {
+    const email = "expired_invitation@devflow.io";
+    const firstRes = await request(app)
+      .post(`/api/v1/workspaces/${workspace.id}/invitations`)
+      .set("Cookie", owner.cookie)
+      .send({ email, role: "member" });
+
+    expect(firstRes.status).toBe(201);
+
+    await db
+      .update(workspaceInvitations)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(workspaceInvitations.id, firstRes.body.invitation.id));
+
+    const replacementRes = await request(app)
+      .post(`/api/v1/workspaces/${workspace.id}/invitations`)
+      .set("Cookie", owner.cookie)
+      .send({ email, role: "viewer" });
+
+    expect(replacementRes.status).toBe(201);
+    expect(replacementRes.body.invitation.role).toBe("viewer");
+  });
+
+  it("rejects resending an invitation that was declined", async () => {
+    const createRes = await request(app)
+      .post(`/api/v1/workspaces/${workspace.id}/invitations`)
+      .set("Cookie", owner.cookie)
+      .send({ email: "declined_resend@devflow.io", role: "member" });
+
+    await request(app).post(
+      `/api/v1/invitations/${createRes.body.token}/decline`
+    );
+
+    const resendRes = await request(app)
+      .post(
+        `/api/v1/workspaces/${workspace.id}/invitations/${createRes.body.invitation.id}/resend`
+      )
+      .set("Cookie", owner.cookie);
+
+    expect(resendRes.status).toBe(409);
+    expect(resendRes.body.error.code).toBe("WORKSPACE_INVITATION_DECLINED");
+  });
+
+  it("does not activate a user when an invitation was cancelled", async () => {
+    const raceInvitee = await createTestUser(app, {
+      email: "cancelled_accept@devflow.io"
+    });
+    const createRes = await request(app)
+      .post(`/api/v1/workspaces/${workspace.id}/invitations`)
+      .set("Cookie", owner.cookie)
+      .send({ email: raceInvitee.email, role: "member" });
+
+    await request(app)
+      .delete(
+        `/api/v1/workspaces/${workspace.id}/invitations/${createRes.body.invitation.id}`
+      )
+      .set("Cookie", owner.cookie);
+
+    const accepted = await acceptInvitationTx({
+      invitationId: createRes.body.invitation.id,
+      role: "member",
+      tokenHash: createHash("sha256")
+        .update(createRes.body.token)
+        .digest("hex"),
+      userId: raceInvitee.user.id,
+      workspaceId: workspace.id
+    });
+
+    expect(accepted).toBe(false);
+
+    const membersRes = await request(app)
+      .get(`/api/v1/workspaces/${workspace.id}/members`)
+      .set("Cookie", raceInvitee.cookie);
+
+    expect(membersRes.status).toBe(404);
+  });
 });
+

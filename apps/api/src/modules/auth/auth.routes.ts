@@ -7,6 +7,7 @@ import { Router, type Request } from "express";
 
 import { env } from "../../config/env.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { authRateLimiter } from "../../core/http/rate-limiter.js";
 import {
   clearSessionCookie,
   setSessionCookie
@@ -20,7 +21,7 @@ import {
 
 export const authRouter = Router();
 
-authRouter.post("/register", async (req, res) => {
+authRouter.post("/register", authRateLimiter, async (req, res) => {
   const input = registerRequestSchema.parse(req.body);
   const result = await register(input, getRequestMeta(req));
 
@@ -28,7 +29,7 @@ authRouter.post("/register", async (req, res) => {
   res.status(201).json(toAuthResponse(result.user));
 });
 
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login", authRateLimiter, async (req, res) => {
   const input = loginRequestSchema.parse(req.body);
   const result = await login(input, getRequestMeta(req));
 

@@ -24,7 +24,9 @@ export const workspaces = pgTable(
     ...softDeleteColumn()
   },
   (table) => [
-    uniqueIndex("workspaces_slug_unique").on(table.slug),
+    uniqueIndex("workspaces_slug_unique")
+      .on(table.slug)
+      .where(sql`${table.deletedAt} IS NULL`),
     index("workspaces_owner_user_id_idx").on(table.ownerUserId),
     index("workspaces_deleted_at_idx").on(table.deletedAt),
     check(

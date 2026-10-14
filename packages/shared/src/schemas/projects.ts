@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { pageInfoSchema } from "./pagination.js";
+
 export const projectKeySchema = z
   .string()
   .trim()
@@ -13,6 +15,16 @@ export const createProjectRequestSchema = z.object({
   key: projectKeySchema.optional(),
   name: z.string().trim().min(2).max(160)
 });
+
+export const updateProjectRequestSchema = z
+  .object({
+    description: z.string().trim().max(2000).nullable().optional(),
+    key: projectKeySchema.optional(),
+    name: z.string().trim().min(2).max(160).optional()
+  })
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "At least one project field is required"
+  });
 
 export const projectParamsSchema = z.object({
   projectId: z.uuid(),
@@ -61,10 +73,12 @@ export const projectResponseSchema = z.object({
 });
 
 export const projectListResponseSchema = z.object({
+  pageInfo: pageInfoSchema,
   projects: z.array(projectSummarySchema)
 });
 
 export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
+export type UpdateProjectRequest = z.infer<typeof updateProjectRequestSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;

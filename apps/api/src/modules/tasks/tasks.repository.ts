@@ -1,11 +1,27 @@
-import { SQL, and, asc, desc, eq, ilike, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  type SQL,
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  isNotNull,
+  isNull,
+  sql
+} from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
-import { db } from "../../core/db/client.js";
+import { type DbExecutor, db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
+import { users } from "../../core/db/schema/users.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
+import { createTaskActivityEvent } from "../task-activity/task-activity.repository.js";
+
+const assigneeUsers = alias(users, "assignee_users");
+const reporterUsers = alias(users, "reporter_users");
 
 type TaskPriority = "low" | "medium" | "high" | "urgent";
 
@@ -119,6 +135,11 @@ export async function findDefaultProjectStatus(input: {
 }
 
 export async function createTaskWithNextNumber(input: {
+  activity?: {
+    actorUserId: string;
+    data?: Record<string, unknown>;
+    projectKey: string;
+  };
   assigneeUserId?: string;
   description?: string;
   priority?: TaskPriority;
@@ -129,6 +150,20 @@ export async function createTaskWithNextNumber(input: {
   workspaceId: string;
 }) {
   return db.transaction(async (tx) => {
+    // 1. Lock the project row to serialize concurrent task number generation
+    await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.id, input.projectId),
+          eq(projects.workspaceId, input.workspaceId),
+          isNull(projects.deletedAt)
+        )
+      )
+      .for("update");
+
+    // 2. Fetch the next number safely without race condition
     const [nextNumber] = await tx
       .select({
         value: sql<number>`coalesce(max(${tasks.number}), 0) + 1`
@@ -162,19 +197,53 @@ export async function createTaskWithNextNumber(input: {
       throw new Error("Failed to create task");
     }
 
-    return task;
+    // 3. Atomically record the activity event inside the same transaction
+    if (input.activity) {
+      await createTaskActivityEvent(
+        {
+          actorUserId: input.activity.actorUserId,
+          data: {
+            taskKey: `${input.activity.projectKey}-${task.number}`,
+            title: task.title,
+            ...(input.activity.data ?? {})
+          },
+          eventType: "task_created",
+          projectId: input.projectId,
+          taskId: task.id,
+          workspaceId: input.workspaceId
+        },
+        tx
+      );
+    }
+
+    const createdTask = await findTaskInProject(
+      {
+        projectId: input.projectId,
+        taskId: task.id,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    if (!createdTask) {
+      throw new Error("Failed to load created task");
+    }
+
+    return createdTask;
   });
 }
 
 export async function listTasksForProject(input: {
   projectId: string;
   workspaceId: string;
-  filters?: {
+  filters: {
     statusId?: string;
     priority?: TaskPriority;
     assigneeUserId?: string | "none";
     search?: string;
     archived?: boolean;
+    limit: number;
+    offset: number;
     sortBy?: "createdAt" | "updatedAt" | "priority" | "number";
     sortOrder?: "asc" | "desc";
   };
@@ -208,7 +277,7 @@ export async function listTasksForProject(input: {
   }
 
   if (f.search !== undefined) {
-    conditions.push(ilike(tasks.title, `%${f.search}%`));
+    conditions.push(ilike(tasks.title, `%${escapeLikePattern(f.search)}%`));
   }
 
   // Build ORDER BY
@@ -216,7 +285,31 @@ export async function listTasksForProject(input: {
   const orderBy =
     (f.sortOrder ?? "desc") === "asc" ? asc(sortColumn) : desc(sortColumn);
 
-  return taskSelect().where(and(...conditions)).orderBy(orderBy);
+  const where = and(...conditions);
+  const [totalRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`
+    })
+    .from(tasks)
+    .innerJoin(
+      projects,
+      and(
+        eq(projects.id, tasks.projectId),
+        eq(projects.workspaceId, tasks.workspaceId)
+      )
+    )
+    .where(where);
+
+  const rows = await taskSelect()
+    .where(where)
+    .orderBy(orderBy, desc(tasks.id))
+    .limit(f.limit)
+    .offset(f.offset);
+
+  return {
+    tasks: rows,
+    total: totalRow?.total ?? 0
+  };
 }
 
 function toSortColumn(field: "createdAt" | "updatedAt" | "priority" | "number") {
@@ -240,12 +333,15 @@ function toSortColumn(field: "createdAt" | "updatedAt" | "priority" | "number") 
 }
 
 
-export async function findTaskInProject(input: {
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
-  const [task] = await taskSelect()
+export async function findTaskInProject(
+  input: {
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [task] = await taskSelect(executor)
     .where(
       and(
         eq(tasks.id, input.taskId),
@@ -260,17 +356,20 @@ export async function findTaskInProject(input: {
   return task;
 }
 
-export async function updateTaskInProject(input: {
-  assigneeUserId?: string | null;
-  description?: string | null;
-  priority?: TaskPriority;
-  projectId: string;
-  statusId?: string;
-  taskId: string;
-  title?: string;
-  workspaceId: string;
-}) {
-  const [task] = await db
+export async function updateTaskInProject(
+  input: {
+    assigneeUserId?: string | null;
+    description?: string | null;
+    priority?: TaskPriority;
+    projectId: string;
+    statusId?: string;
+    taskId: string;
+    title?: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [task] = await executor
     .update(tasks)
     .set(toTaskUpdateValues(input))
     .where(
@@ -286,13 +385,16 @@ export async function updateTaskInProject(input: {
   return task;
 }
 
-export async function softDeleteTaskInProject(input: {
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
+export async function softDeleteTaskInProject(
+  input: {
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
   const now = new Date();
-  const [task] = await db
+  const [task] = await executor
     .update(tasks)
     .set({
       deletedAt: now,
@@ -311,9 +413,16 @@ export async function softDeleteTaskInProject(input: {
   return task;
 }
 
-function taskSelect() {
-  return db
+function escapeLikePattern(pattern: string): string {
+  return pattern.replace(/[%_\\]/g, "\\$&");
+}
+
+function taskSelect(executor: DbExecutor = db) {
+  return executor
     .select({
+      assigneeDisplayName: assigneeUsers.displayName,
+      assigneeEmail: assigneeUsers.email,
+      assigneeId: assigneeUsers.id,
       assigneeUserId: tasks.assigneeUserId,
       createdAt: tasks.createdAt,
       description: tasks.description,
@@ -322,6 +431,9 @@ function taskSelect() {
       priority: tasks.priority,
       projectId: tasks.projectId,
       projectKey: projects.key,
+      reporterDisplayName: reporterUsers.displayName,
+      reporterEmail: reporterUsers.email,
+      reporterId: reporterUsers.id,
       reporterUserId: tasks.reporterUserId,
       statusId: tasks.statusId,
       status: {
@@ -352,6 +464,20 @@ function taskSelect() {
         eq(projectStatuses.projectId, tasks.projectId),
         eq(projectStatuses.workspaceId, tasks.workspaceId)
       )
+    )
+    .leftJoin(
+      assigneeUsers,
+      and(
+        eq(assigneeUsers.id, tasks.assigneeUserId),
+        isNull(assigneeUsers.deletedAt)
+      )
+    )
+    .leftJoin(
+      reporterUsers,
+      and(
+        eq(reporterUsers.id, tasks.reporterUserId),
+        isNull(reporterUsers.deletedAt)
+      )
     );
 }
 
@@ -381,15 +507,18 @@ function toTaskUpdateValues(input: {
     values.description = input.description;
   }
 
-  if (input.priority) {
+  // Use strict undefined check (not falsy) so that valid enum values such as
+  // "low" are correctly applied.
+  if (input.priority !== undefined) {
     values.priority = input.priority;
   }
 
-  if (input.statusId) {
+  if (input.statusId !== undefined) {
     values.statusId = input.statusId;
   }
 
-  if (input.title) {
+  // Use strict undefined check so that a non-empty title update is always saved.
+  if (input.title !== undefined) {
     values.title = input.title;
   }
 

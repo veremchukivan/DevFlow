@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import type { PaginationQuery } from "@devflow/shared";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
@@ -114,12 +115,34 @@ export async function createProjectWithDefaultStatuses(input: {
   });
 }
 
-export async function listProjectsForWorkspace(workspaceId: string) {
-  return db
+export async function listProjectsForWorkspace(input: {
+  pagination: PaginationQuery;
+  workspaceId: string;
+}) {
+  const conditions = and(
+    eq(projects.workspaceId, input.workspaceId),
+    isNull(projects.deletedAt)
+  );
+
+  const [totalRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`
+    })
+    .from(projects)
+    .where(conditions);
+
+  const rows = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.workspaceId, workspaceId), isNull(projects.deletedAt)))
-    .orderBy(desc(projects.createdAt));
+    .where(conditions)
+    .orderBy(desc(projects.createdAt), desc(projects.id))
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return {
+    projects: rows,
+    total: totalRow?.total ?? 0
+  };
 }
 
 export async function findProjectInWorkspace(input: {
@@ -155,4 +178,56 @@ export async function listProjectStatuses(input: {
       )
     )
     .orderBy(asc(projectStatuses.position));
+}
+
+export async function updateProjectInDb(input: {
+  description?: string | null;
+  key?: string;
+  name?: string;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [project] = await db
+    .update(projects)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.key !== undefined ? { key: input.key } : {}),
+      ...(input.description !== undefined
+        ? { description: input.description }
+        : {}),
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+        isNull(projects.deletedAt)
+      )
+    )
+    .returning();
+
+  return project;
+}
+
+export async function softDeleteProjectInDb(input: {
+  projectId: string;
+  workspaceId: string;
+}) {
+  const now = new Date();
+  const [project] = await db
+    .update(projects)
+    .set({
+      deletedAt: now,
+      updatedAt: now
+    })
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+        isNull(projects.deletedAt)
+      )
+    )
+    .returning();
+
+  return project;
 }

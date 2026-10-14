@@ -1,4 +1,5 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import type { PaginationQuery } from "@devflow/shared";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { users } from "../../core/db/schema/users.js";
@@ -66,15 +67,33 @@ export async function findWorkspaceMember(input: {
   return member;
 }
 
-export async function listWorkspaceMembers(workspaceId: string) {
-  return workspaceMemberSelect()
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        isNull(users.deletedAt)
-      )
-    )
-    .orderBy(asc(workspaceMembers.joinedAt));
+export async function listWorkspaceMembers(input: {
+  pagination: PaginationQuery;
+  workspaceId: string;
+}) {
+  const conditions = and(
+    eq(workspaceMembers.workspaceId, input.workspaceId),
+    isNull(users.deletedAt)
+  );
+
+  const [totalRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`
+    })
+    .from(workspaceMembers)
+    .innerJoin(users, eq(users.id, workspaceMembers.userId))
+    .where(conditions);
+
+  const rows = await workspaceMemberSelect()
+    .where(conditions)
+    .orderBy(asc(workspaceMembers.joinedAt), asc(workspaceMembers.userId))
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return {
+    members: rows,
+    total: totalRow?.total ?? 0
+  };
 }
 
 export async function createWorkspaceMember(input: {

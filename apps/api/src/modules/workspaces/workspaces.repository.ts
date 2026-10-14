@@ -1,4 +1,5 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import type { PaginationQuery } from "@devflow/shared";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
@@ -47,8 +48,28 @@ export async function createWorkspaceWithOwner(input: {
   });
 }
 
-export async function listWorkspacesForUser(userId: string) {
-  return db
+export async function listWorkspacesForUser(input: {
+  pagination: PaginationQuery;
+  userId: string;
+}) {
+  const conditions = and(
+    eq(workspaceMembers.userId, input.userId),
+    eq(workspaceMembers.status, "active"),
+    isNull(workspaces.deletedAt)
+  );
+
+  const [totalRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`
+    })
+    .from(workspaces)
+    .innerJoin(
+      workspaceMembers,
+      eq(workspaceMembers.workspaceId, workspaces.id)
+    )
+    .where(conditions);
+
+  const rows = await db
     .select({
       createdAt: workspaces.createdAt,
       id: workspaces.id,
@@ -63,14 +84,15 @@ export async function listWorkspacesForUser(userId: string) {
       workspaceMembers,
       eq(workspaceMembers.workspaceId, workspaces.id)
     )
-    .where(
-      and(
-        eq(workspaceMembers.userId, userId),
-        eq(workspaceMembers.status, "active"),
-        isNull(workspaces.deletedAt)
-      )
-    )
-    .orderBy(desc(workspaces.createdAt));
+    .where(conditions)
+    .orderBy(desc(workspaces.createdAt), desc(workspaces.id))
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return {
+    total: totalRow?.total ?? 0,
+    workspaces: rows
+  };
 }
 
 export async function findWorkspaceForUser(input: {
@@ -101,6 +123,48 @@ export async function findWorkspaceForUser(input: {
       )
     )
     .limit(1);
+
+  return workspace;
+}
+
+export async function updateWorkspaceInDb(input: {
+  name?: string;
+  slug?: string;
+  workspaceId: string;
+}) {
+  const [workspace] = await db
+    .update(workspaces)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.slug !== undefined ? { slug: input.slug } : {}),
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(workspaces.id, input.workspaceId),
+        isNull(workspaces.deletedAt)
+      )
+    )
+    .returning();
+
+  return workspace;
+}
+
+export async function softDeleteWorkspaceInDb(workspaceId: string) {
+  const now = new Date();
+  const [workspace] = await db
+    .update(workspaces)
+    .set({
+      deletedAt: now,
+      updatedAt: now
+    })
+    .where(
+      and(
+        eq(workspaces.id, workspaceId),
+        isNull(workspaces.deletedAt)
+      )
+    )
+    .returning();
 
   return workspace;
 }

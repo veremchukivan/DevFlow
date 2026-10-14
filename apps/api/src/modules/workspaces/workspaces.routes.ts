@@ -1,5 +1,7 @@
 import {
   createWorkspaceRequestSchema,
+  paginationQuerySchema,
+  updateWorkspaceRequestSchema,
   workspaceParamsSchema,
   type WorkspaceListResponse,
   type WorkspaceResponse
@@ -12,9 +14,12 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createWorkspace,
+  deleteWorkspace,
   getWorkspace,
-  listWorkspaces
+  listWorkspaces,
+  updateWorkspace
 } from "./workspaces.service.js";
+import { leaveWorkspace } from "../workspace-members/workspace-members.service.js";
 
 export const workspacesRouter = Router();
 
@@ -28,10 +33,15 @@ workspacesRouter.post("/", async (req, res) => {
 });
 
 workspacesRouter.get("/", async (req, res) => {
-  const workspaces = await listWorkspaces(getAuthenticatedUserId(req));
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listWorkspaces({
+    pagination,
+    userId: getAuthenticatedUserId(req)
+  });
 
   res.json({
-    workspaces: workspaces.map(toWorkspaceDto)
+    pageInfo: result.pageInfo,
+    workspaces: result.workspaces.map(toWorkspaceDto)
   } satisfies WorkspaceListResponse);
 });
 
@@ -43,6 +53,35 @@ workspacesRouter.get("/:workspaceId", async (req, res) => {
   );
 
   res.json(toWorkspaceResponse(workspace));
+});
+
+workspacesRouter.patch("/:workspaceId", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  const input = updateWorkspaceRequestSchema.parse(req.body);
+  const workspace = await updateWorkspace(
+    getAuthenticatedUserId(req),
+    params.workspaceId,
+    input
+  );
+
+  res.json(toWorkspaceResponse(workspace));
+});
+
+workspacesRouter.delete("/:workspaceId", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  await deleteWorkspace(getAuthenticatedUserId(req), params.workspaceId);
+
+  res.status(204).send();
+});
+
+workspacesRouter.post("/:workspaceId/leave", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  await leaveWorkspace({
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.status(204).send();
 });
 
 function getAuthenticatedUserId(req: unknown) {
