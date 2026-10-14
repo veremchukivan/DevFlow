@@ -21,10 +21,27 @@ infra/
 
 ```bash
 pnpm install
+docker compose up -d postgres
 pnpm dev
 pnpm typecheck
 pnpm lint
 pnpm build
+```
+
+## Database
+
+Local PostgreSQL runs through Docker Compose:
+
+```bash
+docker compose up -d postgres
+pnpm db:generate
+pnpm db:migrate
+```
+
+The default local connection string is:
+
+```txt
+postgres://devflow:devflow@localhost:55432/devflow
 ```
 
 ## Local URLs
@@ -32,4 +49,5 @@ pnpm build
 - Web: http://localhost:3000
 - API: http://localhost:4000
 - API healthcheck: http://localhost:4000/healthz
+- API readiness: http://localhost:4000/readyz
 
