@@ -1,5 +1,5 @@
 import type { PaginationQuery } from "@devflow/shared";
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lte, sql } from "drizzle-orm";
 
 import { type DbExecutor, db } from "../../core/db/client.js";
 import { users } from "../../core/db/schema/users.js";
@@ -118,6 +118,19 @@ export async function createInvitationTx(input: {
   workspaceId: string;
 }) {
   return db.transaction(async (tx) => {
+    // Expired invitations still match the partial unique index until removed.
+    await tx
+      .delete(workspaceInvitations)
+      .where(
+        and(
+          eq(workspaceInvitations.workspaceId, input.workspaceId),
+          eq(workspaceInvitations.emailNormalized, input.emailNormalized),
+          isNull(workspaceInvitations.acceptedAt),
+          isNull(workspaceInvitations.rejectedAt),
+          lte(workspaceInvitations.expiresAt, new Date())
+        )
+      );
+
     if (input.targetUserId) {
       await tx
         .insert(workspaceMembers)
@@ -154,38 +167,6 @@ export async function createInvitationTx(input: {
       },
       tx
     );
-  });
-}
-
-export async function createWorkspaceInvitation(input: {
-  email: string;
-  emailNormalized: string;
-  expiresAt: Date;
-  invitedByUserId: string;
-  role: WorkspaceAssignableRole;
-  tokenHash: string;
-  workspaceId: string;
-}) {
-  const [created] = await db
-    .insert(workspaceInvitations)
-    .values({
-      email: input.email,
-      emailNormalized: input.emailNormalized,
-      expiresAt: input.expiresAt,
-      invitedByUserId: input.invitedByUserId,
-      role: input.role,
-      tokenHash: input.tokenHash,
-      workspaceId: input.workspaceId
-    })
-    .returning({ id: workspaceInvitations.id });
-
-  if (!created) {
-    throw new Error("Failed to create workspace invitation");
-  }
-
-  return findInvitationById({
-    invitationId: created.id,
-    workspaceId: input.workspaceId
   });
 }
 
@@ -294,7 +275,7 @@ export async function updateInvitationToken(input: {
   tokenHash: string;
   workspaceId: string;
 }) {
-  await db
+  const [updated] = await db
     .update(workspaceInvitations)
     .set({
       expiresAt: input.expiresAt,
@@ -304,14 +285,24 @@ export async function updateInvitationToken(input: {
     .where(
       and(
         eq(workspaceInvitations.id, input.invitationId),
-        eq(workspaceInvitations.workspaceId, input.workspaceId)
+        eq(workspaceInvitations.workspaceId, input.workspaceId),
+        isNull(workspaceInvitations.acceptedAt),
+        isNull(workspaceInvitations.rejectedAt)
       )
-    );
+    )
+    .returning({ id: workspaceInvitations.id });
 
-  return findInvitationById({
-    invitationId: input.invitationId,
-    workspaceId: input.workspaceId
-  });
+  if (!updated) {
+    return undefined;
+  }
+
+  return findInvitationById(
+    {
+      invitationId: input.invitationId,
+      workspaceId: input.workspaceId
+    },
+    db
+  );
 }
 
 export async function findInvitationByTokenHash(tokenHash: string) {
@@ -356,22 +347,36 @@ export async function findInvitationByTokenHash(tokenHash: string) {
 export async function acceptInvitationTx(input: {
   invitationId: string;
   role: "owner" | "admin" | "member" | "viewer";
+  tokenHash: string;
   userId: string;
   workspaceId: string;
 }) {
   const now = new Date();
 
   return db.transaction(async (tx) => {
-    // 1. Mark invitation accepted
-    await tx
+    // Confirm the token and state inside the transaction to prevent TOCTOU access.
+    const [acceptedInvitation] = await tx
       .update(workspaceInvitations)
       .set({
         acceptedAt: now,
         updatedAt: now
       })
-      .where(eq(workspaceInvitations.id, input.invitationId));
+      .where(
+        and(
+          eq(workspaceInvitations.id, input.invitationId),
+          eq(workspaceInvitations.workspaceId, input.workspaceId),
+          eq(workspaceInvitations.tokenHash, input.tokenHash),
+          isNull(workspaceInvitations.acceptedAt),
+          isNull(workspaceInvitations.rejectedAt),
+          gt(workspaceInvitations.expiresAt, now)
+        )
+      )
+      .returning({ id: workspaceInvitations.id });
 
-    // 2. Insert or update workspace member to active
+    if (!acceptedInvitation) {
+      return false;
+    }
+
     await tx
       .insert(workspaceMembers)
       .values({
@@ -390,24 +395,41 @@ export async function acceptInvitationTx(input: {
         },
         target: [workspaceMembers.workspaceId, workspaceMembers.userId]
       });
+
+    return true;
   });
 }
 
 export async function declineInvitationTx(input: {
   invitationId: string;
+  tokenHash: string;
   userId?: string;
   workspaceId: string;
 }) {
   const now = new Date();
 
   return db.transaction(async (tx) => {
-    await tx
+    const [declinedInvitation] = await tx
       .update(workspaceInvitations)
       .set({
         rejectedAt: now,
         updatedAt: now
       })
-      .where(eq(workspaceInvitations.id, input.invitationId));
+      .where(
+        and(
+          eq(workspaceInvitations.id, input.invitationId),
+          eq(workspaceInvitations.workspaceId, input.workspaceId),
+          eq(workspaceInvitations.tokenHash, input.tokenHash),
+          isNull(workspaceInvitations.acceptedAt),
+          isNull(workspaceInvitations.rejectedAt),
+          gt(workspaceInvitations.expiresAt, now)
+        )
+      )
+      .returning({ id: workspaceInvitations.id });
+
+    if (!declinedInvitation) {
+      return false;
+    }
 
     if (input.userId) {
       await tx
@@ -420,6 +442,8 @@ export async function declineInvitationTx(input: {
           )
         );
     }
+
+    return true;
   });
 }
 

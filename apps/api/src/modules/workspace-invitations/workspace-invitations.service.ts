@@ -12,7 +12,6 @@ import {
   acceptInvitationTx,
   cancelInvitationTx,
   createInvitationTx,
-  createWorkspaceInvitation,
   declineInvitationTx,
   deleteWorkspaceInvitation,
   findActiveMemberByEmail,
@@ -216,6 +215,14 @@ export async function resendInvitation(input: {
     );
   }
 
+  if (invitation.rejectedAt) {
+    throw new AppError(
+      409,
+      "WORKSPACE_INVITATION_DECLINED",
+      "Declined invitations cannot be resent; create a new invitation instead"
+    );
+  }
+
   const token = generateInvitationToken();
   const tokenHash = hashInvitationToken(token);
   const expiresAt = getInvitationExpiresAt();
@@ -228,11 +235,7 @@ export async function resendInvitation(input: {
   });
 
   if (!updated) {
-    throw new AppError(
-      404,
-      "WORKSPACE_INVITATION_NOT_FOUND",
-      "Workspace invitation not found"
-    );
+    throw invitationNoLongerActiveError();
   }
 
   return {
@@ -320,12 +323,17 @@ export async function acceptInvitation(input: {
     );
   }
 
-  await acceptInvitationTx({
+  const accepted = await acceptInvitationTx({
     invitationId: row.id,
     role: row.role,
+    tokenHash,
     userId: input.userId,
     workspaceId: row.workspaceId
   });
+
+  if (!accepted) {
+    throw invitationNoLongerActiveError();
+  }
 
   return {
     role: row.role,
@@ -371,11 +379,16 @@ export async function declineInvitation(token: string) {
 
   const targetUser = await findUserByEmailNormalized(row.emailNormalized);
 
-  await declineInvitationTx({
+  const declined = await declineInvitationTx({
     invitationId: row.id,
+    tokenHash,
     userId: targetUser?.id,
     workspaceId: row.workspaceId
   });
+
+  if (!declined) {
+    throw invitationNoLongerActiveError();
+  }
 
   return {
     status: "declined"
@@ -411,6 +424,14 @@ function getInvitationExpiresAt() {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function invitationNoLongerActiveError() {
+  return new AppError(
+    409,
+    "WORKSPACE_INVITATION_NO_LONGER_ACTIVE",
+    "This invitation is no longer active"
+  );
 }
 
 function isUniqueViolation(error: unknown) {
