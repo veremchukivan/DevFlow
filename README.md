@@ -41,7 +41,7 @@ pnpm db:migrate
 The default local connection string is:
 
 ```txt
-postgres://devflow:devflow@localhost:55432/devflow
+postgres://devflow:devflow@localhost:5432/devflow
 ```
 
 ## Local URLs

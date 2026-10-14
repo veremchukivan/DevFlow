@@ -7,7 +7,7 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .url()
-    .default("postgres://devflow:devflow@localhost:55432/devflow"),
+    .default("postgres://devflow:devflow@localhost:5432/devflow"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
