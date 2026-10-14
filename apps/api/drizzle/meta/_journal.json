@@ -8,6 +8,13 @@
       "when": 1791958571094,
       "tag": "0000_boring_thanos",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791962436787,
+      "tag": "0001_stormy_wolfsbane",
+      "breakpoints": true
     }
   ]
 }

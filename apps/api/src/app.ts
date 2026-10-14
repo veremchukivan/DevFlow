@@ -8,6 +8,7 @@ import { errorHandler } from "./core/http/error-handler.js";
 import { requestLogger } from "./core/http/request-logger.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
+import { projectsRouter } from "./modules/projects/projects.routes.js";
 import { workspacesRouter } from "./modules/workspaces/workspaces.routes.js";
 import { readinessRouter } from "./modules/health/readiness.routes.js";
 
@@ -34,6 +35,7 @@ export function createApp() {
 
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/workspaces", workspacesRouter);
+  app.use("/api/v1/workspaces/:workspaceId/projects", projectsRouter);
   app.use("/healthz", healthRouter);
   app.use("/readyz", readinessRouter);
   app.use(errorHandler);
