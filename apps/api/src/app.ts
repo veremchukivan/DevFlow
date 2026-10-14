@@ -5,6 +5,7 @@ import helmet from "helmet";
 
 import { env } from "./config/env.js";
 import { errorHandler } from "./core/http/error-handler.js";
+import { apiRateLimiter } from "./core/http/rate-limiter.js";
 import { requestLogger } from "./core/http/request-logger.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
@@ -23,6 +24,7 @@ import { readinessRouter } from "./modules/health/readiness.routes.js";
 export function createApp() {
   const app = express();
 
+  app.set("trust proxy", 1);
   app.use(requestLogger);
   app.use(helmet());
   app.use(
@@ -40,6 +42,8 @@ export function createApp() {
       status: "ok"
     });
   });
+
+  app.use("/api", apiRateLimiter);
 
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/invitations", publicInvitationsRouter);

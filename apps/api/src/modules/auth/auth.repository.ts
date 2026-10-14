@@ -59,6 +59,7 @@ export async function createSession(input: {
 export async function findSessionUserByTokenHash(tokenHash: string) {
   const [result] = await db
     .select({
+      lastSeenAt: sessions.lastSeenAt,
       sessionId: sessions.id,
       user: {
         createdAt: users.createdAt,

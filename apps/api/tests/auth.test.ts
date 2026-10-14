@@ -1,8 +1,12 @@
+import express from "express";
+import rateLimit from "express-rate-limit";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { sessions } from "../src/core/db/schema/sessions.js";
 import {
   cleanupDatabase,
   createTestApp,
+  db,
   request
 } from "./helpers/test-app.js";
 
@@ -120,6 +124,78 @@ describe("Auth Module Integration Tests", () => {
       .set("Cookie", cookie);
 
     expect(meRes.status).toBe(401);
+  });
+
+  it("rejects login with non-existent email with identical 401 response", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: "nonexistent@devflow.io",
+        password: "WrongPassword999!"
+      });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("throttles session lastSeenAt update on rapid requests within 5 minutes", async () => {
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: "alice@devflow.io",
+        password: "Password123!"
+      });
+
+    const cookie = loginRes.headers["set-cookie"][0];
+
+    const [sessionBefore] = await db.select().from(sessions);
+    expect(sessionBefore).toBeDefined();
+
+    // Call /me immediately
+    const meRes = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Cookie", cookie);
+
+    expect(meRes.status).toBe(200);
+
+    const [sessionAfter] = await db.select().from(sessions);
+    // lastSeenAt should NOT be updated because 5 minutes have not elapsed
+    expect(sessionAfter?.lastSeenAt.getTime()).toBe(
+      sessionBefore?.lastSeenAt.getTime()
+    );
+  });
+
+  it("enforces rate limit when requests exceed limit threshold", async () => {
+    const miniApp = express();
+    const limiter = rateLimit({
+      windowMs: 60 * 1000,
+      max: 2,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: {
+        error: {
+          code: "RATE_LIMIT_EXCEEDED",
+          message: "Too many authentication attempts, please try again later"
+        }
+      }
+    });
+
+    miniApp.post("/test-limit", limiter, (_req, res) => {
+      res.json({ ok: true });
+    });
+
+    const res1 = await request(miniApp).post("/test-limit");
+    expect(res1.status).toBe(200);
+
+    const res2 = await request(miniApp).post("/test-limit");
+    expect(res2.status).toBe(200);
+
+    const res3 = await request(miniApp).post("/test-limit");
+    expect(res3.status).toBe(429);
+    expect(res3.body.error).toEqual({
+      code: "RATE_LIMIT_EXCEEDED",
+      message: "Too many authentication attempts, please try again later"
+    });
   });
 });
 

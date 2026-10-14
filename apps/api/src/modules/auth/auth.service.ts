@@ -15,6 +15,18 @@ import {
 } from "./auth.repository.js";
 
 const sessionTokenBytes = 32;
+const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+
+let dummyHashPromise: Promise<string> | null = null;
+
+function getDummyHash(): Promise<string> {
+  if (!dummyHashPromise) {
+    dummyHashPromise = argon2.hash("devflow-dummy-timing-defense-password", {
+      type: argon2.argon2id
+    });
+  }
+  return dummyHashPromise;
+}
 
 type RequestMeta = {
   ipAddress?: string;
@@ -61,14 +73,12 @@ export async function login(
   meta: RequestMeta
 ): Promise<AuthResult> {
   const user = await findUserByEmailNormalized(normalizeEmail(input.email));
+  const dummyHash = await getDummyHash();
 
-  if (!user?.passwordHash) {
-    throw invalidCredentialsError();
-  }
+  const hashToVerify = user?.passwordHash ?? dummyHash;
+  const passwordMatches = await argon2.verify(hashToVerify, input.password);
 
-  const passwordMatches = await argon2.verify(user.passwordHash, input.password);
-
-  if (!passwordMatches) {
+  if (!user?.passwordHash || !passwordMatches) {
     throw invalidCredentialsError();
   }
 
@@ -84,7 +94,10 @@ export async function getCurrentUser(sessionToken: string) {
     throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
   }
 
-  await touchSession(session.sessionId);
+  const now = Date.now();
+  if (now - session.lastSeenAt.getTime() > SESSION_TOUCH_INTERVAL_MS) {
+    await touchSession(session.sessionId);
+  }
 
   return session.user;
 }
