@@ -4,6 +4,11 @@ dist
 .git
 .turbo
 *.log
+.env
+.env.*
+!.env.example
+*.key
+*.pem
 .DS_Store
 coverage
 out

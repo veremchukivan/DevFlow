@@ -4,18 +4,34 @@ services:
     container_name: devflow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: devflow
-      POSTGRES_PASSWORD: devflow
-      POSTGRES_USER: devflow
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U devflow -d devflow"]
       interval: 5s
       timeout: 5s
       retries: 5
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - devflow_postgres_data:/var/lib/postgresql/data
+
+  api-migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: devflow-api-migrate
+    command: ["node", "dist/core/db/migrate.js"]
+    restart: "no"
+    environment:
+      API_PORT: 4000
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
+      NODE_ENV: production
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   api:
     build:
@@ -25,14 +41,14 @@ services:
     restart: unless-stopped
     environment:
       API_PORT: 4000
-      DATABASE_URL: postgres://devflow:devflow@postgres:5432/devflow
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
       NODE_ENV: production
-      WEB_ORIGIN: http://localhost:3000
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
 
   web:
     build:
@@ -42,11 +58,12 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   devflow_postgres_data:
