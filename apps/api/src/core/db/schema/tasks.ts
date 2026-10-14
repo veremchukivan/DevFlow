@@ -67,6 +67,11 @@ export const tasks = pgTable(
       table.projectId,
       table.number
     ),
+    uniqueIndex("tasks_workspace_project_id_unique").on(
+      table.workspaceId,
+      table.projectId,
+      table.id
+    ),
     index("tasks_project_status_idx").on(
       table.workspaceId,
       table.projectId,

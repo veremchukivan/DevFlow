@@ -9,6 +9,7 @@ import { requestLogger } from "./core/http/request-logger.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { projectsRouter } from "./modules/projects/projects.routes.js";
+import { taskCommentsRouter } from "./modules/task-comments/task-comments.routes.js";
 import { tasksRouter } from "./modules/tasks/tasks.routes.js";
 import { workspacesRouter } from "./modules/workspaces/workspaces.routes.js";
 import { readinessRouter } from "./modules/health/readiness.routes.js";
@@ -36,6 +37,10 @@ export function createApp() {
 
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/workspaces", workspacesRouter);
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments",
+    taskCommentsRouter
+  );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks",
     tasksRouter
