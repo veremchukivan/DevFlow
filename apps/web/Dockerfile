@@ -27,6 +27,7 @@ RUN pnpm install --frozen-lockfile
 
 # Copy full source and build Next.js application
 COPY --from=pruner /app/out/full/ .
+COPY packages/config ./packages/config
 RUN pnpm --filter @devflow/shared build
 RUN pnpm --filter @devflow/web build
 
