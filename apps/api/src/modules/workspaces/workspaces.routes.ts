@@ -16,6 +16,7 @@ import {
   getWorkspace,
   listWorkspaces
 } from "./workspaces.service.js";
+import { leaveWorkspace } from "../workspace-members/workspace-members.service.js";
 
 export const workspacesRouter = Router();
 
@@ -49,6 +50,16 @@ workspacesRouter.get("/:workspaceId", async (req, res) => {
   );
 
   res.json(toWorkspaceResponse(workspace));
+});
+
+workspacesRouter.post("/:workspaceId/leave", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  await leaveWorkspace({
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.status(204).send();
 });
 
 function getAuthenticatedUserId(req: unknown) {

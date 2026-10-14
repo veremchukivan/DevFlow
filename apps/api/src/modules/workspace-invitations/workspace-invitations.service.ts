@@ -44,6 +44,14 @@ export async function createInvitation(input: {
     );
   }
 
+  if (membership.role === "admin" && input.input.role === "admin") {
+    throw new AppError(
+      403,
+      "WORKSPACE_ADMIN_INVITATION_FORBIDDEN",
+      "Only workspace owners can invite admins"
+    );
+  }
+
   const emailNormalized = normalizeEmail(input.input.email);
 
   const activeMember = await findActiveMemberByEmail({

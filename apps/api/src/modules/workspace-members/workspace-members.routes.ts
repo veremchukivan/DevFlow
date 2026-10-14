@@ -15,6 +15,7 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   addMember,
+  leaveWorkspace,
   listMembers,
   removeMember,
   updateMember
@@ -68,6 +69,16 @@ workspaceMembersRouter.delete("/:userId", async (req, res) => {
   const params = workspaceMemberParamsSchema.parse(req.params);
   await removeMember({
     targetUserId: params.userId,
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.status(204).send();
+});
+
+workspaceMembersRouter.post("/leave", async (req, res) => {
+  const params = workspaceMembersParamsSchema.parse(req.params);
+  await leaveWorkspace({
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });
