@@ -48,6 +48,11 @@ export const projectStatuses = pgTable(
       table.projectId,
       table.name
     ),
+    uniqueIndex("project_statuses_workspace_project_id_unique").on(
+      table.workspaceId,
+      table.projectId,
+      table.id
+    ),
     index("project_statuses_project_position_idx").on(
       table.workspaceId,
       table.projectId,

@@ -70,3 +70,9 @@ postgres://devflow:devflow@localhost:5432/devflow
 - `GET /api/v1/workspaces/:workspaceId/projects`
 - `GET /api/v1/workspaces/:workspaceId/projects/:projectId`
 
+## Task Endpoints
+
+- `POST /api/v1/workspaces/:workspaceId/projects/:projectId/tasks`
+- `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks`
+- `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
+
