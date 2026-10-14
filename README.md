@@ -51,3 +51,10 @@ postgres://devflow:devflow@localhost:5432/devflow
 - API healthcheck: http://localhost:4000/healthz
 - API readiness: http://localhost:4000/readyz
 
+## Auth Endpoints
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
+
