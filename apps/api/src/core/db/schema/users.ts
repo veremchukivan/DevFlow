@@ -27,7 +27,9 @@ export const users = pgTable(
     ...softDeleteColumn()
   },
   (table) => [
-    uniqueIndex("users_email_normalized_unique").on(table.emailNormalized),
+    uniqueIndex("users_email_normalized_unique")
+      .on(table.emailNormalized)
+      .where(sql`${table.deletedAt} IS NULL`),
     index("users_deleted_at_idx").on(table.deletedAt),
     check(
       "users_email_normalized_lowercase_check",

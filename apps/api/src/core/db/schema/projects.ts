@@ -34,10 +34,9 @@ export const projects = pgTable(
       table.workspaceId,
       table.id
     ),
-    uniqueIndex("projects_workspace_key_unique").on(
-      table.workspaceId,
-      table.key
-    ),
+    uniqueIndex("projects_workspace_key_unique")
+      .on(table.workspaceId, table.key)
+      .where(sql`${table.deletedAt} IS NULL`),
     index("projects_workspace_deleted_at_idx").on(
       table.workspaceId,
       table.deletedAt
