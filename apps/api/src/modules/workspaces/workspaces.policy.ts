@@ -8,3 +8,4 @@ export function canUpdateWorkspace(role: WorkspaceRole): boolean {
 export function canDeleteWorkspace(role: WorkspaceRole): boolean {
   return can(role, "workspace:delete" satisfies Permission);
 }
+
