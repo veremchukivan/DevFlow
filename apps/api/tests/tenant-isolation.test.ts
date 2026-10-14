@@ -177,3 +177,4 @@ describe("Tenant Isolation Integration Tests", () => {
     expect(res.body.error.code).toBe("WORKSPACE_NOT_FOUND");
   });
 });
+

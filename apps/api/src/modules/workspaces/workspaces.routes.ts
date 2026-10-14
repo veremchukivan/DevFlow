@@ -1,5 +1,6 @@
 import {
   createWorkspaceRequestSchema,
+  paginationQuerySchema,
   workspaceParamsSchema,
   type WorkspaceListResponse,
   type WorkspaceResponse
@@ -28,10 +29,15 @@ workspacesRouter.post("/", async (req, res) => {
 });
 
 workspacesRouter.get("/", async (req, res) => {
-  const workspaces = await listWorkspaces(getAuthenticatedUserId(req));
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listWorkspaces({
+    pagination,
+    userId: getAuthenticatedUserId(req)
+  });
 
   res.json({
-    workspaces: workspaces.map(toWorkspaceDto)
+    pageInfo: result.pageInfo,
+    workspaces: result.workspaces.map(toWorkspaceDto)
   } satisfies WorkspaceListResponse);
 });
 

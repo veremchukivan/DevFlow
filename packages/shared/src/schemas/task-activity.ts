@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { pageInfoSchema } from "./pagination.js";
+
 export const taskActivityEventTypeSchema = z.enum([
   "task_created",
   "task_updated",
@@ -33,7 +35,8 @@ export const taskActivityEventSchema = z.object({
 });
 
 export const taskActivityEventListResponseSchema = z.object({
-  events: z.array(taskActivityEventSchema)
+  events: z.array(taskActivityEventSchema),
+  pageInfo: pageInfoSchema
 });
 
 export type TaskActivityEventType = z.infer<

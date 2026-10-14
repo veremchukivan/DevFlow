@@ -1,5 +1,5 @@
-import type { TaskActivityEventType } from "@devflow/shared";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import type { PaginationQuery, TaskActivityEventType } from "@devflow/shared";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
@@ -85,11 +85,23 @@ export async function createTaskActivityEvent(input: {
 }
 
 export async function listTaskActivityEvents(input: {
+  pagination: PaginationQuery;
   projectId: string;
   taskId: string;
   workspaceId: string;
 }) {
-  return db
+  const conditions = and(
+    eq(taskActivityEvents.projectId, input.projectId),
+    eq(taskActivityEvents.taskId, input.taskId),
+    eq(taskActivityEvents.workspaceId, input.workspaceId)
+  );
+
+  const [totalRow] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(taskActivityEvents)
+    .where(conditions);
+
+  const items = await db
     .select({
       actorDisplayName: users.displayName,
       actorId: users.id,
@@ -110,12 +122,10 @@ export async function listTaskActivityEvents(input: {
         isNull(users.deletedAt)
       )
     )
-    .where(
-      and(
-        eq(taskActivityEvents.projectId, input.projectId),
-        eq(taskActivityEvents.taskId, input.taskId),
-        eq(taskActivityEvents.workspaceId, input.workspaceId)
-      )
-    )
-    .orderBy(asc(taskActivityEvents.createdAt));
+    .where(conditions)
+    .orderBy(asc(taskActivityEvents.createdAt), asc(taskActivityEvents.id))
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return { items, total: totalRow?.total ?? 0 };
 }

@@ -1,9 +1,11 @@
 import type {
   CreateTaskCommentRequest,
+  PaginationQuery,
   UpdateTaskCommentRequest
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   canCreateTaskComment,
@@ -66,6 +68,7 @@ export async function createComment(input: {
 }
 
 export async function listComments(input: {
+  pagination: PaginationQuery;
   projectId: string;
   taskId: string;
   userId: string;
@@ -74,7 +77,17 @@ export async function listComments(input: {
   await requireWorkspaceMembership(input);
   await requireTask(input);
 
-  return listTaskComments(input);
+  const result = await listTaskComments({
+    pagination: input.pagination,
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
+
+  return {
+    comments: result.items,
+    pageInfo: buildPageInfo({ ...input.pagination, total: result.total })
+  };
 }
 
 export async function updateComment(input: {

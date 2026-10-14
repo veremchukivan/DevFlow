@@ -1,5 +1,6 @@
 import {
   addWorkspaceMemberRequestSchema,
+  paginationQuerySchema,
   updateWorkspaceMemberRequestSchema,
   workspaceMemberParamsSchema,
   workspaceMembersParamsSchema,
@@ -25,13 +26,16 @@ workspaceMembersRouter.use(requireAuth);
 
 workspaceMembersRouter.get("/", async (req, res) => {
   const params = workspaceMembersParamsSchema.parse(req.params);
-  const members = await listMembers({
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listMembers({
+    pagination,
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });
 
   res.json({
-    members: members.map(toWorkspaceMemberDto)
+    members: result.members.map(toWorkspaceMemberDto),
+    pageInfo: result.pageInfo
   } satisfies WorkspaceMemberListResponse);
 });
 

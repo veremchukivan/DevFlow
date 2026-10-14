@@ -1,9 +1,11 @@
 import type {
   AddWorkspaceMemberRequest,
+  PaginationQuery,
   UpdateWorkspaceMemberRequest
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { canManageWorkspaceMembers } from "./workspace-members.policy.js";
 import {
   createWorkspaceMember,
@@ -16,12 +18,24 @@ import {
 } from "./workspace-members.repository.js";
 
 export async function listMembers(input: {
+  pagination: PaginationQuery;
   userId: string;
   workspaceId: string;
 }) {
   await requireWorkspaceMembership(input);
 
-  return listWorkspaceMembers(input.workspaceId);
+  const result = await listWorkspaceMembers({
+    pagination: input.pagination,
+    workspaceId: input.workspaceId
+  });
+
+  return {
+    members: result.members,
+    pageInfo: buildPageInfo({
+      ...input.pagination,
+      total: result.total
+    })
+  };
 }
 
 export async function addMember(input: {

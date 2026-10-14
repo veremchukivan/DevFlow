@@ -1,6 +1,11 @@
-import type { CreateTaskRequest, ListTasksQuery, UpdateTaskRequest } from "@devflow/shared";
+import type {
+  CreateTaskRequest,
+  ListTasksQuery,
+  UpdateTaskRequest
+} from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   canCreateTask,
@@ -97,19 +102,28 @@ export async function createTask(input: {
 }
 
 export async function listTasks(input: {
+  filters: ListTasksQuery;
   projectId: string;
   userId: string;
   workspaceId: string;
-  filters?: ListTasksQuery;
 }) {
   await requireWorkspaceMembership(input);
   await requireProject(input);
 
-  return listTasksForProject({
+  const result = await listTasksForProject({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
     filters: input.filters
   });
+
+  return {
+    pageInfo: buildPageInfo({
+      limit: input.filters.limit,
+      offset: input.filters.offset,
+      total: result.total
+    }),
+    tasks: result.tasks
+  };
 }
 
 export async function getTask(input: {

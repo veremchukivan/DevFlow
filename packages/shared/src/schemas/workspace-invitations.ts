@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { pageInfoSchema } from "./pagination.js";
 import { workspaceMemberAssignableRoleSchema } from "./workspace-members.js";
 import { workspaceRoleSchema } from "./workspaces.js";
 
@@ -75,7 +76,8 @@ export const workspaceInvitationResponseSchema = z.object({
 });
 
 export const workspaceInvitationListResponseSchema = z.object({
-  invitations: z.array(workspaceInvitationSchema)
+  invitations: z.array(workspaceInvitationSchema),
+  pageInfo: pageInfoSchema
 });
 
 export const publicWorkspaceInvitationResponseSchema = z.object({

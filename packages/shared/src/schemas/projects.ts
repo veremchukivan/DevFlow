@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { pageInfoSchema } from "./pagination.js";
+
 export const projectKeySchema = z
   .string()
   .trim()
@@ -61,6 +63,7 @@ export const projectResponseSchema = z.object({
 });
 
 export const projectListResponseSchema = z.object({
+  pageInfo: pageInfoSchema,
   projects: z.array(projectSummarySchema)
 });
 

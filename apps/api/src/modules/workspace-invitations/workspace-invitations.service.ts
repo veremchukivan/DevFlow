@@ -1,8 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { CreateWorkspaceInvitationRequest } from "@devflow/shared";
+import type {
+  CreateWorkspaceInvitationRequest,
+  PaginationQuery
+} from "@devflow/shared";
 
 import { env } from "../../config/env.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { canManageWorkspaceInvitations } from "./workspace-invitations.policy.js";
 import {
   acceptInvitationTx,
@@ -100,6 +104,7 @@ export async function createInvitation(input: {
 }
 
 export async function listInvitations(input: {
+  pagination: PaginationQuery;
   userId: string;
   workspaceId: string;
 }) {
@@ -113,7 +118,18 @@ export async function listInvitations(input: {
     );
   }
 
-  return listPendingInvitationsForWorkspace(input.workspaceId);
+  const result = await listPendingInvitationsForWorkspace({
+    pagination: input.pagination,
+    workspaceId: input.workspaceId
+  });
+
+  return {
+    invitations: result.invitations,
+    pageInfo: buildPageInfo({
+      ...input.pagination,
+      total: result.total
+    })
+  };
 }
 
 export async function cancelInvitation(input: {

@@ -1,6 +1,7 @@
-import type { CreateWorkspaceRequest } from "@devflow/shared";
+import type { CreateWorkspaceRequest, PaginationQuery } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import {
   createWorkspaceWithOwner,
   findWorkspaceBySlug,
@@ -35,8 +36,19 @@ export async function createWorkspace(
   }
 }
 
-export function listWorkspaces(userId: string) {
-  return listWorkspacesForUser(userId);
+export async function listWorkspaces(input: {
+  pagination: PaginationQuery;
+  userId: string;
+}) {
+  const result = await listWorkspacesForUser(input);
+
+  return {
+    pageInfo: buildPageInfo({
+      ...input.pagination,
+      total: result.total
+    }),
+    workspaces: result.workspaces
+  };
 }
 
 export async function getWorkspace(userId: string, workspaceId: string) {

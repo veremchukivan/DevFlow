@@ -1,6 +1,7 @@
-import type { CreateProjectRequest } from "@devflow/shared";
+import type { CreateProjectRequest, PaginationQuery } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import { canCreateProject } from "./projects.policy.js";
 import {
   createProjectWithDefaultStatuses,
@@ -56,12 +57,24 @@ export async function createProject(input: {
 }
 
 export async function listProjects(input: {
+  pagination: PaginationQuery;
   userId: string;
   workspaceId: string;
 }) {
   await requireWorkspaceMembership(input);
 
-  return listProjectsForWorkspace(input.workspaceId);
+  const result = await listProjectsForWorkspace({
+    pagination: input.pagination,
+    workspaceId: input.workspaceId
+  });
+
+  return {
+    pageInfo: buildPageInfo({
+      ...input.pagination,
+      total: result.total
+    }),
+    projects: result.projects
+  };
 }
 
 export async function getProject(input: {

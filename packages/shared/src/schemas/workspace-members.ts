@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { pageInfoSchema } from "./pagination.js";
 import { workspaceRoleSchema } from "./workspaces.js";
 
 export const workspaceMemberAssignableRoleSchema = z.enum([
@@ -63,7 +64,8 @@ export const workspaceMemberResponseSchema = z.object({
 });
 
 export const workspaceMemberListResponseSchema = z.object({
-  members: z.array(workspaceMemberSchema)
+  members: z.array(workspaceMemberSchema),
+  pageInfo: pageInfoSchema
 });
 
 export type WorkspaceMemberAssignableRole = z.infer<

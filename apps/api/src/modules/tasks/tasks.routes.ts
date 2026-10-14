@@ -41,7 +41,7 @@ tasksRouter.post("/", async (req, res) => {
 tasksRouter.get("/", async (req, res) => {
   const params = projectTasksParamsSchema.parse(req.params);
   const filters = listTasksQuerySchema.parse(req.query);
-  const tasks = await listTasks({
+  const result = await listTasks({
     projectId: params.projectId,
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId,
@@ -49,7 +49,8 @@ tasksRouter.get("/", async (req, res) => {
   });
 
   res.json({
-    tasks: tasks.map(toTaskDto)
+    pageInfo: result.pageInfo,
+    tasks: result.tasks.map(toTaskDto)
   } satisfies TaskListResponse);
 });
 

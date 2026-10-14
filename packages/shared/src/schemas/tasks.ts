@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { pageInfoSchema, paginationQuerySchema } from "./pagination.js";
 import { projectStatusCategorySchema } from "./projects.js";
 
 export const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
@@ -46,24 +47,17 @@ export const taskSortFieldSchema = z.enum([
 
 export const taskSortOrderSchema = z.enum(["asc", "desc"]);
 
-export const listTasksQuerySchema = z.object({
-  /** Filter by status ID */
-  statusId: z.uuid().optional(),
-  /** Filter by priority */
-  priority: taskPrioritySchema.optional(),
-  /** Filter by assignee user ID. Pass "none" to get unassigned tasks. */
-  assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
-  /** Full-text search in task title (case-insensitive) */
-  search: z.string().trim().min(1).max(200).optional(),
-  /** When true, returns only archived (soft-deleted) tasks */
+export const listTasksQuerySchema = paginationQuerySchema.extend({
   archived: z
     .enum(["true", "false"])
     .transform((v) => v === "true")
     .optional(),
-  /** Field to sort by (default: createdAt) */
+  assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
+  priority: taskPrioritySchema.optional(),
+  search: z.string().trim().min(1).max(200).optional(),
   sortBy: taskSortFieldSchema.default("createdAt"),
-  /** Sort direction (default: desc) */
-  sortOrder: taskSortOrderSchema.default("desc")
+  sortOrder: taskSortOrderSchema.default("desc"),
+  statusId: z.uuid().optional()
 });
 
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
@@ -102,6 +96,7 @@ export const taskResponseSchema = z.object({
 });
 
 export const taskListResponseSchema = z.object({
+  pageInfo: pageInfoSchema,
   tasks: z.array(taskSchema)
 });
 

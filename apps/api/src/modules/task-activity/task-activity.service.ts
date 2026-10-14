@@ -1,6 +1,7 @@
-import type { TaskActivityEventType } from "@devflow/shared";
+import type { PaginationQuery, TaskActivityEventType } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { buildPageInfo } from "../../core/pagination.js";
 import {
   createTaskActivityEvent,
   findActiveWorkspaceMembership,
@@ -27,6 +28,7 @@ export async function recordTaskActivity(input: {
 }
 
 export async function listTaskActivity(input: {
+  pagination: PaginationQuery;
   projectId: string;
   taskId: string;
   userId: string;
@@ -35,7 +37,17 @@ export async function listTaskActivity(input: {
   await requireWorkspaceMembership(input);
   await requireTask(input);
 
-  return listTaskActivityEvents(input);
+  const result = await listTaskActivityEvents({
+    pagination: input.pagination,
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
+
+  return {
+    events: result.items,
+    pageInfo: buildPageInfo({ ...input.pagination, total: result.total })
+  };
 }
 
 async function requireWorkspaceMembership(input: {

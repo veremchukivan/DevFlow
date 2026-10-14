@@ -1,4 +1,5 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import type { PaginationQuery } from "@devflow/shared";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { users } from "../../core/db/schema/users.js";
@@ -138,18 +139,38 @@ export async function createWorkspaceInvitation(input: {
   });
 }
 
-export async function listPendingInvitationsForWorkspace(workspaceId: string) {
+export async function listPendingInvitationsForWorkspace(input: {
+  pagination: PaginationQuery;
+  workspaceId: string;
+}) {
   const now = new Date();
-  return invitationSelect()
-    .where(
-      and(
-        eq(workspaceInvitations.workspaceId, workspaceId),
-        isNull(workspaceInvitations.acceptedAt),
-        isNull(workspaceInvitations.rejectedAt),
-        gt(workspaceInvitations.expiresAt, now)
-      )
+  const conditions = and(
+    eq(workspaceInvitations.workspaceId, input.workspaceId),
+    isNull(workspaceInvitations.acceptedAt),
+    isNull(workspaceInvitations.rejectedAt),
+    gt(workspaceInvitations.expiresAt, now)
+  );
+
+  const [totalRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`
+    })
+    .from(workspaceInvitations)
+    .where(conditions);
+
+  const rows = await invitationSelect()
+    .where(conditions)
+    .orderBy(
+      desc(workspaceInvitations.createdAt),
+      desc(workspaceInvitations.id)
     )
-    .orderBy(desc(workspaceInvitations.createdAt));
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return {
+    invitations: rows,
+    total: totalRow?.total ?? 0
+  };
 }
 
 export async function findInvitationById(input: {

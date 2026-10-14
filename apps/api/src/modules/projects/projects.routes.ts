@@ -1,5 +1,6 @@
 import {
   createProjectRequestSchema,
+  paginationQuerySchema,
   projectParamsSchema,
   workspaceProjectsParamsSchema,
   type ProjectListResponse,
@@ -35,13 +36,16 @@ projectsRouter.post("/", async (req, res) => {
 
 projectsRouter.get("/", async (req, res) => {
   const params = workspaceProjectsParamsSchema.parse(req.params);
-  const projects = await listProjects({
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listProjects({
+    pagination,
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });
 
   res.json({
-    projects: projects.map(toProjectSummaryDto)
+    pageInfo: result.pageInfo,
+    projects: result.projects.map(toProjectSummaryDto)
   } satisfies ProjectListResponse);
 });
 

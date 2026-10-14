@@ -1,4 +1,5 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import type { PaginationQuery } from "@devflow/shared";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
@@ -92,20 +93,30 @@ export async function createTaskComment(input: {
 }
 
 export async function listTaskComments(input: {
+  pagination: PaginationQuery;
   projectId: string;
   taskId: string;
   workspaceId: string;
 }) {
-  return taskCommentSelect()
-    .where(
-      and(
-        eq(taskComments.projectId, input.projectId),
-        eq(taskComments.taskId, input.taskId),
-        eq(taskComments.workspaceId, input.workspaceId),
-        isNull(taskComments.deletedAt)
-      )
-    )
-    .orderBy(asc(taskComments.createdAt));
+  const conditions = and(
+    eq(taskComments.projectId, input.projectId),
+    eq(taskComments.taskId, input.taskId),
+    eq(taskComments.workspaceId, input.workspaceId),
+    isNull(taskComments.deletedAt)
+  );
+
+  const [totalRow] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(taskComments)
+    .where(conditions);
+
+  const items = await taskCommentSelect()
+    .where(conditions)
+    .orderBy(asc(taskComments.createdAt), asc(taskComments.id))
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return { items, total: totalRow?.total ?? 0 };
 }
 
 export async function findTaskCommentById(input: {

@@ -1,4 +1,5 @@
 import {
+  paginationQuerySchema,
   taskActivityParamsSchema,
   type TaskActivityEventListResponse
 } from "@devflow/shared";
@@ -16,7 +17,9 @@ taskActivityRouter.use(requireAuth);
 
 taskActivityRouter.get("/", async (req, res) => {
   const params = taskActivityParamsSchema.parse(req.params);
-  const events = await listTaskActivity({
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listTaskActivity({
+    pagination,
     projectId: params.projectId,
     taskId: params.taskId,
     userId: getAuthenticatedUserId(req),
@@ -24,7 +27,8 @@ taskActivityRouter.get("/", async (req, res) => {
   });
 
   res.json({
-    events: events.map(toTaskActivityEventDto)
+    events: result.events.map(toTaskActivityEventDto),
+    pageInfo: result.pageInfo
   } satisfies TaskActivityEventListResponse);
 });
 

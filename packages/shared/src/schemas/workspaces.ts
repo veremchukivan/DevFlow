@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { pageInfoSchema } from "./pagination.js";
+
 export const workspaceRoleSchema = z.enum([
   "owner",
   "admin",
@@ -39,6 +41,7 @@ export const workspaceResponseSchema = z.object({
 });
 
 export const workspaceListResponseSchema = z.object({
+  pageInfo: pageInfoSchema,
   workspaces: z.array(workspaceSchema)
 });
 

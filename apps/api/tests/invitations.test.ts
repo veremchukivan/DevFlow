@@ -191,3 +191,4 @@ describe("Workspace Invitations Integration Tests", () => {
     expect(publicRes.body.invitation.isRejected).toBe(true);
   });
 });
+

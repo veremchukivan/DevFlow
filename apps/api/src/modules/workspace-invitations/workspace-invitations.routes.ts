@@ -3,6 +3,7 @@ import {
   createWorkspaceInvitationRequestSchema,
   createWorkspaceInvitationResponseSchema,
   invitationTokenParamsSchema,
+  paginationQuerySchema,
   publicWorkspaceInvitationResponseSchema,
   workspaceInvitationListResponseSchema,
   workspaceInvitationParamsSchema,
@@ -55,13 +56,16 @@ workspaceInvitationsRouter.post("/", async (req, res) => {
 
 workspaceInvitationsRouter.get("/", async (req, res) => {
   const params = workspaceInvitationsParamsSchema.parse(req.params);
-  const invitations = await listInvitations({
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listInvitations({
+    pagination,
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });
 
   res.json({
-    invitations: invitations.map(toWorkspaceInvitationDto)
+    invitations: result.invitations.map(toWorkspaceInvitationDto),
+    pageInfo: result.pageInfo
   } satisfies WorkspaceInvitationListResponse);
 });
 

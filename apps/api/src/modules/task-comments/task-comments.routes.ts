@@ -1,5 +1,6 @@
 import {
   createTaskCommentRequestSchema,
+  paginationQuerySchema,
   taskCommentParamsSchema,
   taskCommentsParamsSchema,
   updateTaskCommentRequestSchema,
@@ -39,7 +40,9 @@ taskCommentsRouter.post("/", async (req, res) => {
 
 taskCommentsRouter.get("/", async (req, res) => {
   const params = taskCommentsParamsSchema.parse(req.params);
-  const comments = await listComments({
+  const pagination = paginationQuerySchema.parse(req.query);
+  const result = await listComments({
+    pagination,
     projectId: params.projectId,
     taskId: params.taskId,
     userId: getAuthenticatedUserId(req),
@@ -47,7 +50,8 @@ taskCommentsRouter.get("/", async (req, res) => {
   });
 
   res.json({
-    comments: comments.map(toTaskCommentDto)
+    comments: result.comments.map(toTaskCommentDto),
+    pageInfo: result.pageInfo
   } satisfies TaskCommentListResponse);
 });
 

@@ -1,4 +1,14 @@
-import { SQL, and, asc, desc, eq, ilike, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  type SQL,
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  isNotNull,
+  isNull,
+  sql
+} from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
@@ -169,12 +179,14 @@ export async function createTaskWithNextNumber(input: {
 export async function listTasksForProject(input: {
   projectId: string;
   workspaceId: string;
-  filters?: {
+  filters: {
     statusId?: string;
     priority?: TaskPriority;
     assigneeUserId?: string | "none";
     search?: string;
     archived?: boolean;
+    limit: number;
+    offset: number;
     sortBy?: "createdAt" | "updatedAt" | "priority" | "number";
     sortOrder?: "asc" | "desc";
   };
@@ -216,7 +228,31 @@ export async function listTasksForProject(input: {
   const orderBy =
     (f.sortOrder ?? "desc") === "asc" ? asc(sortColumn) : desc(sortColumn);
 
-  return taskSelect().where(and(...conditions)).orderBy(orderBy);
+  const where = and(...conditions);
+  const [totalRow] = await db
+    .select({
+      total: sql<number>`count(*)::int`
+    })
+    .from(tasks)
+    .innerJoin(
+      projects,
+      and(
+        eq(projects.id, tasks.projectId),
+        eq(projects.workspaceId, tasks.workspaceId)
+      )
+    )
+    .where(where);
+
+  const rows = await taskSelect()
+    .where(where)
+    .orderBy(orderBy, desc(tasks.id))
+    .limit(f.limit)
+    .offset(f.offset);
+
+  return {
+    tasks: rows,
+    total: totalRow?.total ?? 0
+  };
 }
 
 function toSortColumn(field: "createdAt" | "updatedAt" | "priority" | "number") {
