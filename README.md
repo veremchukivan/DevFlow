@@ -64,6 +64,13 @@ postgres://devflow:devflow@localhost:5432/devflow
 - `GET /api/v1/workspaces`
 - `GET /api/v1/workspaces/:workspaceId`
 
+## Workspace Member Endpoints
+
+- `GET /api/v1/workspaces/:workspaceId/members`
+- `POST /api/v1/workspaces/:workspaceId/members`
+- `PATCH /api/v1/workspaces/:workspaceId/members/:userId`
+- `DELETE /api/v1/workspaces/:workspaceId/members/:userId`
+
 ## Project Endpoints
 
 - `POST /api/v1/workspaces/:workspaceId/projects`

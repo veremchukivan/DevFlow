@@ -12,6 +12,7 @@ import { projectsRouter } from "./modules/projects/projects.routes.js";
 import { taskActivityRouter } from "./modules/task-activity/task-activity.routes.js";
 import { taskCommentsRouter } from "./modules/task-comments/task-comments.routes.js";
 import { tasksRouter } from "./modules/tasks/tasks.routes.js";
+import { workspaceMembersRouter } from "./modules/workspace-members/workspace-members.routes.js";
 import { workspacesRouter } from "./modules/workspaces/workspaces.routes.js";
 import { readinessRouter } from "./modules/health/readiness.routes.js";
 
@@ -38,6 +39,10 @@ export function createApp() {
 
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/workspaces", workspacesRouter);
+  app.use(
+    "/api/v1/workspaces/:workspaceId/members",
+    workspaceMembersRouter
+  );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/activity",
     taskActivityRouter
