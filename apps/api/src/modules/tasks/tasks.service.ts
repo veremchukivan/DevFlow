@@ -1,4 +1,4 @@
-import type { CreateTaskRequest, UpdateTaskRequest } from "@devflow/shared";
+import type { CreateTaskRequest, ListTasksQuery, UpdateTaskRequest } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
@@ -100,11 +100,16 @@ export async function listTasks(input: {
   projectId: string;
   userId: string;
   workspaceId: string;
+  filters?: ListTasksQuery;
 }) {
   await requireWorkspaceMembership(input);
   await requireProject(input);
 
-  return listTasksForProject(input);
+  return listTasksForProject({
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+    filters: input.filters
+  });
 }
 
 export async function getTask(input: {

@@ -33,6 +33,43 @@ export const taskParamsSchema = projectTasksParamsSchema.extend({
   taskId: z.uuid()
 });
 
+// ---------------------------------------------------------------------------
+// List query filters
+// ---------------------------------------------------------------------------
+
+export const taskSortFieldSchema = z.enum([
+  "createdAt",
+  "updatedAt",
+  "priority",
+  "number"
+]);
+
+export const taskSortOrderSchema = z.enum(["asc", "desc"]);
+
+export const listTasksQuerySchema = z.object({
+  /** Filter by status ID */
+  statusId: z.uuid().optional(),
+  /** Filter by priority */
+  priority: taskPrioritySchema.optional(),
+  /** Filter by assignee user ID. Pass "none" to get unassigned tasks. */
+  assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
+  /** Full-text search in task title (case-insensitive) */
+  search: z.string().trim().min(1).max(200).optional(),
+  /** When true, returns only archived (soft-deleted) tasks */
+  archived: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
+  /** Field to sort by (default: createdAt) */
+  sortBy: taskSortFieldSchema.default("createdAt"),
+  /** Sort direction (default: desc) */
+  sortOrder: taskSortOrderSchema.default("desc")
+});
+
+export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
+export type TaskSortField = z.infer<typeof taskSortFieldSchema>;
+export type TaskSortOrder = z.infer<typeof taskSortOrderSchema>;
+
 export const taskStatusSchema = z.object({
   category: projectStatusCategorySchema,
   color: z.string(),
