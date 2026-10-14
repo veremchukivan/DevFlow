@@ -1,7 +1,7 @@
 import type { PaginationQuery, TaskActivityEventType } from "@devflow/shared";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
-import { db } from "../../core/db/client.js";
+import { type DbExecutor, db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { taskActivityEvents } from "../../core/db/schema/task-activity-events.js";
 import { tasks } from "../../core/db/schema/tasks.js";
@@ -66,15 +66,18 @@ export async function findTaskInProject(input: {
   return task;
 }
 
-export async function createTaskActivityEvent(input: {
-  actorUserId: string;
-  data: Record<string, unknown>;
-  eventType: TaskActivityEventType;
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
-  const [event] = await db
+export async function createTaskActivityEvent(
+  input: {
+    actorUserId: string;
+    data: Record<string, unknown>;
+    eventType: TaskActivityEventType;
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [event] = await executor
     .insert(taskActivityEvents)
     .values(input)
     .returning({

@@ -10,6 +10,8 @@ import { buildPageInfo } from "../../core/pagination.js";
 import { canManageWorkspaceInvitations } from "./workspace-invitations.policy.js";
 import {
   acceptInvitationTx,
+  cancelInvitationTx,
+  createInvitationTx,
   createWorkspaceInvitation,
   declineInvitationTx,
   deleteWorkspaceInvitation,
@@ -71,36 +73,41 @@ export async function createInvitation(input: {
   }
 
   const targetUser = await findUserByEmailNormalized(emailNormalized);
-  if (targetUser) {
-    await upsertInvitedMember({
-      role: input.input.role,
-      userId: targetUser.id,
-      workspaceId: input.workspaceId
-    });
-  }
-
   const token = generateInvitationToken();
   const tokenHash = hashInvitationToken(token);
   const expiresAt = getInvitationExpiresAt();
 
-  const invitation = await createWorkspaceInvitation({
-    email: input.input.email,
-    emailNormalized,
-    expiresAt,
-    invitedByUserId: input.userId,
-    role: input.input.role,
-    tokenHash,
-    workspaceId: input.workspaceId
-  });
+  try {
+    const invitation = await createInvitationTx({
+      email: input.input.email,
+      emailNormalized,
+      expiresAt,
+      invitedByUserId: input.userId,
+      role: input.input.role,
+      targetUserId: targetUser?.id,
+      tokenHash,
+      workspaceId: input.workspaceId
+    });
 
-  if (!invitation) {
-    throw new Error("Failed to load created workspace invitation");
+    if (!invitation) {
+      throw new Error("Failed to load created workspace invitation");
+    }
+
+    return {
+      invitation,
+      token
+    };
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError(
+        409,
+        "WORKSPACE_INVITATION_ALREADY_EXISTS",
+        "A pending invitation already exists for this email address"
+      );
+    }
+
+    throw error;
   }
-
-  return {
-    invitation,
-    token
-  };
 }
 
 export async function listInvitations(input: {
@@ -157,17 +164,15 @@ export async function cancelInvitation(input: {
     );
   }
 
-  await deleteWorkspaceInvitation(input);
-
   const targetUser = await findUserByEmailNormalized(
     invitation.emailNormalized
   );
-  if (targetUser) {
-    await removeInvitedMemberIfPresent({
-      userId: targetUser.id,
-      workspaceId: input.workspaceId
-    });
-  }
+
+  await cancelInvitationTx({
+    invitationId: input.invitationId,
+    targetUserId: targetUser?.id,
+    workspaceId: input.workspaceId
+  });
 }
 
 export async function resendInvitation(input: {
@@ -398,5 +403,23 @@ function getInvitationExpiresAt() {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function isUniqueViolation(error: unknown) {
+  if (typeof error === "object" && error !== null) {
+    if ("code" in error && error.code === "23505") {
+      return true;
+    }
+    if (
+      "cause" in error &&
+      typeof error.cause === "object" &&
+      error.cause !== null &&
+      "code" in error.cause &&
+      error.cause.code === "23505"
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 

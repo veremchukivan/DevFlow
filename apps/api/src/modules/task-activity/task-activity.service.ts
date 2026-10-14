@@ -1,5 +1,6 @@
 import type { PaginationQuery, TaskActivityEventType } from "@devflow/shared";
 
+import type { DbExecutor } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import {
@@ -9,22 +10,28 @@ import {
   listTaskActivityEvents
 } from "./task-activity.repository.js";
 
-export async function recordTaskActivity(input: {
-  actorUserId: string;
-  data?: Record<string, unknown>;
-  eventType: TaskActivityEventType;
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
-  await createTaskActivityEvent({
-    actorUserId: input.actorUserId,
-    data: input.data ?? {},
-    eventType: input.eventType,
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
-  });
+export async function recordTaskActivity(
+  input: {
+    actorUserId: string;
+    data?: Record<string, unknown>;
+    eventType: TaskActivityEventType;
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor?: DbExecutor
+) {
+  await createTaskActivityEvent(
+    {
+      actorUserId: input.actorUserId,
+      data: input.data ?? {},
+      eventType: input.eventType,
+      projectId: input.projectId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId
+    },
+    executor
+  );
 }
 
 export async function listTaskActivity(input: {

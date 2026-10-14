@@ -4,6 +4,7 @@ import type {
   UpdateTaskCommentRequest
 } from "@devflow/shared";
 
+import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
@@ -41,30 +42,38 @@ export async function createComment(input: {
 
   await requireTask(input);
 
-  const comment = await createTaskComment({
-    authorUserId: input.userId,
-    body: input.input.body,
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
+  return db.transaction(async (tx) => {
+    const comment = await createTaskComment(
+      {
+        authorUserId: input.userId,
+        body: input.input.body,
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    if (!comment) {
+      throw new Error("Failed to load task comment");
+    }
+
+    await recordTaskActivity(
+      {
+        actorUserId: input.userId,
+        data: {
+          commentId: comment.id
+        },
+        eventType: "task_comment_created",
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    return comment;
   });
-
-  if (!comment) {
-    throw new Error("Failed to load task comment");
-  }
-
-  await recordTaskActivity({
-    actorUserId: input.userId,
-    data: {
-      commentId: comment.id
-    },
-    eventType: "task_comment_created",
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
-  });
-
-  return comment;
 }
 
 export async function listComments(input: {
@@ -116,30 +125,38 @@ export async function updateComment(input: {
     );
   }
 
-  const updatedComment = await updateTaskComment({
-    body: input.input.body,
-    commentId: input.commentId,
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
+  return db.transaction(async (tx) => {
+    const updatedComment = await updateTaskComment(
+      {
+        body: input.input.body,
+        commentId: input.commentId,
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    if (!updatedComment) {
+      throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
+    }
+
+    await recordTaskActivity(
+      {
+        actorUserId: input.userId,
+        data: {
+          commentId: input.commentId
+        },
+        eventType: "task_comment_updated",
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    return updatedComment;
   });
-
-  if (!updatedComment) {
-    throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
-  }
-
-  await recordTaskActivity({
-    actorUserId: input.userId,
-    data: {
-      commentId: input.commentId
-    },
-    eventType: "task_comment_updated",
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
-  });
-
-  return updatedComment;
 }
 
 export async function deleteComment(input: {
@@ -167,21 +184,26 @@ export async function deleteComment(input: {
     );
   }
 
-  const deletedComment = await softDeleteTaskComment(input);
+  return db.transaction(async (tx) => {
+    const deletedComment = await softDeleteTaskComment(input, tx);
 
-  if (!deletedComment) {
-    throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
-  }
+    if (!deletedComment) {
+      throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
+    }
 
-  await recordTaskActivity({
-    actorUserId: input.userId,
-    data: {
-      commentId: input.commentId
-    },
-    eventType: "task_comment_deleted",
-    projectId: input.projectId,
-    taskId: input.taskId,
-    workspaceId: input.workspaceId
+    await recordTaskActivity(
+      {
+        actorUserId: input.userId,
+        data: {
+          commentId: input.commentId
+        },
+        eventType: "task_comment_deleted",
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
   });
 }
 

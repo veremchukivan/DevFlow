@@ -36,6 +36,9 @@ export const workspaceInvitations = pgTable(
   },
   (table) => [
     uniqueIndex("workspace_invitations_token_hash_unique").on(table.tokenHash),
+    uniqueIndex("workspace_invitations_active_unique")
+      .on(table.workspaceId, table.emailNormalized)
+      .where(sql`${table.acceptedAt} IS NULL AND ${table.rejectedAt} IS NULL`),
     index("workspace_invitations_workspace_id_idx").on(table.workspaceId),
     index("workspace_invitations_workspace_email_idx").on(
       table.workspaceId,

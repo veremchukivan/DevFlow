@@ -10,12 +10,13 @@ import {
   sql
 } from "drizzle-orm";
 
-import { db } from "../../core/db/client.js";
+import { type DbExecutor, db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
+import { createTaskActivityEvent } from "../task-activity/task-activity.repository.js";
 
 type TaskPriority = "low" | "medium" | "high" | "urgent";
 
@@ -129,6 +130,11 @@ export async function findDefaultProjectStatus(input: {
 }
 
 export async function createTaskWithNextNumber(input: {
+  activity?: {
+    actorUserId: string;
+    data?: Record<string, unknown>;
+    projectKey: string;
+  };
   assigneeUserId?: string;
   description?: string;
   priority?: TaskPriority;
@@ -139,6 +145,20 @@ export async function createTaskWithNextNumber(input: {
   workspaceId: string;
 }) {
   return db.transaction(async (tx) => {
+    // 1. Lock the project row to serialize concurrent task number generation
+    await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.id, input.projectId),
+          eq(projects.workspaceId, input.workspaceId),
+          isNull(projects.deletedAt)
+        )
+      )
+      .for("update");
+
+    // 2. Fetch the next number safely without race condition
     const [nextNumber] = await tx
       .select({
         value: sql<number>`coalesce(max(${tasks.number}), 0) + 1`
@@ -170,6 +190,25 @@ export async function createTaskWithNextNumber(input: {
 
     if (!task) {
       throw new Error("Failed to create task");
+    }
+
+    // 3. Atomically record the activity event inside the same transaction
+    if (input.activity) {
+      await createTaskActivityEvent(
+        {
+          actorUserId: input.activity.actorUserId,
+          data: {
+            taskKey: `${input.activity.projectKey}-${task.number}`,
+            title: task.title,
+            ...(input.activity.data ?? {})
+          },
+          eventType: "task_created",
+          projectId: input.projectId,
+          taskId: task.id,
+          workspaceId: input.workspaceId
+        },
+        tx
+      );
     }
 
     return task;
@@ -276,12 +315,15 @@ function toSortColumn(field: "createdAt" | "updatedAt" | "priority" | "number") 
 }
 
 
-export async function findTaskInProject(input: {
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
-  const [task] = await taskSelect()
+export async function findTaskInProject(
+  input: {
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [task] = await taskSelect(executor)
     .where(
       and(
         eq(tasks.id, input.taskId),
@@ -296,17 +338,20 @@ export async function findTaskInProject(input: {
   return task;
 }
 
-export async function updateTaskInProject(input: {
-  assigneeUserId?: string | null;
-  description?: string | null;
-  priority?: TaskPriority;
-  projectId: string;
-  statusId?: string;
-  taskId: string;
-  title?: string;
-  workspaceId: string;
-}) {
-  const [task] = await db
+export async function updateTaskInProject(
+  input: {
+    assigneeUserId?: string | null;
+    description?: string | null;
+    priority?: TaskPriority;
+    projectId: string;
+    statusId?: string;
+    taskId: string;
+    title?: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [task] = await executor
     .update(tasks)
     .set(toTaskUpdateValues(input))
     .where(
@@ -322,13 +367,16 @@ export async function updateTaskInProject(input: {
   return task;
 }
 
-export async function softDeleteTaskInProject(input: {
-  projectId: string;
-  taskId: string;
-  workspaceId: string;
-}) {
+export async function softDeleteTaskInProject(
+  input: {
+    projectId: string;
+    taskId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
   const now = new Date();
-  const [task] = await db
+  const [task] = await executor
     .update(tasks)
     .set({
       deletedAt: now,
@@ -347,8 +395,8 @@ export async function softDeleteTaskInProject(input: {
   return task;
 }
 
-function taskSelect() {
-  return db
+function taskSelect(executor: DbExecutor = db) {
+  return executor
     .select({
       assigneeUserId: tasks.assigneeUserId,
       createdAt: tasks.createdAt,

@@ -1,7 +1,7 @@
 import type { PaginationQuery } from "@devflow/shared";
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 
-import { db } from "../../core/db/client.js";
+import { type DbExecutor, db } from "../../core/db/client.js";
 import { users } from "../../core/db/schema/users.js";
 import { workspaceInvitations } from "../../core/db/schema/workspace-invitations.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
@@ -107,6 +107,56 @@ export async function findPendingInvitationByEmail(input: {
   return invitation;
 }
 
+export async function createInvitationTx(input: {
+  email: string;
+  emailNormalized: string;
+  expiresAt: Date;
+  invitedByUserId: string;
+  role: WorkspaceAssignableRole;
+  targetUserId?: string;
+  tokenHash: string;
+  workspaceId: string;
+}) {
+  return db.transaction(async (tx) => {
+    if (input.targetUserId) {
+      await tx
+        .insert(workspaceMembers)
+        .values({
+          role: input.role,
+          status: "invited",
+          userId: input.targetUserId,
+          workspaceId: input.workspaceId
+        })
+        .onConflictDoNothing();
+    }
+
+    const [created] = await tx
+      .insert(workspaceInvitations)
+      .values({
+        email: input.email,
+        emailNormalized: input.emailNormalized,
+        expiresAt: input.expiresAt,
+        invitedByUserId: input.invitedByUserId,
+        role: input.role,
+        tokenHash: input.tokenHash,
+        workspaceId: input.workspaceId
+      })
+      .returning({ id: workspaceInvitations.id });
+
+    if (!created) {
+      throw new Error("Failed to create workspace invitation");
+    }
+
+    return findInvitationById(
+      {
+        invitationId: created.id,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+  });
+}
+
 export async function createWorkspaceInvitation(input: {
   email: string;
   emailNormalized: string;
@@ -173,11 +223,14 @@ export async function listPendingInvitationsForWorkspace(input: {
   };
 }
 
-export async function findInvitationById(input: {
-  invitationId: string;
-  workspaceId: string;
-}) {
-  const [invitation] = await invitationSelect()
+export async function findInvitationById(
+  input: {
+    invitationId: string;
+    workspaceId: string;
+  },
+  executor: DbExecutor = db
+) {
+  const [invitation] = await invitationSelect(executor)
     .where(
       and(
         eq(workspaceInvitations.id, input.invitationId),
@@ -187,6 +240,35 @@ export async function findInvitationById(input: {
     .limit(1);
 
   return invitation;
+}
+
+export async function cancelInvitationTx(input: {
+  invitationId: string;
+  targetUserId?: string;
+  workspaceId: string;
+}) {
+  return db.transaction(async (tx) => {
+    await tx
+      .delete(workspaceInvitations)
+      .where(
+        and(
+          eq(workspaceInvitations.id, input.invitationId),
+          eq(workspaceInvitations.workspaceId, input.workspaceId)
+        )
+      );
+
+    if (input.targetUserId) {
+      await tx
+        .delete(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, input.workspaceId),
+            eq(workspaceMembers.userId, input.targetUserId),
+            eq(workspaceMembers.status, "invited")
+          )
+        );
+    }
+  });
 }
 
 export async function deleteWorkspaceInvitation(input: {
@@ -372,8 +454,8 @@ export async function removeInvitedMemberIfPresent(input: {
     );
 }
 
-function invitationSelect() {
-  return db
+function invitationSelect(executor: DbExecutor = db) {
+  return executor
     .select({
       acceptedAt: workspaceInvitations.acceptedAt,
       createdAt: workspaceInvitations.createdAt,
