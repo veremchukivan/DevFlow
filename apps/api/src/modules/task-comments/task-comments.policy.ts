@@ -1,19 +1,28 @@
-export function canCreateTaskComment(
-  role: "owner" | "admin" | "member" | "viewer"
-) {
-  return role === "owner" || role === "admin" || role === "member";
+import { can, type Permission } from "@devflow/shared";
+import type { WorkspaceRole } from "@devflow/shared";
+
+export function canCreateTaskComment(role: WorkspaceRole): boolean {
+  return can(role, "comment:create" satisfies Permission);
 }
 
-export function canDeleteTaskComment(
-  role: "owner" | "admin" | "member" | "viewer",
-  isAuthor: boolean
-) {
-  return isAuthor || role === "owner" || role === "admin";
-}
-
+/**
+ * A comment can be updated by its author regardless of workspace role,
+ * or by any owner/admin.
+ */
 export function canUpdateTaskComment(
-  role: "owner" | "admin" | "member" | "viewer",
+  role: WorkspaceRole,
   isAuthor: boolean
-) {
-  return isAuthor || role === "owner" || role === "admin";
+): boolean {
+  return isAuthor || can(role, "comment:update" satisfies Permission);
+}
+
+/**
+ * A comment can be deleted by its author regardless of workspace role,
+ * or by any owner/admin.
+ */
+export function canDeleteTaskComment(
+  role: WorkspaceRole,
+  isAuthor: boolean
+): boolean {
+  return isAuthor || can(role, "comment:delete" satisfies Permission);
 }

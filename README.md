@@ -25,6 +25,7 @@ docker compose up -d postgres
 pnpm dev
 pnpm typecheck
 pnpm lint
+pnpm test
 pnpm build
 ```
 
@@ -44,12 +45,32 @@ The default local connection string is:
 postgres://devflow:devflow@localhost:5432/devflow
 ```
 
+## Test Database
+
+API integration tests use a separate PostgreSQL database:
+
+```txt
+postgres://devflow:devflow@localhost:5432/devflow_test
+```
+
+Prepare it manually:
+
+```bash
+pnpm db:test:prepare
+```
+
+`pnpm test` also runs this preparation step before Vitest.
+
 ## Local URLs
 
 - Web: http://localhost:3000
 - API: http://localhost:4000
 - API healthcheck: http://localhost:4000/healthz
 - API readiness: http://localhost:4000/readyz
+
+## API Documentation
+
+Endpoint examples and role rules live in [docs/api.md](docs/api.md).
 
 ## Auth Endpoints
 
@@ -70,6 +91,16 @@ postgres://devflow:devflow@localhost:5432/devflow
 - `POST /api/v1/workspaces/:workspaceId/members`
 - `PATCH /api/v1/workspaces/:workspaceId/members/:userId`
 - `DELETE /api/v1/workspaces/:workspaceId/members/:userId`
+
+## Workspace Invitation Endpoints
+
+- `POST /api/v1/workspaces/:workspaceId/invitations`
+- `GET /api/v1/workspaces/:workspaceId/invitations`
+- `DELETE /api/v1/workspaces/:workspaceId/invitations/:invitationId`
+- `POST /api/v1/workspaces/:workspaceId/invitations/:invitationId/resend`
+- `GET /api/v1/invitations/:token`
+- `POST /api/v1/invitations/:token/accept`
+- `POST /api/v1/invitations/:token/decline`
 
 ## Project Endpoints
 

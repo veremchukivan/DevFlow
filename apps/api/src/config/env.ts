@@ -13,6 +13,7 @@ const envSchema = z.object({
     .default("development"),
   SESSION_COOKIE_NAME: z.string().min(1).default("devflow_session"),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  INVITATION_TTL_DAYS: z.coerce.number().int().positive().default(7),
   WEB_ORIGIN: z.url().default("http://localhost:3000")
 });
 

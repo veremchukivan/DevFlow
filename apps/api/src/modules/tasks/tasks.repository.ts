@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { SQL, and, asc, desc, eq, ilike, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
@@ -169,18 +169,76 @@ export async function createTaskWithNextNumber(input: {
 export async function listTasksForProject(input: {
   projectId: string;
   workspaceId: string;
+  filters?: {
+    statusId?: string;
+    priority?: TaskPriority;
+    assigneeUserId?: string | "none";
+    search?: string;
+    archived?: boolean;
+    sortBy?: "createdAt" | "updatedAt" | "priority" | "number";
+    sortOrder?: "asc" | "desc";
+  };
 }) {
-  return taskSelect()
-    .where(
-      and(
-        eq(tasks.workspaceId, input.workspaceId),
-        eq(tasks.projectId, input.projectId),
-        isNull(projects.deletedAt),
-        isNull(tasks.deletedAt)
-      )
-    )
-    .orderBy(desc(tasks.createdAt));
+  const f = input.filters ?? {};
+  const conditions: SQL[] = [
+    eq(tasks.workspaceId, input.workspaceId),
+    eq(tasks.projectId, input.projectId),
+    isNull(projects.deletedAt)
+  ];
+
+  // archived: show only soft-deleted; default: show only active
+  if (f.archived === true) {
+    conditions.push(isNotNull(tasks.deletedAt));
+  } else {
+    conditions.push(isNull(tasks.deletedAt));
+  }
+
+  if (f.statusId !== undefined) {
+    conditions.push(eq(tasks.statusId, f.statusId));
+  }
+
+  if (f.priority !== undefined) {
+    conditions.push(eq(tasks.priority, f.priority));
+  }
+
+  if (f.assigneeUserId === "none") {
+    conditions.push(isNull(tasks.assigneeUserId));
+  } else if (f.assigneeUserId !== undefined) {
+    conditions.push(eq(tasks.assigneeUserId, f.assigneeUserId));
+  }
+
+  if (f.search !== undefined) {
+    conditions.push(ilike(tasks.title, `%${f.search}%`));
+  }
+
+  // Build ORDER BY
+  const sortColumn = toSortColumn(f.sortBy ?? "createdAt");
+  const orderBy =
+    (f.sortOrder ?? "desc") === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+  return taskSelect().where(and(...conditions)).orderBy(orderBy);
 }
+
+function toSortColumn(field: "createdAt" | "updatedAt" | "priority" | "number") {
+  switch (field) {
+    case "updatedAt":
+      return tasks.updatedAt;
+    case "priority":
+      // Sort priority as: urgent > high > medium > low using CASE
+      return sql`CASE ${tasks.priority}
+        WHEN 'urgent' THEN 4
+        WHEN 'high'   THEN 3
+        WHEN 'medium' THEN 2
+        WHEN 'low'    THEN 1
+        ELSE 0
+      END`;
+    case "number":
+      return tasks.number;
+    default:
+      return tasks.createdAt;
+  }
+}
+
 
 export async function findTaskInProject(input: {
   projectId: string;

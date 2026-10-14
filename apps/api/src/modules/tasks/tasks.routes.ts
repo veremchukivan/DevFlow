@@ -1,5 +1,6 @@
 import {
   createTaskRequestSchema,
+  listTasksQuerySchema,
   projectTasksParamsSchema,
   taskParamsSchema,
   updateTaskRequestSchema,
@@ -39,10 +40,12 @@ tasksRouter.post("/", async (req, res) => {
 
 tasksRouter.get("/", async (req, res) => {
   const params = projectTasksParamsSchema.parse(req.params);
+  const filters = listTasksQuerySchema.parse(req.query);
   const tasks = await listTasks({
     projectId: params.projectId,
     userId: getAuthenticatedUserId(req),
-    workspaceId: params.workspaceId
+    workspaceId: params.workspaceId,
+    filters
   });
 
   res.json({

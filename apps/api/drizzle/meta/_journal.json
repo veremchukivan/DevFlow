@@ -36,6 +36,13 @@
       "when": 1791970074492,
       "tag": "0004_daily_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791973165893,
+      "tag": "0005_blushing_the_enforcers",
+      "breakpoints": true
     }
   ]
 }
