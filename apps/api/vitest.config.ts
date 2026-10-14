@@ -1,5 +1,9 @@
 import { defineConfig } from "vitest/config";
 
+const testDatabaseUrl =
+  process.env.TEST_DATABASE_URL ??
+  "postgres://devflow:devflow@localhost:5432/devflow_test";
+
 export default defineConfig({
   test: {
     environment: "node",
@@ -10,7 +14,7 @@ export default defineConfig({
     minWorkers: 1,
     testTimeout: 20000,
     env: {
-      DATABASE_URL: "postgres://devflow:devflow@localhost:5432/devflow_test",
+      DATABASE_URL: testDatabaseUrl,
       NODE_ENV: "test"
     }
   }

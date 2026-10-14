@@ -9,6 +9,7 @@
     "db:migrate": "pnpm --filter @devflow/api db:migrate",
     "db:push": "pnpm --filter @devflow/api db:push",
     "db:studio": "pnpm --filter @devflow/api db:studio",
+    "db:test:prepare": "pnpm --filter @devflow/api db:test:prepare",
     "dev": "pnpm --filter @devflow/shared build && turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
