@@ -12,6 +12,18 @@ export const createTaskRequestSchema = z.object({
   title: z.string().trim().min(2).max(200)
 });
 
+export const updateTaskRequestSchema = z
+  .object({
+    assigneeUserId: z.uuid().nullable().optional(),
+    description: z.string().trim().max(10000).nullable().optional(),
+    priority: taskPrioritySchema.optional(),
+    statusId: z.uuid().optional(),
+    title: z.string().trim().min(2).max(200).optional()
+  })
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "At least one task field is required"
+  });
+
 export const projectTasksParamsSchema = z.object({
   projectId: z.uuid(),
   workspaceId: z.uuid()
@@ -57,6 +69,7 @@ export const taskListResponseSchema = z.object({
 });
 
 export type CreateTaskRequest = z.infer<typeof createTaskRequestSchema>;
+export type UpdateTaskRequest = z.infer<typeof updateTaskRequestSchema>;
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type TaskResponse = z.infer<typeof taskResponseSchema>;

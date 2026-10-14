@@ -1,7 +1,7 @@
-import type { CreateTaskRequest } from "@devflow/shared";
+import type { CreateTaskRequest, UpdateTaskRequest } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
-import { canCreateTask } from "./tasks.policy.js";
+import { canCreateTask, canUpdateTask } from "./tasks.policy.js";
 import {
   createTaskWithNextNumber,
   findActiveWorkspaceMember,
@@ -10,7 +10,8 @@ import {
   findProjectInWorkspace,
   findProjectStatusInProject,
   findTaskInProject,
-  listTasksForProject
+  listTasksForProject,
+  updateTaskInProject
 } from "./tasks.repository.js";
 
 const maxTaskNumberAttempts = 3;
@@ -106,6 +107,61 @@ export async function getTask(input: {
   return task;
 }
 
+export async function updateTask(input: {
+  input: UpdateTaskRequest;
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+
+  if (!canUpdateTask(membership.role)) {
+    throw new AppError(
+      403,
+      "TASK_UPDATE_FORBIDDEN",
+      "You cannot update tasks in this workspace"
+    );
+  }
+
+  await requireProject(input);
+  await requireTask(input);
+
+  if (input.input.statusId) {
+    await resolveTaskStatus({
+      projectId: input.projectId,
+      statusId: input.input.statusId,
+      workspaceId: input.workspaceId
+    });
+  }
+
+  if (input.input.assigneeUserId) {
+    await requireAssignableWorkspaceMember({
+      userId: input.input.assigneeUserId,
+      workspaceId: input.workspaceId
+    });
+  }
+
+  await updateTaskInProject({
+    assigneeUserId: input.input.assigneeUserId,
+    description: input.input.description,
+    priority: input.input.priority,
+    projectId: input.projectId,
+    statusId: input.input.statusId,
+    taskId: input.taskId,
+    title: input.input.title,
+    workspaceId: input.workspaceId
+  });
+
+  const updatedTask = await findTaskInProject(input);
+
+  if (!updatedTask) {
+    throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
+  }
+
+  return updatedTask;
+}
+
 async function requireWorkspaceMembership(input: {
   userId: string;
   workspaceId: string;
@@ -130,6 +186,20 @@ async function requireProject(input: {
   }
 
   return project;
+}
+
+async function requireTask(input: {
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  const task = await findTaskInProject(input);
+
+  if (!task) {
+    throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
+  }
+
+  return task;
 }
 
 async function resolveTaskStatus(input: {

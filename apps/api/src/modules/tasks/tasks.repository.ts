@@ -7,6 +7,8 @@ import { tasks } from "../../core/db/schema/tasks.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
 
+type TaskPriority = "low" | "medium" | "high" | "urgent";
+
 export async function findActiveWorkspaceMembership(input: {
   userId: string;
   workspaceId: string;
@@ -119,7 +121,7 @@ export async function findDefaultProjectStatus(input: {
 export async function createTaskWithNextNumber(input: {
   assigneeUserId?: string;
   description?: string;
-  priority?: "low" | "medium" | "high" | "urgent";
+  priority?: TaskPriority;
   projectId: string;
   reporterUserId: string;
   statusId: string;
@@ -139,19 +141,21 @@ export async function createTaskWithNextNumber(input: {
         )
       );
 
+    const values = {
+      number: nextNumber?.value ?? 1,
+      projectId: input.projectId,
+      reporterUserId: input.reporterUserId,
+      statusId: input.statusId,
+      title: input.title,
+      workspaceId: input.workspaceId,
+      ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
+      ...(input.description ? { description: input.description } : {}),
+      ...(input.priority ? { priority: input.priority } : {})
+    };
+
     const [task] = await tx
       .insert(tasks)
-      .values({
-        assigneeUserId: input.assigneeUserId,
-        description: input.description,
-        number: nextNumber?.value ?? 1,
-        priority: input.priority,
-        projectId: input.projectId,
-        reporterUserId: input.reporterUserId,
-        statusId: input.statusId,
-        title: input.title,
-        workspaceId: input.workspaceId
-      })
+      .values(values)
       .returning();
 
     if (!task) {
@@ -198,6 +202,32 @@ export async function findTaskInProject(input: {
   return task;
 }
 
+export async function updateTaskInProject(input: {
+  assigneeUserId?: string | null;
+  description?: string | null;
+  priority?: TaskPriority;
+  projectId: string;
+  statusId?: string;
+  taskId: string;
+  title?: string;
+  workspaceId: string;
+}) {
+  const [task] = await db
+    .update(tasks)
+    .set(toTaskUpdateValues(input))
+    .where(
+      and(
+        eq(tasks.id, input.taskId),
+        eq(tasks.workspaceId, input.workspaceId),
+        eq(tasks.projectId, input.projectId),
+        isNull(tasks.deletedAt)
+      )
+    )
+    .returning();
+
+  return task;
+}
+
 function taskSelect() {
   return db
     .select({
@@ -240,4 +270,45 @@ function taskSelect() {
         eq(projectStatuses.workspaceId, tasks.workspaceId)
       )
     );
+}
+
+function toTaskUpdateValues(input: {
+  assigneeUserId?: string | null;
+  description?: string | null;
+  priority?: TaskPriority;
+  statusId?: string;
+  title?: string;
+}) {
+  const values: {
+    assigneeUserId?: string | null;
+    description?: string | null;
+    priority?: TaskPriority;
+    statusId?: string;
+    title?: string;
+    updatedAt: Date;
+  } = {
+    updatedAt: new Date()
+  };
+
+  if (input.assigneeUserId !== undefined) {
+    values.assigneeUserId = input.assigneeUserId;
+  }
+
+  if (input.description !== undefined) {
+    values.description = input.description;
+  }
+
+  if (input.priority) {
+    values.priority = input.priority;
+  }
+
+  if (input.statusId) {
+    values.statusId = input.statusId;
+  }
+
+  if (input.title) {
+    values.title = input.title;
+  }
+
+  return values;
 }

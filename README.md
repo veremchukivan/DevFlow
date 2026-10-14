@@ -75,4 +75,5 @@ postgres://devflow:devflow@localhost:5432/devflow
 - `POST /api/v1/workspaces/:workspaceId/projects/:projectId/tasks`
 - `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks`
 - `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
+- `PATCH /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
 

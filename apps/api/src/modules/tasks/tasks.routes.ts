@@ -2,6 +2,7 @@ import {
   createTaskRequestSchema,
   projectTasksParamsSchema,
   taskParamsSchema,
+  updateTaskRequestSchema,
   type TaskListResponse,
   type TaskResponse
 } from "@devflow/shared";
@@ -11,7 +12,12 @@ import {
   type AuthenticatedRequest,
   requireAuth
 } from "../auth/auth.middleware.js";
-import { createTask, getTask, listTasks } from "./tasks.service.js";
+import {
+  createTask,
+  getTask,
+  listTasks,
+  updateTask
+} from "./tasks.service.js";
 
 export const tasksRouter = Router({ mergeParams: true });
 
@@ -46,6 +52,20 @@ tasksRouter.get("/", async (req, res) => {
 tasksRouter.get("/:taskId", async (req, res) => {
   const params = taskParamsSchema.parse(req.params);
   const task = await getTask({
+    projectId: params.projectId,
+    taskId: params.taskId,
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.json(toTaskResponse(task));
+});
+
+tasksRouter.patch("/:taskId", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  const input = updateTaskRequestSchema.parse(req.body);
+  const task = await updateTask({
+    input,
     projectId: params.projectId,
     taskId: params.taskId,
     userId: getAuthenticatedUserId(req),
