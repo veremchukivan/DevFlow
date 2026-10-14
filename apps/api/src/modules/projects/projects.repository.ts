@@ -179,3 +179,55 @@ export async function listProjectStatuses(input: {
     )
     .orderBy(asc(projectStatuses.position));
 }
+
+export async function updateProjectInDb(input: {
+  description?: string | null;
+  key?: string;
+  name?: string;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [project] = await db
+    .update(projects)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.key !== undefined ? { key: input.key } : {}),
+      ...(input.description !== undefined
+        ? { description: input.description }
+        : {}),
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+        isNull(projects.deletedAt)
+      )
+    )
+    .returning();
+
+  return project;
+}
+
+export async function softDeleteProjectInDb(input: {
+  projectId: string;
+  workspaceId: string;
+}) {
+  const now = new Date();
+  const [project] = await db
+    .update(projects)
+    .set({
+      deletedAt: now,
+      updatedAt: now
+    })
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+        isNull(projects.deletedAt)
+      )
+    )
+    .returning();
+
+  return project;
+}

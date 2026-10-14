@@ -5,8 +5,13 @@ import type { WorkspaceRole } from "./schemas/workspaces.js";
 // ---------------------------------------------------------------------------
 
 export type Permission =
+  // Workspaces
+  | "workspace:update"
+  | "workspace:delete"
   // Projects
   | "project:create"
+  | "project:update"
+  | "project:delete"
   // Tasks
   | "task:create"
   | "task:update"
@@ -26,14 +31,19 @@ export type Permission =
 //
 // Viewers can only read — no write permissions are granted to viewer.
 // Members can create/update tasks and comments, but cannot delete tasks.
-// Admins can do everything members can, plus delete tasks and manage members.
-// Owners have the same permissions as admins (owner-specific actions are
-// handled separately, e.g. transferring ownership).
+// Admins can do everything members can, plus delete tasks, manage projects, and manage members.
+// Owners have the same permissions as admins, plus workspace deletion and owner management.
 // ---------------------------------------------------------------------------
 
 const ROLE_PERMISSIONS: Record<Permission, readonly WorkspaceRole[]> = {
-  // Only owner/admin can create projects (viewer and member are read-only here)
+  // Workspaces: owner/admin can update settings; ONLY owner can delete workspace
+  "workspace:update": ["owner", "admin"],
+  "workspace:delete": ["owner"],
+
+  // Projects: owner/admin can create, update, and delete projects
   "project:create": ["owner", "admin"],
+  "project:update": ["owner", "admin"],
+  "project:delete": ["owner", "admin"],
 
   // Tasks: member can create and update, but only owner/admin can delete
   "task:create": ["owner", "admin", "member"],

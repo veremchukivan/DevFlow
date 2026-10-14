@@ -1,6 +1,7 @@
 import {
   createWorkspaceRequestSchema,
   paginationQuerySchema,
+  updateWorkspaceRequestSchema,
   workspaceParamsSchema,
   type WorkspaceListResponse,
   type WorkspaceResponse
@@ -13,8 +14,10 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createWorkspace,
+  deleteWorkspace,
   getWorkspace,
-  listWorkspaces
+  listWorkspaces,
+  updateWorkspace
 } from "./workspaces.service.js";
 import { leaveWorkspace } from "../workspace-members/workspace-members.service.js";
 
@@ -50,6 +53,25 @@ workspacesRouter.get("/:workspaceId", async (req, res) => {
   );
 
   res.json(toWorkspaceResponse(workspace));
+});
+
+workspacesRouter.patch("/:workspaceId", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  const input = updateWorkspaceRequestSchema.parse(req.body);
+  const workspace = await updateWorkspace(
+    getAuthenticatedUserId(req),
+    params.workspaceId,
+    input
+  );
+
+  res.json(toWorkspaceResponse(workspace));
+});
+
+workspacesRouter.delete("/:workspaceId", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  await deleteWorkspace(getAuthenticatedUserId(req), params.workspaceId);
+
+  res.status(204).send();
 });
 
 workspacesRouter.post("/:workspaceId/leave", async (req, res) => {

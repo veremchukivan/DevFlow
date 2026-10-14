@@ -22,6 +22,15 @@ export const createWorkspaceRequestSchema = z.object({
   slug: workspaceSlugSchema.optional()
 });
 
+export const updateWorkspaceRequestSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+    slug: workspaceSlugSchema.optional()
+  })
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "At least one workspace field is required"
+  });
+
 export const workspaceParamsSchema = z.object({
   workspaceId: z.uuid()
 });
@@ -48,6 +57,9 @@ export const workspaceListResponseSchema = z.object({
 export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
 export type CreateWorkspaceRequest = z.infer<
   typeof createWorkspaceRequestSchema
+>;
+export type UpdateWorkspaceRequest = z.infer<
+  typeof updateWorkspaceRequestSchema
 >;
 export type Workspace = z.infer<typeof workspaceSchema>;
 export type WorkspaceResponse = z.infer<typeof workspaceResponseSchema>;

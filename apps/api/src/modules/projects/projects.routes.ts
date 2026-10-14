@@ -2,6 +2,7 @@ import {
   createProjectRequestSchema,
   paginationQuerySchema,
   projectParamsSchema,
+  updateProjectRequestSchema,
   workspaceProjectsParamsSchema,
   type ProjectListResponse,
   type ProjectResponse
@@ -14,8 +15,10 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createProject,
+  deleteProject,
   getProject,
-  listProjects
+  listProjects,
+  updateProject
 } from "./projects.service.js";
 
 export const projectsRouter = Router({ mergeParams: true });
@@ -58,6 +61,30 @@ projectsRouter.get("/:projectId", async (req, res) => {
   });
 
   res.json(toProjectResponse(project));
+});
+
+projectsRouter.patch("/:projectId", async (req, res) => {
+  const params = projectParamsSchema.parse(req.params);
+  const input = updateProjectRequestSchema.parse(req.body);
+  const project = await updateProject({
+    input,
+    projectId: params.projectId,
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.json(toProjectResponse(project));
+});
+
+projectsRouter.delete("/:projectId", async (req, res) => {
+  const params = projectParamsSchema.parse(req.params);
+  await deleteProject({
+    projectId: params.projectId,
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.status(204).send();
 });
 
 function getAuthenticatedUserId(req: unknown) {

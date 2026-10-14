@@ -126,3 +126,45 @@ export async function findWorkspaceForUser(input: {
 
   return workspace;
 }
+
+export async function updateWorkspaceInDb(input: {
+  name?: string;
+  slug?: string;
+  workspaceId: string;
+}) {
+  const [workspace] = await db
+    .update(workspaces)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.slug !== undefined ? { slug: input.slug } : {}),
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(workspaces.id, input.workspaceId),
+        isNull(workspaces.deletedAt)
+      )
+    )
+    .returning();
+
+  return workspace;
+}
+
+export async function softDeleteWorkspaceInDb(workspaceId: string) {
+  const now = new Date();
+  const [workspace] = await db
+    .update(workspaces)
+    .set({
+      deletedAt: now,
+      updatedAt: now
+    })
+    .where(
+      and(
+        eq(workspaces.id, workspaceId),
+        isNull(workspaces.deletedAt)
+      )
+    )
+    .returning();
+
+  return workspace;
+}

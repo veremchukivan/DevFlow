@@ -1,12 +1,22 @@
-import type { CreateWorkspaceRequest, PaginationQuery } from "@devflow/shared";
+import type {
+  CreateWorkspaceRequest,
+  PaginationQuery,
+  UpdateWorkspaceRequest
+} from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import {
+  canDeleteWorkspace,
+  canUpdateWorkspace
+} from "./workspaces.policy.js";
+import {
   createWorkspaceWithOwner,
   findWorkspaceBySlug,
   findWorkspaceForUser,
-  listWorkspacesForUser
+  listWorkspacesForUser,
+  softDeleteWorkspaceInDb,
+  updateWorkspaceInDb
 } from "./workspaces.repository.js";
 
 const maxSlugAttempts = 10;
@@ -59,6 +69,88 @@ export async function getWorkspace(userId: string, workspaceId: string) {
   }
 
   return workspace;
+}
+
+export async function updateWorkspace(
+  userId: string,
+  workspaceId: string,
+  input: UpdateWorkspaceRequest
+) {
+  const workspace = await findWorkspaceForUser({ userId, workspaceId });
+
+  if (!workspace) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
+
+  if (!canUpdateWorkspace(workspace.role)) {
+    throw new AppError(
+      403,
+      "WORKSPACE_UPDATE_FORBIDDEN",
+      "You cannot update this workspace"
+    );
+  }
+
+  let slug = workspace.slug;
+  if (input.slug && input.slug !== workspace.slug) {
+    const existing = await findWorkspaceBySlug(input.slug);
+    if (existing && existing.id !== workspaceId) {
+      throw new AppError(
+        409,
+        "WORKSPACE_SLUG_TAKEN",
+        "A workspace with this slug already exists"
+      );
+    }
+    slug = input.slug;
+  }
+
+  try {
+    const updated = await updateWorkspaceInDb({
+      name: input.name,
+      slug: input.slug ? slug : undefined,
+      workspaceId
+    });
+
+    if (!updated) {
+      throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+    }
+
+    return {
+      ...updated,
+      role: workspace.role
+    };
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError(
+        409,
+        "WORKSPACE_SLUG_TAKEN",
+        "A workspace with this slug already exists"
+      );
+    }
+
+    throw error;
+  }
+}
+
+export async function deleteWorkspace(userId: string, workspaceId: string) {
+  const workspace = await findWorkspaceForUser({ userId, workspaceId });
+
+  if (!workspace) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
+
+  if (!canDeleteWorkspace(workspace.role)) {
+    throw new AppError(
+      403,
+      "WORKSPACE_DELETE_FORBIDDEN",
+      "Only workspace owners can delete a workspace"
+    );
+  }
+
+  const deleted = await softDeleteWorkspaceInDb(workspaceId);
+
+  if (!deleted) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
 }
 
 async function buildAvailableSlug(input: string) {
