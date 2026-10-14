@@ -8,10 +8,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devflow -d devflow"]
+      # Use $$VAR so Docker passes the literal $VAR to the shell inside the container,
+      # which then reads it from the container's own environment (POSTGRES_USER / POSTGRES_DB).
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -27,7 +30,10 @@ services:
     environment:
       API_PORT: 4000
       DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
       NODE_ENV: production
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     depends_on:
       postgres:
@@ -42,7 +48,10 @@ services:
     environment:
       API_PORT: 4000
       DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
       NODE_ENV: production
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     ports:
       - "127.0.0.1:4000:4000"
@@ -58,6 +67,10 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
+      # NEXT_PUBLIC_API_URL is the URL the *browser* uses to reach the API.
+      # In a local Docker setup this is still http://localhost:4000 because the
+      # browser runs on the host, not inside the Docker network.
+      # For production, set this to your public API domain.
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     ports:
       - "127.0.0.1:3000:3000"

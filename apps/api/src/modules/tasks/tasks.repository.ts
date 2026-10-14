@@ -507,15 +507,18 @@ function toTaskUpdateValues(input: {
     values.description = input.description;
   }
 
-  if (input.priority) {
+  // Use strict undefined check (not falsy) so that valid enum values such as
+  // "low" are correctly applied.
+  if (input.priority !== undefined) {
     values.priority = input.priority;
   }
 
-  if (input.statusId) {
+  if (input.statusId !== undefined) {
     values.statusId = input.statusId;
   }
 
-  if (input.title) {
+  // Use strict undefined check so that a non-empty title update is always saved.
+  if (input.title !== undefined) {
     values.title = input.title;
   }
 

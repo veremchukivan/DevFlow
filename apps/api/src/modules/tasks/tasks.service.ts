@@ -26,7 +26,6 @@ import {
   updateTaskInProject
 } from "./tasks.repository.js";
 
-const maxTaskNumberAttempts = 3;
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -58,40 +57,30 @@ export async function createTask(input: {
     });
   }
 
-  for (let attempt = 0; attempt < maxTaskNumberAttempts; attempt += 1) {
-    try {
-      const task = await createTaskWithNextNumber({
-        activity: {
-          actorUserId: input.userId,
-          projectKey: project.key
-        },
-        assigneeUserId: input.input.assigneeUserId,
-        description: input.input.description,
-        priority: input.input.priority,
-        projectId: input.projectId,
-        reporterUserId: input.userId,
-        statusId: status.id,
-        title: input.input.title,
-        workspaceId: input.workspaceId
-      });
+  // createTaskWithNextNumber uses SELECT FOR UPDATE on the project row, which
+  // serialises concurrent task creation for the same project and makes a
+  // unique-violation on (workspace_id, project_id, number) impossible.
+  // No retry loop is needed.
+  const task = await createTaskWithNextNumber({
+    activity: {
+      actorUserId: input.userId,
+      projectKey: project.key
+    },
+    assigneeUserId: input.input.assigneeUserId,
+    description: input.input.description,
+    priority: input.input.priority,
+    projectId: input.projectId,
+    reporterUserId: input.userId,
+    statusId: status.id,
+    title: input.input.title,
+    workspaceId: input.workspaceId
+  });
 
-      return {
-        ...task,
-        projectKey: project.key,
-        status
-      };
-    } catch (error) {
-      if (!isUniqueViolation(error) || attempt === maxTaskNumberAttempts - 1) {
-        throw error;
-      }
-    }
-  }
-
-  throw new AppError(
-    409,
-    "TASK_NUMBER_CONFLICT",
-    "Could not reserve the next task number"
-  );
+  return {
+    ...task,
+    projectKey: project.key,
+    status
+  };
 }
 
 export async function listTasks(input: {
@@ -345,15 +334,6 @@ async function requireAssignableWorkspaceMember(input: {
       "Assignee must be an active workspace member"
     );
   }
-}
-
-function isUniqueViolation(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "23505"
-  );
 }
 
 function updatedTaskFields(input: UpdateTaskRequest) {

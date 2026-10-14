@@ -218,8 +218,8 @@ export async function resendInvitation(input: {
   if (invitation.rejectedAt) {
     throw new AppError(
       409,
-      "WORKSPACE_INVITATION_DECLINED",
-      "Declined invitations cannot be resent; create a new invitation instead"
+      "WORKSPACE_INVITATION_ALREADY_DECLINED",
+      "This invitation has already been declined and cannot be resent"
     );
   }
 
