@@ -1,12 +1,22 @@
-import type { CreateTaskCommentRequest } from "@devflow/shared";
+import type {
+  CreateTaskCommentRequest,
+  UpdateTaskCommentRequest
+} from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
-import { canCreateTaskComment } from "./task-comments.policy.js";
+import {
+  canCreateTaskComment,
+  canDeleteTaskComment,
+  canUpdateTaskComment
+} from "./task-comments.policy.js";
 import {
   createTaskComment,
   findActiveWorkspaceMembership,
+  findTaskCommentById,
   findTaskInProject,
-  listTaskComments
+  listTaskComments,
+  softDeleteTaskComment,
+  updateTaskComment
 } from "./task-comments.repository.js";
 
 export async function createComment(input: {
@@ -55,6 +65,79 @@ export async function listComments(input: {
   return listTaskComments(input);
 }
 
+export async function updateComment(input: {
+  commentId: string;
+  input: UpdateTaskCommentRequest;
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  await requireTask(input);
+
+  const comment = await requireComment(input);
+
+  if (
+    !canUpdateTaskComment(
+      membership.role,
+      comment.authorUserId === input.userId
+    )
+  ) {
+    throw new AppError(
+      403,
+      "TASK_COMMENT_UPDATE_FORBIDDEN",
+      "You cannot update this task comment"
+    );
+  }
+
+  const updatedComment = await updateTaskComment({
+    body: input.input.body,
+    commentId: input.commentId,
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
+
+  if (!updatedComment) {
+    throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
+  }
+
+  return updatedComment;
+}
+
+export async function deleteComment(input: {
+  commentId: string;
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  await requireTask(input);
+
+  const comment = await requireComment(input);
+
+  if (
+    !canDeleteTaskComment(
+      membership.role,
+      comment.authorUserId === input.userId
+    )
+  ) {
+    throw new AppError(
+      403,
+      "TASK_COMMENT_DELETE_FORBIDDEN",
+      "You cannot delete this task comment"
+    );
+  }
+
+  const deletedComment = await softDeleteTaskComment(input);
+
+  if (!deletedComment) {
+    throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
+  }
+}
+
 async function requireWorkspaceMembership(input: {
   userId: string;
   workspaceId: string;
@@ -80,4 +163,19 @@ async function requireTask(input: {
   }
 
   return task;
+}
+
+async function requireComment(input: {
+  commentId: string;
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  const comment = await findTaskCommentById(input);
+
+  if (!comment) {
+    throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
+  }
+
+  return comment;
 }

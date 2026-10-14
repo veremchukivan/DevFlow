@@ -4,10 +4,18 @@ export const createTaskCommentRequestSchema = z.object({
   body: z.string().trim().min(1).max(5000)
 });
 
+export const updateTaskCommentRequestSchema = z.object({
+  body: z.string().trim().min(1).max(5000)
+});
+
 export const taskCommentsParamsSchema = z.object({
   projectId: z.uuid(),
   taskId: z.uuid(),
   workspaceId: z.uuid()
+});
+
+export const taskCommentParamsSchema = taskCommentsParamsSchema.extend({
+  commentId: z.uuid()
 });
 
 export const taskCommentAuthorSchema = z.object({
@@ -37,6 +45,9 @@ export const taskCommentListResponseSchema = z.object({
 
 export type CreateTaskCommentRequest = z.infer<
   typeof createTaskCommentRequestSchema
+>;
+export type UpdateTaskCommentRequest = z.infer<
+  typeof updateTaskCommentRequestSchema
 >;
 export type TaskComment = z.infer<typeof taskCommentSchema>;
 export type TaskCommentResponse = z.infer<typeof taskCommentResponseSchema>;

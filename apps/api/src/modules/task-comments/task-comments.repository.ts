@@ -108,7 +108,7 @@ export async function listTaskComments(input: {
     .orderBy(asc(taskComments.createdAt));
 }
 
-async function findTaskCommentById(input: {
+export async function findTaskCommentById(input: {
   commentId: string;
   projectId: string;
   taskId: string;
@@ -125,6 +125,68 @@ async function findTaskCommentById(input: {
       )
     )
     .limit(1);
+
+  return comment;
+}
+
+export async function updateTaskComment(input: {
+  body: string;
+  commentId: string;
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  const [comment] = await db
+    .update(taskComments)
+    .set({
+      body: input.body,
+      updatedAt: new Date()
+    })
+    .where(
+      and(
+        eq(taskComments.id, input.commentId),
+        eq(taskComments.projectId, input.projectId),
+        eq(taskComments.taskId, input.taskId),
+        eq(taskComments.workspaceId, input.workspaceId),
+        isNull(taskComments.deletedAt)
+      )
+    )
+    .returning({
+      id: taskComments.id
+    });
+
+  if (!comment) {
+    return undefined;
+  }
+
+  return findTaskCommentById(input);
+}
+
+export async function softDeleteTaskComment(input: {
+  commentId: string;
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  const now = new Date();
+  const [comment] = await db
+    .update(taskComments)
+    .set({
+      deletedAt: now,
+      updatedAt: now
+    })
+    .where(
+      and(
+        eq(taskComments.id, input.commentId),
+        eq(taskComments.projectId, input.projectId),
+        eq(taskComments.taskId, input.taskId),
+        eq(taskComments.workspaceId, input.workspaceId),
+        isNull(taskComments.deletedAt)
+      )
+    )
+    .returning({
+      id: taskComments.id
+    });
 
   return comment;
 }

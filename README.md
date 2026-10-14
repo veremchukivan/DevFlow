@@ -82,4 +82,6 @@ postgres://devflow:devflow@localhost:5432/devflow
 
 - `POST /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments`
 - `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments`
+- `PATCH /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments/:commentId`
+- `DELETE /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments/:commentId`
 
