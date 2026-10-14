@@ -76,4 +76,5 @@ postgres://devflow:devflow@localhost:5432/devflow
 - `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks`
 - `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
 - `PATCH /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
+- `DELETE /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
 

@@ -228,6 +228,31 @@ export async function updateTaskInProject(input: {
   return task;
 }
 
+export async function softDeleteTaskInProject(input: {
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  const now = new Date();
+  const [task] = await db
+    .update(tasks)
+    .set({
+      deletedAt: now,
+      updatedAt: now
+    })
+    .where(
+      and(
+        eq(tasks.id, input.taskId),
+        eq(tasks.workspaceId, input.workspaceId),
+        eq(tasks.projectId, input.projectId),
+        isNull(tasks.deletedAt)
+      )
+    )
+    .returning();
+
+  return task;
+}
+
 function taskSelect() {
   return db
     .select({

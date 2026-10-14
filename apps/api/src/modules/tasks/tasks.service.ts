@@ -1,7 +1,11 @@
 import type { CreateTaskRequest, UpdateTaskRequest } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
-import { canCreateTask, canUpdateTask } from "./tasks.policy.js";
+import {
+  canCreateTask,
+  canDeleteTask,
+  canUpdateTask
+} from "./tasks.policy.js";
 import {
   createTaskWithNextNumber,
   findActiveWorkspaceMember,
@@ -11,6 +15,7 @@ import {
   findProjectStatusInProject,
   findTaskInProject,
   listTasksForProject,
+  softDeleteTaskInProject,
   updateTaskInProject
 } from "./tasks.repository.js";
 
@@ -160,6 +165,32 @@ export async function updateTask(input: {
   }
 
   return updatedTask;
+}
+
+export async function deleteTask(input: {
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+
+  if (!canDeleteTask(membership.role)) {
+    throw new AppError(
+      403,
+      "TASK_DELETE_FORBIDDEN",
+      "You cannot delete tasks in this workspace"
+    );
+  }
+
+  await requireProject(input);
+  await requireTask(input);
+
+  const deletedTask = await softDeleteTaskInProject(input);
+
+  if (!deletedTask) {
+    throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
+  }
 }
 
 async function requireWorkspaceMembership(input: {

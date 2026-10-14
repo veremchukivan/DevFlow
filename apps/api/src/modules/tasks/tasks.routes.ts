@@ -14,6 +14,7 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createTask,
+  deleteTask,
   getTask,
   listTasks,
   updateTask
@@ -73,6 +74,18 @@ tasksRouter.patch("/:taskId", async (req, res) => {
   });
 
   res.json(toTaskResponse(task));
+});
+
+tasksRouter.delete("/:taskId", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  await deleteTask({
+    projectId: params.projectId,
+    taskId: params.taskId,
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+
+  res.status(204).send();
 });
 
 function getAuthenticatedUserId(req: unknown) {
