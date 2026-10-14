@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type {
   CreateProjectRequest,
   PaginationQuery,
@@ -236,6 +237,23 @@ async function buildAvailableProjectKey(input: {
 
     if (!existingProject) {
       return key;
+    }
+  }
+
+  // If the key was auto-generated (not explicitly requested by the user),
+  // try appending a short random hex suffix to avoid collision failure.
+  if (!input.key) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const randomSuffix = randomBytes(2).toString("hex").toUpperCase();
+      const key = `${baseKey.slice(0, 12 - randomSuffix.length)}${randomSuffix}`;
+      const existingProject = await findProjectByKey({
+        key,
+        workspaceId: input.workspaceId
+      });
+
+      if (!existingProject) {
+        return key;
+      }
     }
   }
 

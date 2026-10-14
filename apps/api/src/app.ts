@@ -24,7 +24,7 @@ import { readinessRouter } from "./modules/health/readiness.routes.js";
 export function createApp() {
   const app = express();
 
-  app.set("trust proxy", 1);
+  app.set("trust proxy", env.TRUST_PROXY);
   app.use(requestLogger);
   app.use(helmet());
   app.use(

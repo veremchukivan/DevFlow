@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type {
   CreateWorkspaceRequest,
   PaginationQuery,
@@ -165,6 +166,17 @@ async function buildAvailableSlug(input: string) {
     }
   }
 
+  // Fallback: append a random 6-character hex suffix to prevent 409 conflict
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const randomSuffix = `-${randomBytes(3).toString("hex")}`;
+    const slug = `${baseSlug.slice(0, 80 - randomSuffix.length)}${randomSuffix}`;
+    const existingWorkspace = await findWorkspaceBySlug(slug);
+
+    if (!existingWorkspace) {
+      return slug;
+    }
+  }
+
   throw new AppError(
     409,
     "WORKSPACE_SLUG_TAKEN",
@@ -173,7 +185,7 @@ async function buildAvailableSlug(input: string) {
 }
 
 function slugify(input: string) {
-  const slug = input
+  const cleaned = input
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -183,11 +195,16 @@ function slugify(input: string) {
     .slice(0, 80)
     .replace(/-+$/g, "");
 
-  if (slug.length >= 3) {
-    return slug;
+  if (cleaned.length >= 3) {
+    return cleaned;
   }
 
-  return `${slug}workspace`.slice(0, 3);
+  if (cleaned.length > 0) {
+    const candidate = `${cleaned}-workspace`;
+    return candidate.slice(0, 80).replace(/-+$/g, "");
+  }
+
+  return "workspace";
 }
 
 function withAttemptSuffix(baseSlug: string, attempt: number) {

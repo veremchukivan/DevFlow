@@ -2,11 +2,16 @@ import type { Response } from "express";
 
 import { env } from "../../config/env.js";
 
+const isSecure =
+  env.COOKIE_SECURE !== undefined
+    ? env.COOKIE_SECURE
+    : env.NODE_ENV === "production";
+
 const cookieOptions = {
   httpOnly: true,
   path: "/",
-  sameSite: "lax" as const,
-  secure: env.NODE_ENV === "production"
+  sameSite: env.SESSION_COOKIE_SAME_SITE,
+  secure: isSecure
 };
 
 export function setSessionCookie(

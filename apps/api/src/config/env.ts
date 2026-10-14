@@ -18,7 +18,10 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
-  DB_POOL_MAX: z.coerce.number().int().positive().default(10)
+  DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+  COOKIE_SECURE: z.coerce.boolean().optional(),
+  SESSION_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
+  TRUST_PROXY: z.coerce.number().int().nonnegative().default(1)
 });
 
 export const env = envSchema.parse(process.env);

@@ -75,6 +75,22 @@ export async function addMember(input: {
   });
 
   if (existingMember) {
+    if (existingMember.status === "invited") {
+      throw new AppError(
+        409,
+        "WORKSPACE_MEMBER_INVITATION_PENDING",
+        "A pending invitation already exists for this user"
+      );
+    }
+
+    if (existingMember.status === "suspended") {
+      throw new AppError(
+        409,
+        "WORKSPACE_MEMBER_SUSPENDED",
+        "This user is currently suspended in this workspace"
+      );
+    }
+
     throw new AppError(
       409,
       "WORKSPACE_MEMBER_ALREADY_EXISTS",
