@@ -1,0 +1,105 @@
+import type { CreateWorkspaceRequest } from "@devflow/shared";
+
+import { AppError } from "../../core/errors/app-error.js";
+import {
+  createWorkspaceWithOwner,
+  findWorkspaceBySlug,
+  findWorkspaceForUser,
+  listWorkspacesForUser
+} from "./workspaces.repository.js";
+
+const maxSlugAttempts = 10;
+
+export async function createWorkspace(
+  ownerUserId: string,
+  input: CreateWorkspaceRequest
+) {
+  const slug = await buildAvailableSlug(input.slug ?? input.name);
+
+  try {
+    return await createWorkspaceWithOwner({
+      name: input.name,
+      ownerUserId,
+      slug
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError(
+        409,
+        "WORKSPACE_SLUG_TAKEN",
+        "A workspace with this slug already exists"
+      );
+    }
+
+    throw error;
+  }
+}
+
+export function listWorkspaces(userId: string) {
+  return listWorkspacesForUser(userId);
+}
+
+export async function getWorkspace(userId: string, workspaceId: string) {
+  const workspace = await findWorkspaceForUser({ userId, workspaceId });
+
+  if (!workspace) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
+
+  return workspace;
+}
+
+async function buildAvailableSlug(input: string) {
+  const baseSlug = slugify(input);
+
+  for (let attempt = 0; attempt < maxSlugAttempts; attempt += 1) {
+    const slug = withAttemptSuffix(baseSlug, attempt);
+    const existingWorkspace = await findWorkspaceBySlug(slug);
+
+    if (!existingWorkspace) {
+      return slug;
+    }
+  }
+
+  throw new AppError(
+    409,
+    "WORKSPACE_SLUG_TAKEN",
+    "A workspace with this slug already exists"
+  );
+}
+
+function slugify(input: string) {
+  const slug = input
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
+    .slice(0, 80)
+    .replace(/-+$/g, "");
+
+  if (slug.length >= 3) {
+    return slug;
+  }
+
+  return `${slug}workspace`.slice(0, 3);
+}
+
+function withAttemptSuffix(baseSlug: string, attempt: number) {
+  if (attempt === 0) {
+    return baseSlug;
+  }
+
+  const suffix = `-${attempt + 1}`;
+  return `${baseSlug.slice(0, 80 - suffix.length)}${suffix}`;
+}
+
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23505"
+  );
+}

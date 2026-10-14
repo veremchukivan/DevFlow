@@ -1,0 +1,78 @@
+import {
+  createWorkspaceRequestSchema,
+  workspaceParamsSchema,
+  type WorkspaceListResponse,
+  type WorkspaceResponse
+} from "@devflow/shared";
+import { Router } from "express";
+
+import {
+  type AuthenticatedRequest,
+  requireAuth
+} from "../auth/auth.middleware.js";
+import {
+  createWorkspace,
+  getWorkspace,
+  listWorkspaces
+} from "./workspaces.service.js";
+
+export const workspacesRouter = Router();
+
+workspacesRouter.use(requireAuth);
+
+workspacesRouter.post("/", async (req, res) => {
+  const input = createWorkspaceRequestSchema.parse(req.body);
+  const workspace = await createWorkspace(getAuthenticatedUserId(req), input);
+
+  res.status(201).json(toWorkspaceResponse(workspace));
+});
+
+workspacesRouter.get("/", async (req, res) => {
+  const workspaces = await listWorkspaces(getAuthenticatedUserId(req));
+
+  res.json({
+    workspaces: workspaces.map(toWorkspaceDto)
+  } satisfies WorkspaceListResponse);
+});
+
+workspacesRouter.get("/:workspaceId", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  const workspace = await getWorkspace(
+    getAuthenticatedUserId(req),
+    params.workspaceId
+  );
+
+  res.json(toWorkspaceResponse(workspace));
+});
+
+function getAuthenticatedUserId(req: unknown) {
+  return (req as AuthenticatedRequest).auth.user.id;
+}
+
+function toWorkspaceResponse(
+  workspace: Parameters<typeof toWorkspaceDto>[0]
+): WorkspaceResponse {
+  return {
+    workspace: toWorkspaceDto(workspace)
+  };
+}
+
+function toWorkspaceDto(workspace: {
+  createdAt: Date;
+  id: string;
+  name: string;
+  ownerUserId: string | null;
+  role: "owner" | "admin" | "member" | "viewer";
+  slug: string;
+  updatedAt: Date;
+}) {
+  return {
+    createdAt: workspace.createdAt.toISOString(),
+    id: workspace.id,
+    name: workspace.name,
+    ownerUserId: workspace.ownerUserId,
+    role: workspace.role,
+    slug: workspace.slug,
+    updatedAt: workspace.updatedAt.toISOString()
+  };
+}

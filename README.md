@@ -58,3 +58,9 @@ postgres://devflow:devflow@localhost:5432/devflow
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/me`
 
+## Workspace Endpoints
+
+- `POST /api/v1/workspaces`
+- `GET /api/v1/workspaces`
+- `GET /api/v1/workspaces/:workspaceId`
+
