@@ -7,10 +7,12 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .url()
-    .default("postgres://devflow:devflow@localhost:55432/devflow"),
+    .default("postgres://devflow:devflow@localhost:5432/devflow"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  SESSION_COOKIE_NAME: z.string().min(1).default("devflow_session"),
+  SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
   WEB_ORIGIN: z.url().default("http://localhost:3000")
 });
 

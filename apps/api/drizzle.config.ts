@@ -9,7 +9,7 @@ export default defineConfig({
   dbCredentials: {
     url:
       process.env.DATABASE_URL ??
-      "postgres://devflow:devflow@localhost:55432/devflow"
+      "postgres://devflow:devflow@localhost:5432/devflow"
   },
   strict: true,
   verbose: true

@@ -41,7 +41,7 @@ pnpm db:migrate
 The default local connection string is:
 
 ```txt
-postgres://devflow:devflow@localhost:55432/devflow
+postgres://devflow:devflow@localhost:5432/devflow
 ```
 
 ## Local URLs
@@ -50,4 +50,49 @@ postgres://devflow:devflow@localhost:55432/devflow
 - API: http://localhost:4000
 - API healthcheck: http://localhost:4000/healthz
 - API readiness: http://localhost:4000/readyz
+
+## Auth Endpoints
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
+
+## Workspace Endpoints
+
+- `POST /api/v1/workspaces`
+- `GET /api/v1/workspaces`
+- `GET /api/v1/workspaces/:workspaceId`
+
+## Workspace Member Endpoints
+
+- `GET /api/v1/workspaces/:workspaceId/members`
+- `POST /api/v1/workspaces/:workspaceId/members`
+- `PATCH /api/v1/workspaces/:workspaceId/members/:userId`
+- `DELETE /api/v1/workspaces/:workspaceId/members/:userId`
+
+## Project Endpoints
+
+- `POST /api/v1/workspaces/:workspaceId/projects`
+- `GET /api/v1/workspaces/:workspaceId/projects`
+- `GET /api/v1/workspaces/:workspaceId/projects/:projectId`
+
+## Task Endpoints
+
+- `POST /api/v1/workspaces/:workspaceId/projects/:projectId/tasks`
+- `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks`
+- `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
+- `PATCH /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
+- `DELETE /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId`
+
+## Task Comment Endpoints
+
+- `POST /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments`
+- `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments`
+- `PATCH /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments/:commentId`
+- `DELETE /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments/:commentId`
+
+## Task Activity Endpoints
+
+- `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/activity`
 
