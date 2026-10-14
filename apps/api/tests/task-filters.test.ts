@@ -171,5 +171,79 @@ describe("Task Filtering & Sorting Integration Tests", () => {
     const priorities = res.body.tasks.map((t: { priority: string }) => t.priority);
     expect(priorities).toEqual(["urgent", "high", "medium", "low"]);
   });
+
+  it("enriches task with reporter and assignee user objects", async () => {
+    const res = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${mediumTask.id}`
+      )
+      .set("Cookie", user.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.task.assignee).toEqual({
+      displayName: assignee.displayName,
+      email: assignee.email,
+      id: assignee.user.id
+    });
+    expect(res.body.task.reporter).toEqual({
+      displayName: user.displayName,
+      email: user.email,
+      id: user.user.id
+    });
+  });
+
+  it("returns null for assignee when task is unassigned", async () => {
+    const res = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${lowTask.id}`
+      )
+      .set("Cookie", user.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.task.assignee).toBeNull();
+    expect(res.body.task.reporter).toEqual({
+      displayName: user.displayName,
+      email: user.email,
+      id: user.user.id
+    });
+  });
+
+  it("properly escapes SQL wildcard characters (% and _) in search", async () => {
+    // Create tasks with special characters
+    await createTestTask(app, user.cookie, workspace.id, project.id, {
+      title: "Task 100% complete"
+    });
+    await createTestTask(app, user.cookie, workspace.id, project.id, {
+      title: "Task 1000 items processed"
+    });
+    await createTestTask(app, user.cookie, workspace.id, project.id, {
+      title: "task_special_code"
+    });
+    await createTestTask(app, user.cookie, workspace.id, project.id, {
+      title: "task-special-code"
+    });
+
+    // Search with % wildcard: should only match "Task 100% complete", not "Task 1000 items processed"
+    const pctRes = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks?search=100%`
+      )
+      .set("Cookie", user.cookie);
+
+    expect(pctRes.status).toBe(200);
+    expect(pctRes.body.tasks).toHaveLength(1);
+    expect(pctRes.body.tasks[0].title).toBe("Task 100% complete");
+
+    // Search with _ wildcard: should only match "task_special_code", not "task-special-code"
+    const underRes = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks?search=task_special`
+      )
+      .set("Cookie", user.cookie);
+
+    expect(underRes.status).toBe(200);
+    expect(underRes.body.tasks).toHaveLength(1);
+    expect(underRes.body.tasks[0].title).toBe("task_special_code");
+  });
 });
 

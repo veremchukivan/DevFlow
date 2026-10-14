@@ -103,6 +103,9 @@ function toTaskResponse(task: Parameters<typeof toTaskDto>[0]): TaskResponse {
 }
 
 function toTaskDto(task: {
+  assigneeDisplayName?: string | null;
+  assigneeEmail?: string | null;
+  assigneeId?: string | null;
   assigneeUserId: string | null;
   createdAt: Date;
   description: string | null;
@@ -111,6 +114,9 @@ function toTaskDto(task: {
   priority: "low" | "medium" | "high" | "urgent";
   projectId: string;
   projectKey: string;
+  reporterDisplayName?: string | null;
+  reporterEmail?: string | null;
+  reporterId?: string | null;
   reporterUserId: string | null;
   status: {
     category: "todo" | "in_progress" | "done";
@@ -127,6 +133,14 @@ function toTaskDto(task: {
   workspaceId: string;
 }) {
   return {
+    assignee:
+      task.assigneeId && task.assigneeDisplayName && task.assigneeEmail
+        ? {
+            displayName: task.assigneeDisplayName,
+            email: task.assigneeEmail,
+            id: task.assigneeId
+          }
+        : null,
     assigneeUserId: task.assigneeUserId,
     createdAt: task.createdAt.toISOString(),
     description: task.description,
@@ -135,6 +149,14 @@ function toTaskDto(task: {
     number: task.number,
     priority: task.priority,
     projectId: task.projectId,
+    reporter:
+      task.reporterId && task.reporterDisplayName && task.reporterEmail
+        ? {
+            displayName: task.reporterDisplayName,
+            email: task.reporterEmail,
+            id: task.reporterId
+          }
+        : null,
     reporterUserId: task.reporterUserId,
     status: {
       category: task.status.category,

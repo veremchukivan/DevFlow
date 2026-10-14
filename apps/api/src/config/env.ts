@@ -17,7 +17,8 @@ const envSchema = z.object({
   WEB_ORIGIN: z.url().default("http://localhost:3000"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
-  API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000)
+  API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
+  DB_POOL_MAX: z.coerce.number().int().positive().default(10)
 });
 
 export const env = envSchema.parse(process.env);

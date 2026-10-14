@@ -5,7 +5,7 @@ import { env } from "../../config/env.js";
 import * as schema from "./schema/index.js";
 
 export const postgresClient = postgres(env.DATABASE_URL, {
-  max: 10,
+  max: env.DB_POOL_MAX,
   transform: {
     undefined: null
   }

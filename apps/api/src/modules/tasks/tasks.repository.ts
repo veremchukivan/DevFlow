@@ -9,14 +9,19 @@ import {
   isNull,
   sql
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { type DbExecutor, db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
+import { users } from "../../core/db/schema/users.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
 import { createTaskActivityEvent } from "../task-activity/task-activity.repository.js";
+
+const assigneeUsers = alias(users, "assignee_users");
+const reporterUsers = alias(users, "reporter_users");
 
 type TaskPriority = "low" | "medium" | "high" | "urgent";
 
@@ -211,7 +216,20 @@ export async function createTaskWithNextNumber(input: {
       );
     }
 
-    return task;
+    const createdTask = await findTaskInProject(
+      {
+        projectId: input.projectId,
+        taskId: task.id,
+        workspaceId: input.workspaceId
+      },
+      tx
+    );
+
+    if (!createdTask) {
+      throw new Error("Failed to load created task");
+    }
+
+    return createdTask;
   });
 }
 
@@ -259,7 +277,7 @@ export async function listTasksForProject(input: {
   }
 
   if (f.search !== undefined) {
-    conditions.push(ilike(tasks.title, `%${f.search}%`));
+    conditions.push(ilike(tasks.title, `%${escapeLikePattern(f.search)}%`));
   }
 
   // Build ORDER BY
@@ -395,9 +413,16 @@ export async function softDeleteTaskInProject(
   return task;
 }
 
+function escapeLikePattern(pattern: string): string {
+  return pattern.replace(/[%_\\]/g, "\\$&");
+}
+
 function taskSelect(executor: DbExecutor = db) {
   return executor
     .select({
+      assigneeDisplayName: assigneeUsers.displayName,
+      assigneeEmail: assigneeUsers.email,
+      assigneeId: assigneeUsers.id,
       assigneeUserId: tasks.assigneeUserId,
       createdAt: tasks.createdAt,
       description: tasks.description,
@@ -406,6 +431,9 @@ function taskSelect(executor: DbExecutor = db) {
       priority: tasks.priority,
       projectId: tasks.projectId,
       projectKey: projects.key,
+      reporterDisplayName: reporterUsers.displayName,
+      reporterEmail: reporterUsers.email,
+      reporterId: reporterUsers.id,
       reporterUserId: tasks.reporterUserId,
       statusId: tasks.statusId,
       status: {
@@ -435,6 +463,20 @@ function taskSelect(executor: DbExecutor = db) {
         eq(projectStatuses.id, tasks.statusId),
         eq(projectStatuses.projectId, tasks.projectId),
         eq(projectStatuses.workspaceId, tasks.workspaceId)
+      )
+    )
+    .leftJoin(
+      assigneeUsers,
+      and(
+        eq(assigneeUsers.id, tasks.assigneeUserId),
+        isNull(assigneeUsers.deletedAt)
+      )
+    )
+    .leftJoin(
+      reporterUsers,
+      and(
+        eq(reporterUsers.id, tasks.reporterUserId),
+        isNull(reporterUsers.deletedAt)
       )
     );
 }

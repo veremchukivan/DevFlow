@@ -74,7 +74,14 @@ export const taskStatusSchema = z.object({
   workspaceId: z.uuid()
 });
 
+export const taskUserSchema = z.object({
+  displayName: z.string(),
+  email: z.string().email(),
+  id: z.uuid()
+});
+
 export const taskSchema = z.object({
+  assignee: taskUserSchema.nullable().optional(),
   assigneeUserId: z.uuid().nullable(),
   createdAt: z.string().datetime(),
   description: z.string().nullable(),
@@ -83,6 +90,7 @@ export const taskSchema = z.object({
   number: z.number(),
   priority: taskPrioritySchema,
   projectId: z.uuid(),
+  reporter: taskUserSchema.nullable().optional(),
   reporterUserId: z.uuid().nullable(),
   status: taskStatusSchema,
   statusId: z.uuid(),
@@ -103,6 +111,7 @@ export const taskListResponseSchema = z.object({
 export type CreateTaskRequest = z.infer<typeof createTaskRequestSchema>;
 export type UpdateTaskRequest = z.infer<typeof updateTaskRequestSchema>;
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
+export type TaskUser = z.infer<typeof taskUserSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type TaskResponse = z.infer<typeof taskResponseSchema>;
 export type TaskListResponse = z.infer<typeof taskListResponseSchema>;
