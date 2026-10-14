@@ -5,5 +5,6 @@ export * from "./task-activity-events.js";
 export * from "./task-comments.js";
 export * from "./tasks.js";
 export * from "./users.js";
+export * from "./workspace-invitations.js";
 export * from "./workspace-members.js";
 export * from "./workspaces.js";

@@ -15,8 +15,9 @@ export type Permission =
   | "comment:create"
   | "comment:update"
   | "comment:delete"
-  // Members
-  | "member:manage";
+  // Members and Invitations
+  | "member:manage"
+  | "invitation:manage";
 
 // ---------------------------------------------------------------------------
 // Role → permission matrix (single source of truth for RBAC)
@@ -45,8 +46,9 @@ const ROLE_PERMISSIONS: Record<Permission, readonly WorkspaceRole[]> = {
   "comment:update": ["owner", "admin"],
   "comment:delete": ["owner", "admin"],
 
-  // Workspace member management (invite, update role/status, remove)
+  // Workspace member and invitation management (invite, cancel invite, update role/status, remove)
   "member:manage": ["owner", "admin"],
+  "invitation:manage": ["owner", "admin"],
 };
 
 // ---------------------------------------------------------------------------
@@ -67,3 +69,4 @@ const ROLE_PERMISSIONS: Record<Permission, readonly WorkspaceRole[]> = {
 export function can(role: WorkspaceRole, permission: Permission): boolean {
   return (ROLE_PERMISSIONS[permission] as WorkspaceRole[]).includes(role);
 }
+

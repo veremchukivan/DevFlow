@@ -71,6 +71,16 @@ postgres://devflow:devflow@localhost:5432/devflow
 - `PATCH /api/v1/workspaces/:workspaceId/members/:userId`
 - `DELETE /api/v1/workspaces/:workspaceId/members/:userId`
 
+## Workspace Invitation Endpoints
+
+- `POST /api/v1/workspaces/:workspaceId/invitations`
+- `GET /api/v1/workspaces/:workspaceId/invitations`
+- `DELETE /api/v1/workspaces/:workspaceId/invitations/:invitationId`
+- `POST /api/v1/workspaces/:workspaceId/invitations/:invitationId/resend`
+- `GET /api/v1/invitations/:token`
+- `POST /api/v1/invitations/:token/accept`
+- `POST /api/v1/invitations/:token/decline`
+
 ## Project Endpoints
 
 - `POST /api/v1/workspaces/:workspaceId/projects`
