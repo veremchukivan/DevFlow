@@ -1,6 +1,7 @@
 import type { CreateTaskRequest, UpdateTaskRequest } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   canCreateTask,
   canDeleteTask,
@@ -61,6 +62,18 @@ export async function createTask(input: {
         reporterUserId: input.userId,
         statusId: status.id,
         title: input.input.title,
+        workspaceId: input.workspaceId
+      });
+
+      await recordTaskActivity({
+        actorUserId: input.userId,
+        data: {
+          taskKey: `${project.key}-${task.number}`,
+          title: task.title
+        },
+        eventType: "task_created",
+        projectId: input.projectId,
+        taskId: task.id,
         workspaceId: input.workspaceId
       });
 
@@ -130,7 +143,7 @@ export async function updateTask(input: {
   }
 
   await requireProject(input);
-  await requireTask(input);
+  const existingTask = await requireTask(input);
 
   if (input.input.statusId) {
     await resolveTaskStatus({
@@ -164,6 +177,19 @@ export async function updateTask(input: {
     throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
   }
 
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: {
+      fields: updatedTaskFields(input.input),
+      taskKey: `${existingTask.projectKey}-${existingTask.number}`,
+      title: updatedTask.title
+    },
+    eventType: "task_updated",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
+
   return updatedTask;
 }
 
@@ -184,13 +210,25 @@ export async function deleteTask(input: {
   }
 
   await requireProject(input);
-  await requireTask(input);
+  const task = await requireTask(input);
 
   const deletedTask = await softDeleteTaskInProject(input);
 
   if (!deletedTask) {
     throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
   }
+
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: {
+      taskKey: `${task.projectKey}-${task.number}`,
+      title: task.title
+    },
+    eventType: "task_deleted",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
 }
 
 async function requireWorkspaceMembership(input: {
@@ -291,4 +329,8 @@ function isUniqueViolation(error: unknown) {
     "code" in error &&
     error.code === "23505"
   );
+}
+
+function updatedTaskFields(input: UpdateTaskRequest) {
+  return Object.keys(input).sort();
 }

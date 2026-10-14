@@ -4,6 +4,7 @@ import type {
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   canCreateTaskComment,
   canDeleteTaskComment,
@@ -49,6 +50,17 @@ export async function createComment(input: {
   if (!comment) {
     throw new Error("Failed to load task comment");
   }
+
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: {
+      commentId: comment.id
+    },
+    eventType: "task_comment_created",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
 
   return comment;
 }
@@ -103,6 +115,17 @@ export async function updateComment(input: {
     throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
   }
 
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: {
+      commentId: input.commentId
+    },
+    eventType: "task_comment_updated",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
+
   return updatedComment;
 }
 
@@ -136,6 +159,17 @@ export async function deleteComment(input: {
   if (!deletedComment) {
     throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
   }
+
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: {
+      commentId: input.commentId
+    },
+    eventType: "task_comment_deleted",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId
+  });
 }
 
 async function requireWorkspaceMembership(input: {
