@@ -6,6 +6,7 @@ import { env } from "./config/env.js";
 import { errorHandler } from "./core/http/error-handler.js";
 import { requestLogger } from "./core/http/request-logger.js";
 import { healthRouter } from "./modules/health/health.routes.js";
+import { readinessRouter } from "./modules/health/readiness.routes.js";
 
 export function createApp() {
   const app = express();
@@ -28,6 +29,7 @@ export function createApp() {
   });
 
   app.use("/healthz", healthRouter);
+  app.use("/readyz", readinessRouter);
   app.use(errorHandler);
 
   return app;

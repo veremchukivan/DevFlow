@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:push": "drizzle-kit push --config drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config drizzle.config.ts",
     "dev": "tsx watch src/main.ts",
     "lint": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/main.js",
@@ -14,18 +18,20 @@
     "@devflow/shared": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
+    "drizzle-orm": "^0.45.4",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "pino": "^9.8.0",
     "pino-http": "^10.5.0",
+    "postgres": "^3.4.9",
     "zod": "^4.0.17"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.0",
+    "drizzle-kit": "^0.31.11",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   }
 }
-
