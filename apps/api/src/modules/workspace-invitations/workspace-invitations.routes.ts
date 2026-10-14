@@ -187,3 +187,4 @@ function toWorkspaceInvitationDto(invitation: {
     workspaceId: invitation.workspaceId
   };
 }
+

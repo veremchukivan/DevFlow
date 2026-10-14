@@ -113,3 +113,4 @@ export type PublicWorkspaceInvitationResponse = z.infer<
 export type AcceptInvitationResponse = z.infer<
   typeof acceptInvitationResponseSchema
 >;
+

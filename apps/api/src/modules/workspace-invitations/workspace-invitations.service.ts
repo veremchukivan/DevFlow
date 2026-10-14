@@ -383,3 +383,4 @@ function getInvitationExpiresAt() {
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
+

@@ -50,3 +50,4 @@ export const workspaceInvitations = pgTable(
 
 export type WorkspaceInvitation = typeof workspaceInvitations.$inferSelect;
 export type NewWorkspaceInvitation = typeof workspaceInvitations.$inferInsert;
+
