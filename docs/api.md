@@ -345,9 +345,15 @@ GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks?priority=high&sort
 
 Update task:
 
+Task creation, retrieval, and successful updates return an `ETag` header such
+as `"1"`. Send that exact value in `If-Match` for every update or archive
+request. A stale version returns `409 TASK_VERSION_CONFLICT`; a missing version
+returns `428 TASK_VERSION_REQUIRED`.
+
 ```http
 PATCH /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId
 Content-Type: application/json
+If-Match: "1"
 ```
 
 ```json
@@ -361,6 +367,7 @@ Archive task:
 
 ```http
 DELETE /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId
+If-Match: "1"
 ```
 
 ## Comments

@@ -7,6 +7,7 @@ import {
   cleanupDatabase,
   createTestApp,
   createTestProject,
+  createTestTask,
   createTestUser,
   createTestWorkspace,
   db,
@@ -81,5 +82,70 @@ describe("Concurrency and Data Integrity Integration Tests", () => {
     const statuses = [res1.status, res2.status].sort();
     // One must succeed (201) and one must be rejected (409 conflict)
     expect(statuses).toEqual([201, 409]);
+  });
+
+  it("prevents concurrent task updates from overwriting each other", async () => {
+    const owner = await createTestUser(app);
+    const workspace = await createTestWorkspace(app, owner.cookie);
+    const project = await createTestProject(app, owner.cookie, workspace.id);
+    const task = await createTestTask(
+      app,
+      owner.cookie,
+      workspace.id,
+      project.id
+    );
+    const url = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`;
+
+    const [firstUpdate, secondUpdate] = await Promise.all([
+      request(app)
+        .patch(url)
+        .set("Cookie", owner.cookie)
+        .set("If-Match", `"${task.version}"`)
+        .send({ title: "First concurrent update" }),
+      request(app)
+        .patch(url)
+        .set("Cookie", owner.cookie)
+        .set("If-Match", `"${task.version}"`)
+        .send({ title: "Second concurrent update" })
+    ]);
+
+    const statuses = [firstUpdate.status, secondUpdate.status].sort();
+    expect(statuses).toEqual([200, 409]);
+
+    const successfulUpdate = [firstUpdate, secondUpdate].find(
+      (response) => response.status === 200
+    );
+    expect(successfulUpdate?.headers.etag).toBe('"2"');
+    expect(successfulUpdate?.body.task.version).toBe(2);
+
+    const taskUpdatedEvents = await db
+      .select()
+      .from(taskActivityEvents)
+      .where(eq(taskActivityEvents.taskId, task.id));
+    expect(
+      taskUpdatedEvents.filter((event) => event.eventType === "task_updated")
+    ).toHaveLength(1);
+  });
+
+  it("requires the current task ETag for a mutation", async () => {
+    const owner = await createTestUser(app);
+    const workspace = await createTestWorkspace(app, owner.cookie);
+    const project = await createTestProject(app, owner.cookie, workspace.id);
+    const task = await createTestTask(
+      app,
+      owner.cookie,
+      workspace.id,
+      project.id
+    );
+
+    const response = await request(app)
+      .patch(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`
+      )
+      .set("Cookie", owner.cookie)
+      .send({ title: "Missing precondition" });
+
+    expect(response.status).toBe(428);
+    expect(response.body.error.code).toBe("TASK_VERSION_REQUIRED");
   });
 });

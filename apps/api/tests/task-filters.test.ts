@@ -79,7 +79,8 @@ describe("Task Filtering & Sorting Integration Tests", () => {
       .delete(
         `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${archivedTask.id}`
       )
-      .set("Cookie", user.cookie);
+      .set("Cookie", user.cookie)
+      .set("If-Match", `"${archivedTask.version}"`);
   });
 
   afterAll(async () => {

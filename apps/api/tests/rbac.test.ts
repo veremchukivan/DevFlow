@@ -112,6 +112,7 @@ describe("RBAC Permissions Integration Tests", () => {
           `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`
         )
         .set("Cookie", member.cookie)
+        .set("If-Match", `"${task.version}"`)
         .send({ title: "Updated by member" });
 
       expect(res.status).toBe(200);
@@ -123,7 +124,8 @@ describe("RBAC Permissions Integration Tests", () => {
         .delete(
           `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`
         )
-        .set("Cookie", member.cookie);
+        .set("Cookie", member.cookie)
+        .set("If-Match", `"${task.version}"`);
 
       expect(res.status).toBe(403);
       expect(res.body.error.code).toBe("TASK_DELETE_FORBIDDEN");
@@ -145,6 +147,7 @@ describe("RBAC Permissions Integration Tests", () => {
           `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`
         )
         .set("Cookie", viewer.cookie)
+        .set("If-Match", `"${task.version}"`)
         .send({ title: "Hacked by viewer" });
 
       expect(res.status).toBe(403);
@@ -164,7 +167,8 @@ describe("RBAC Permissions Integration Tests", () => {
         .delete(
           `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${taskToDelete.id}`
         )
-        .set("Cookie", admin.cookie);
+        .set("Cookie", admin.cookie)
+        .set("If-Match", `"${taskToDelete.version}"`);
 
       expect(res.status).toBe(204);
     });

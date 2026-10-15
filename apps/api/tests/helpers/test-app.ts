@@ -206,6 +206,7 @@ export async function createTestTask(
     statusId: string;
     title: string;
     updatedAt: string;
+    version: number;
     workspaceId: string;
   };
 }

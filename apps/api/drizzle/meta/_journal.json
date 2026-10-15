@@ -64,6 +64,13 @@
       "when": 1792098120578,
       "tag": "0008_sweet_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792099170510,
+      "tag": "0009_sweet_nomad",
+      "breakpoints": true
     }
   ]
 }
