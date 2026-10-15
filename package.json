@@ -17,6 +17,8 @@
     "db:test:prepare": "pnpm --filter @devflow/api db:test:prepare",
     "dev": "pnpm --filter @devflow/shared build && turbo dev",
     "infra:down": "docker compose --env-file .env -f infra/docker/docker-compose.yml down",
+    "infra:up:integrations": "docker compose --env-file .env -f infra/docker/docker-compose.yml --profile integrations up -d --build",
+    "infra:up:proxy": "docker compose --env-file .env -f infra/docker/docker-compose.yml --profile proxy up -d --build",
     "infra:up": "docker compose --env-file .env -f infra/docker/docker-compose.yml up -d --build",
     "lint": "turbo lint",
     "test": "turbo test",

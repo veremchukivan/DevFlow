@@ -21,18 +21,19 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - devflow_postgres_data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   redis:
     image: redis:7-alpine
     container_name: devflow-redis
     restart: unless-stopped
+    profiles: ["integrations"]
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
     volumes:
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ../redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - devflow_redis_data:/data
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -43,6 +44,7 @@ services:
     image: axllent/mailpit:latest
     container_name: devflow-mailpit
     restart: unless-stopped
+    profiles: ["integrations"]
     ports:
       - "127.0.0.1:8025:8025" # Web UI to view intercepted emails
       - "127.0.0.1:1025:1025" # SMTP port
@@ -91,8 +93,6 @@ services:
     depends_on:
       api-migrate:
         condition: service_completed_successfully
-      redis:
-        condition: service_healthy
 
   web:
     build:
@@ -114,11 +114,12 @@ services:
     image: nginx:1.27-alpine
     container_name: devflow-proxy
     restart: unless-stopped
+    profiles: ["proxy"]
     ports:
       - "127.0.0.1:${PROXY_PORT:-8080}:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       api:
         condition: service_healthy
