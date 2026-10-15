@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, lte } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { sessions } from "../../core/db/schema/sessions.js";
@@ -92,4 +92,11 @@ export async function touchSession(sessionId: string) {
 
 export async function deleteSessionByTokenHash(tokenHash: string) {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+}
+
+export async function deleteExpiredSessions(now = new Date()) {
+  return db
+    .delete(sessions)
+    .where(lte(sessions.expiresAt, now))
+    .returning({ id: sessions.id });
 }

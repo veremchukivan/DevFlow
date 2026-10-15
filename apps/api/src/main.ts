@@ -8,6 +8,12 @@ import {
 async function start() {
   await connectRedis();
   const { createApp } = await import("./app.js");
+  const { purgeExpiredSessions, scheduleSessionCleanup } = await import(
+    "./modules/auth/session-cleanup.js"
+  );
+
+  await purgeExpiredSessions();
+  const stopSessionCleanup = scheduleSessionCleanup();
 
   const app = createApp();
   const server = app.listen(env.API_PORT, () => {
@@ -23,6 +29,7 @@ async function start() {
 
     isShuttingDown = true;
     console.log(`Received ${signal}, shutting down DevFlow API`);
+    stopSessionCleanup();
 
     server.close(async (error) => {
       await Promise.all([closeDbConnection(), closeRedisConnection()]);
