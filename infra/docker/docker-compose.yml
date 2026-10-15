@@ -1,0 +1,179 @@
+name: devflow
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: devflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:?Set POSTGRES_MIGRATOR_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:?Set POSTGRES_RUNTIME_PASSWORD in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+    healthcheck:
+      # Use $$VAR so Docker passes the literal $VAR to the shell inside the container,
+      # which then reads it from the container's own environment (POSTGRES_USER / POSTGRES_DB).
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - devflow_postgres_data:/var/lib/postgresql/data
+      - ../postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  db-bootstrap:
+    image: postgres:17-alpine
+    container_name: devflow-db-bootstrap
+    command:
+      [
+        "sh",
+        "-ec",
+        "psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -v ON_ERROR_STOP=1 -f /bootstrap/init.sql"
+      ]
+    restart: "no"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:?Set POSTGRES_MIGRATOR_PASSWORD in .env}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:?Set POSTGRES_RUNTIME_PASSWORD in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+    volumes:
+      - ../postgres/init.sql:/bootstrap/init.sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: devflow-redis
+    restart: unless-stopped
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ../redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - devflow_redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: devflow-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025" # Web UI to view intercepted emails
+      - "127.0.0.1:1025:1025" # SMTP port
+    volumes:
+      - devflow_mailpit_data:/data
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_DATA_FILE: /data/mailpit.db
+
+  api-migrate:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: devflow-api-migrate
+    command: ["node", "dist/core/db/migrate.js"]
+    restart: "no"
+    environment:
+      API_PORT: 4000
+      DATABASE_URL: ${DOCKER_MIGRATION_DATABASE_URL:?Set DOCKER_MIGRATION_DATABASE_URL in .env}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
+      NODE_ENV: production
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
+      EMAIL_VERIFICATION_TTL_HOURS: ${EMAIL_VERIFICATION_TTL_HOURS:-24}
+      PASSWORD_RESET_TTL_HOURS: ${PASSWORD_RESET_TTL_HOURS:-1}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
+      SMTP_FROM: ${SMTP_FROM:-DevFlow <no-reply@devflow.local>}
+      SMTP_HOST: ${DOCKER_SMTP_HOST:-mailpit}
+      SMTP_PORT: ${DOCKER_SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: devflow-api
+    restart: unless-stopped
+    environment:
+      API_PORT: 4000
+      DATABASE_URL: ${DOCKER_RUNTIME_DATABASE_URL:?Set DOCKER_RUNTIME_DATABASE_URL in .env}
+      INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
+      NODE_ENV: production
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
+      EMAIL_VERIFICATION_TTL_HOURS: ${EMAIL_VERIFICATION_TTL_HOURS:-24}
+      PASSWORD_RESET_TTL_HOURS: ${PASSWORD_RESET_TTL_HOURS:-1}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
+      SMTP_FROM: ${SMTP_FROM:-DevFlow <no-reply@devflow.local>}
+      SMTP_HOST: ${DOCKER_SMTP_HOST:-mailpit}
+      SMTP_PORT: ${DOCKER_SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      api-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: devflow-web
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      # NEXT_PUBLIC_API_URL is the URL the browser uses to reach the API.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3001}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: devflow-proxy
+    restart: unless-stopped
+    profiles: ["proxy"]
+    ports:
+      - "127.0.0.1:${PROXY_PORT:-8080}:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
+volumes:
+  devflow_postgres_data:
+  devflow_redis_data:
+  devflow_mailpit_data:

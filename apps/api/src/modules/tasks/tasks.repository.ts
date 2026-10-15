@@ -365,18 +365,23 @@ export async function updateTaskInProject(
     statusId?: string;
     taskId: string;
     title?: string;
+    version: number;
     workspaceId: string;
   },
   executor: DbExecutor = db
 ) {
   const [task] = await executor
     .update(tasks)
-    .set(toTaskUpdateValues(input))
+    .set({
+      ...toTaskUpdateValues(input),
+      version: sql`${tasks.version} + 1`
+    })
     .where(
       and(
         eq(tasks.id, input.taskId),
         eq(tasks.workspaceId, input.workspaceId),
         eq(tasks.projectId, input.projectId),
+        eq(tasks.version, input.version),
         isNull(tasks.deletedAt)
       )
     )
@@ -389,6 +394,7 @@ export async function softDeleteTaskInProject(
   input: {
     projectId: string;
     taskId: string;
+    version: number;
     workspaceId: string;
   },
   executor: DbExecutor = db
@@ -398,13 +404,15 @@ export async function softDeleteTaskInProject(
     .update(tasks)
     .set({
       deletedAt: now,
-      updatedAt: now
+      updatedAt: now,
+      version: sql`${tasks.version} + 1`
     })
     .where(
       and(
         eq(tasks.id, input.taskId),
         eq(tasks.workspaceId, input.workspaceId),
         eq(tasks.projectId, input.projectId),
+        eq(tasks.version, input.version),
         isNull(tasks.deletedAt)
       )
     )
@@ -447,6 +455,7 @@ function taskSelect(executor: DbExecutor = db) {
       },
       title: tasks.title,
       updatedAt: tasks.updatedAt,
+      version: tasks.version,
       workspaceId: tasks.workspaceId
     })
     .from(tasks)

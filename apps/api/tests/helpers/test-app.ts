@@ -69,6 +69,7 @@ export async function createTestUser(
       displayName: string;
       email: string;
       id: string;
+      isEmailVerified: boolean;
       isPlatformAdmin: boolean;
     }
   };
@@ -205,6 +206,7 @@ export async function createTestTask(
     statusId: string;
     title: string;
     updatedAt: string;
+    version: number;
     workspaceId: string;
   };
 }

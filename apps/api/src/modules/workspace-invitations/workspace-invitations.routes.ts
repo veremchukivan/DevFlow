@@ -17,6 +17,9 @@ import {
 } from "@devflow/shared";
 import { Router } from "express";
 
+import { env } from "../../config/env.js";
+import { sendWorkspaceInvitationEmail } from "../../core/email/mailer.js";
+import { AppError } from "../../core/errors/app-error.js";
 import {
   type AuthenticatedRequest,
   requireAuth
@@ -48,10 +51,9 @@ workspaceInvitationsRouter.post("/", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
-  res.status(201).json({
-    invitation: toWorkspaceInvitationDto(result.invitation),
-    token: result.token
-  } satisfies CreateWorkspaceInvitationResponse);
+  await deliverInvitation(result);
+
+  res.status(201).json(toInvitationResponse(result));
 });
 
 workspaceInvitationsRouter.get("/", async (req, res) => {
@@ -88,10 +90,9 @@ workspaceInvitationsRouter.post("/:invitationId/resend", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
-  res.json({
-    invitation: toWorkspaceInvitationDto(result.invitation),
-    token: result.token
-  } satisfies CreateWorkspaceInvitationResponse);
+  await deliverInvitation(result);
+
+  res.json(toInvitationResponse(result));
 });
 
 // ---------------------------------------------------------------------------
@@ -152,6 +153,58 @@ function getAuthenticatedUserId(req: unknown) {
 
 function getAuthenticatedUser(req: unknown) {
   return (req as AuthenticatedRequest).auth.user;
+}
+
+async function deliverInvitation(result: {
+  invitation: Parameters<typeof toWorkspaceInvitationDto>[0];
+  token: string;
+  workspace: {
+    name: string;
+  };
+}) {
+  try {
+    await sendWorkspaceInvitationEmail({
+      email: result.invitation.email,
+      expiresAt: result.invitation.expiresAt,
+      inviterDisplayName: result.invitation.invitedBy?.displayName ?? null,
+      role: result.invitation.role,
+      token: result.token,
+      workspaceName: result.workspace.name
+    });
+  } catch (error) {
+    console.error("Workspace invitation delivery failed", {
+      error,
+      invitationId: result.invitation.id
+    });
+    throw new AppError(
+      502,
+      "INVITATION_DELIVERY_FAILED",
+      "The invitation was created, but the email could not be delivered. Resend it after resolving the email configuration."
+    );
+  }
+}
+
+function toInvitationResponse(result: {
+  invitation: Parameters<typeof toWorkspaceInvitationDto>[0];
+  token: string;
+}): CreateWorkspaceInvitationResponse {
+  const response = {
+    invitation: toWorkspaceInvitationDto(result.invitation)
+  };
+
+  // Production must deliver the raw token through an email provider, not JSON.
+  if (!shouldExposeInvitationToken(env.NODE_ENV)) {
+    return response;
+  }
+
+  return {
+    ...response,
+    token: result.token
+  };
+}
+
+export function shouldExposeInvitationToken(nodeEnv: string) {
+  return nodeEnv === "development" || nodeEnv === "test";
 }
 
 function toWorkspaceInvitationDto(invitation: {

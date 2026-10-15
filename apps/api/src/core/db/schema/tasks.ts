@@ -44,6 +44,7 @@ export const tasks = pgTable(
     reporterUserId: uuid("reporter_user_id").references(() => users.id, {
       onDelete: "set null"
     }),
+    version: integer("version").notNull().default(1),
     ...timestampColumns(),
     ...softDeleteColumn()
   },

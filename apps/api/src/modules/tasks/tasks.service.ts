@@ -127,6 +127,7 @@ export async function getTask(input: {
 }
 
 export async function updateTask(input: {
+  expectedVersion: number;
   input: UpdateTaskRequest;
   projectId: string;
   taskId: string;
@@ -162,7 +163,7 @@ export async function updateTask(input: {
   }
 
   return db.transaction(async (tx) => {
-    await updateTaskInProject(
+    const updatedTask = await updateTaskInProject(
       {
         assigneeUserId: input.input.assigneeUserId,
         description: input.input.description,
@@ -171,14 +172,19 @@ export async function updateTask(input: {
         statusId: input.input.statusId,
         taskId: input.taskId,
         title: input.input.title,
+        version: input.expectedVersion,
         workspaceId: input.workspaceId
       },
       tx
     );
 
-    const updatedTask = await findTaskInProject(input, tx);
-
     if (!updatedTask) {
+      throw taskVersionConflictError();
+    }
+
+    const updatedTaskWithRelations = await findTaskInProject(input, tx);
+
+    if (!updatedTaskWithRelations) {
       throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
     }
 
@@ -188,7 +194,7 @@ export async function updateTask(input: {
         data: {
           fields: updatedTaskFields(input.input),
           taskKey: `${existingTask.projectKey}-${existingTask.number}`,
-          title: updatedTask.title
+          title: updatedTaskWithRelations.title
         },
         eventType: "task_updated",
         projectId: input.projectId,
@@ -198,11 +204,12 @@ export async function updateTask(input: {
       tx
     );
 
-    return updatedTask;
+    return updatedTaskWithRelations;
   });
 }
 
 export async function deleteTask(input: {
+  expectedVersion: number;
   projectId: string;
   taskId: string;
   userId: string;
@@ -222,10 +229,16 @@ export async function deleteTask(input: {
   const task = await requireTask(input);
 
   return db.transaction(async (tx) => {
-    const deletedTask = await softDeleteTaskInProject(input, tx);
+    const deletedTask = await softDeleteTaskInProject(
+      {
+        ...input,
+        version: input.expectedVersion
+      },
+      tx
+    );
 
     if (!deletedTask) {
-      throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
+      throw taskVersionConflictError();
     }
 
     await recordTaskActivity(
@@ -243,6 +256,14 @@ export async function deleteTask(input: {
       tx
     );
   });
+}
+
+function taskVersionConflictError() {
+  return new AppError(
+    409,
+    "TASK_VERSION_CONFLICT",
+    "This task was changed by another user. Refresh it and try again."
+  );
 }
 
 async function requireWorkspaceMembership(input: {

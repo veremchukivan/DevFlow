@@ -1,8 +1,12 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
+import { and, eq, isNull } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { authTokens } from "../src/core/db/schema/auth-tokens.js";
 import { sessions } from "../src/core/db/schema/sessions.js";
+import { users } from "../src/core/db/schema/users.js";
+import { issueEmailVerificationToken } from "../src/modules/auth/auth.service.js";
 import {
   cleanupDatabase,
   createTestApp,
@@ -30,9 +34,11 @@ describe("Auth Module Integration Tests", () => {
     expect(res.body.user).toMatchObject({
       displayName: "Alice Developer",
       email: "alice@devflow.io",
+      isEmailVerified: false,
       isPlatformAdmin: false
     });
     expect(res.body.user.id).toBeDefined();
+    expect(res.body.token).toBeUndefined();
 
     const cookies = res.headers["set-cookie"];
     expect(cookies).toBeDefined();
@@ -163,6 +169,77 @@ describe("Auth Module Integration Tests", () => {
     expect(sessionAfter?.lastSeenAt.getTime()).toBe(
       sessionBefore?.lastSeenAt.getTime()
     );
+  });
+
+  it("replaces an active verification token when a signed-in user requests another email", async () => {
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: "alice@devflow.io",
+        password: "Password123!"
+      });
+    const cookie = loginRes.headers["set-cookie"][0];
+
+    const resendRes = await request(app)
+      .post("/api/v1/auth/email-verification/resend")
+      .set("Cookie", cookie);
+
+    expect(resendRes.status).toBe(204);
+
+    const activeTokens = await db
+      .select()
+      .from(authTokens)
+      .where(
+        and(
+          eq(authTokens.type, "email_verification"),
+          isNull(authTokens.consumedAt)
+        )
+      );
+    expect(activeTokens).toHaveLength(1);
+  });
+
+  it("verifies an email once and rejects reused verification links", async () => {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.emailNormalized, "alice@devflow.io"));
+    expect(user).toBeDefined();
+
+    const firstToken = await issueEmailVerificationToken(user!);
+    const secondToken = await issueEmailVerificationToken(user!);
+
+    const staleTokenRes = await request(app)
+      .post("/api/v1/auth/email-verification/confirm")
+      .send({ token: firstToken });
+    expect(staleTokenRes.status).toBe(400);
+    expect(staleTokenRes.body.error.code).toBe(
+      "INVALID_EMAIL_VERIFICATION_TOKEN"
+    );
+
+    const verificationRes = await request(app)
+      .post("/api/v1/auth/email-verification/confirm")
+      .send({ token: secondToken });
+    expect(verificationRes.status).toBe(204);
+
+    const reusedTokenRes = await request(app)
+      .post("/api/v1/auth/email-verification/confirm")
+      .send({ token: secondToken });
+    expect(reusedTokenRes.status).toBe(400);
+    expect(reusedTokenRes.body.error.code).toBe(
+      "INVALID_EMAIL_VERIFICATION_TOKEN"
+    );
+
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: "alice@devflow.io",
+        password: "Password123!"
+      });
+    const cookie = loginRes.headers["set-cookie"][0];
+    const meRes = await request(app).get("/api/v1/auth/me").set("Cookie", cookie);
+
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.user.isEmailVerified).toBe(true);
   });
 
   it("enforces rate limit when requests exceed limit threshold", async () => {

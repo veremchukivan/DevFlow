@@ -3,13 +3,18 @@ import { createHash, randomBytes } from "node:crypto";
 import type { LoginRequest, RegisterRequest } from "@devflow/shared";
 
 import { env } from "../../config/env.js";
+import type { User } from "../../core/db/schema/users.js";
 import { AppError } from "../../core/errors/app-error.js";
 import {
   createSession,
   createUser,
+  consumeEmailVerificationToken,
+  consumePasswordResetToken,
   deleteSessionByTokenHash,
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
+  replaceEmailVerificationToken,
+  replacePasswordResetToken,
   touchSession,
   type SessionUser
 } from "./auth.repository.js";
@@ -34,6 +39,7 @@ type RequestMeta = {
 };
 
 type AuthResult = {
+  emailVerificationToken?: string;
   sessionExpiresAt: Date;
   sessionToken: string;
   user: SessionUser;
@@ -65,7 +71,13 @@ export async function register(
     passwordHash
   });
 
-  return createAuthResult(user, meta);
+  const result = await createAuthResult(user, meta);
+
+  return {
+    ...result,
+    emailVerificationToken:
+      (await issueEmailVerificationToken(user)) ?? undefined
+  };
 }
 
 export async function login(
@@ -106,6 +118,84 @@ export async function logout(sessionToken: string) {
   await deleteSessionByTokenHash(hashSessionToken(sessionToken));
 }
 
+export async function issueEmailVerificationToken(user: SessionUser) {
+  if (user.emailVerifiedAt) {
+    return null;
+  }
+
+  const token = generateAuthToken();
+
+  await replaceEmailVerificationToken({
+    expiresAt: getEmailVerificationExpiresAt(),
+    tokenHash: hashToken(token),
+    userId: user.id
+  });
+
+  return token;
+}
+
+export async function verifyEmail(token: string) {
+  const user = await consumeEmailVerificationToken(hashToken(token));
+
+  if (!user) {
+    throw new AppError(
+      400,
+      "INVALID_EMAIL_VERIFICATION_TOKEN",
+      "This email verification link is invalid or has expired"
+    );
+  }
+
+  return user;
+}
+
+export async function requestPasswordReset(email: string) {
+  const user = await findUserByEmailNormalized(normalizeEmail(email));
+
+  if (!user?.passwordHash) {
+    return null;
+  }
+
+  const token = await issuePasswordResetToken(user);
+
+  return {
+    token,
+    user
+  };
+}
+
+export async function issuePasswordResetToken(user: Pick<User, "id">) {
+  const token = generateAuthToken();
+
+  await replacePasswordResetToken({
+    expiresAt: getPasswordResetExpiresAt(),
+    tokenHash: hashToken(token),
+    userId: user.id
+  });
+
+  return token;
+}
+
+export async function resetPassword(input: {
+  password: string;
+  token: string;
+}) {
+  const passwordHash = await argon2.hash(input.password, {
+    type: argon2.argon2id
+  });
+  const user = await consumePasswordResetToken({
+    passwordHash,
+    tokenHash: hashToken(input.token)
+  });
+
+  if (!user) {
+    throw new AppError(
+      400,
+      "INVALID_PASSWORD_RESET_TOKEN",
+      "This password reset link is invalid or has expired"
+    );
+  }
+}
+
 async function createAuthResult(
   user: SessionUser,
   meta: RequestMeta
@@ -129,16 +219,38 @@ async function createAuthResult(
 }
 
 function generateSessionToken() {
-  return randomBytes(sessionTokenBytes).toString("base64url");
+  return generateAuthToken();
 }
 
 function hashSessionToken(token: string) {
+  return hashToken(token);
+}
+
+function generateAuthToken() {
+  return randomBytes(sessionTokenBytes).toString("base64url");
+}
+
+function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
 function getSessionExpiresAt() {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + env.SESSION_TTL_DAYS);
+  return expiresAt;
+}
+
+function getEmailVerificationExpiresAt() {
+  const expiresAt = new Date();
+  expiresAt.setHours(
+    expiresAt.getHours() + env.EMAIL_VERIFICATION_TTL_HOURS
+  );
+  return expiresAt;
+}
+
+function getPasswordResetExpiresAt() {
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + env.PASSWORD_RESET_TTL_HOURS);
   return expiresAt;
 }
 

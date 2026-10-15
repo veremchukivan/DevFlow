@@ -106,7 +106,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/api/Dockerfile
+          file: infra/docker/api.Dockerfile
           push: false
           tags: devflow-api:test
 
@@ -114,6 +114,6 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/web/Dockerfile
+          file: infra/docker/web.Dockerfile
           push: false
           tags: devflow-web:test

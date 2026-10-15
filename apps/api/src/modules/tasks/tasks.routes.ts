@@ -9,6 +9,7 @@ import {
 } from "@devflow/shared";
 import { Router } from "express";
 
+import { AppError } from "../../core/errors/app-error.js";
 import {
   type AuthenticatedRequest,
   requireAuth
@@ -35,6 +36,7 @@ tasksRouter.post("/", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
+  res.set("ETag", toTaskEtag(task.version));
   res.status(201).json(toTaskResponse(task));
 });
 
@@ -63,6 +65,7 @@ tasksRouter.get("/:taskId", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
+  res.set("ETag", toTaskEtag(task.version));
   res.json(toTaskResponse(task));
 });
 
@@ -70,6 +73,7 @@ tasksRouter.patch("/:taskId", async (req, res) => {
   const params = taskParamsSchema.parse(req.params);
   const input = updateTaskRequestSchema.parse(req.body);
   const task = await updateTask({
+    expectedVersion: getExpectedTaskVersion(req),
     input,
     projectId: params.projectId,
     taskId: params.taskId,
@@ -77,12 +81,14 @@ tasksRouter.patch("/:taskId", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
+  res.set("ETag", toTaskEtag(task.version));
   res.json(toTaskResponse(task));
 });
 
 tasksRouter.delete("/:taskId", async (req, res) => {
   const params = taskParamsSchema.parse(req.params);
   await deleteTask({
+    expectedVersion: getExpectedTaskVersion(req),
     projectId: params.projectId,
     taskId: params.taskId,
     userId: getAuthenticatedUserId(req),
@@ -94,6 +100,33 @@ tasksRouter.delete("/:taskId", async (req, res) => {
 
 function getAuthenticatedUserId(req: unknown) {
   return (req as AuthenticatedRequest).auth.user.id;
+}
+
+function getExpectedTaskVersion(req: {
+  get(name: string): string | undefined;
+}) {
+  const ifMatch = req.get("if-match");
+
+  if (!ifMatch) {
+    throw new AppError(
+      428,
+      "TASK_VERSION_REQUIRED",
+      "The If-Match header with the current task ETag is required"
+    );
+  }
+
+  const match = /^"([1-9]\d*)"$/.exec(ifMatch);
+  const version = match?.[1] ? Number(match[1]) : Number.NaN;
+
+  if (!Number.isSafeInteger(version)) {
+    throw new AppError(
+      400,
+      "INVALID_TASK_VERSION",
+      'If-Match must use a task ETag, for example: "1"'
+    );
+  }
+
+  return version;
 }
 
 function toTaskResponse(task: Parameters<typeof toTaskDto>[0]): TaskResponse {
@@ -130,6 +163,7 @@ function toTaskDto(task: {
   statusId: string;
   title: string;
   updatedAt: Date;
+  version: number;
   workspaceId: string;
 }) {
   return {
@@ -170,6 +204,11 @@ function toTaskDto(task: {
     statusId: task.statusId,
     title: task.title,
     updatedAt: task.updatedAt.toISOString(),
+    version: task.version,
     workspaceId: task.workspaceId
   };
+}
+
+function toTaskEtag(version: number) {
+  return `"${version}"`;
 }

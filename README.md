@@ -14,15 +14,16 @@ packages/
 docs/
   adr/      Architecture Decision Records
 infra/
-  docker/   Local infrastructure later
+  docker/   Docker Compose and image definitions
+  .env.example  Environment variable template
 ```
 
 ## Commands
 
 ```bash
 pnpm install
-cp .env.example .env
-docker compose up -d --build
+cp infra/.env.example .env
+pnpm infra:up
 pnpm dev
 pnpm typecheck
 pnpm lint
@@ -35,20 +36,24 @@ pnpm build
 Local PostgreSQL runs through Docker Compose:
 
 ```bash
-cp .env.example .env
-# Update POSTGRES_PASSWORD, DATABASE_URL, and DOCKER_DATABASE_URL together.
-docker compose up -d --build
+cp infra/.env.example .env
+# Set distinct bootstrap, migrator, and runtime database credentials.
+pnpm infra:up
 ```
 
-Docker applies migrations through the `api-migrate` service before starting the
-API. PostgreSQL, API, and web ports are bound to `127.0.0.1`, so they are only
-reachable from this computer. Use a reverse proxy and a production-specific
-Compose configuration for public deployment.
+Docker's `db-bootstrap` service configures `devflow_migrator` for schema
+migrations and `devflow_runtime` for the API. The runtime role can read and
+write application data but cannot alter the schema. `api-migrate` runs before
+the API with the migrator role. PostgreSQL, API, and web ports are bound to
+`127.0.0.1`, so they are only reachable from this computer. Use a reverse
+proxy and a production-specific Compose configuration for public deployment.
+Local Drizzle commands use `DATABASE_MIGRATION_URL`; application processes use
+`DATABASE_URL`.
 
-The default local connection string in `.env.example` is:
+The default API connection string in `infra/.env.example` is:
 
 ```txt
-postgres://devflow:replace-with-a-unique-local-password@localhost:5432/devflow
+postgres://devflow_runtime:replace-with-a-unique-runtime-password@localhost:5432/devflow
 ```
 
 ## Test Database
@@ -56,7 +61,7 @@ postgres://devflow:replace-with-a-unique-local-password@localhost:5432/devflow
 API integration tests use a separate PostgreSQL database:
 
 ```txt
-postgres://devflow:replace-with-a-unique-local-password@localhost:5432/devflow_test
+postgres://devflow_runtime:replace-with-a-unique-runtime-password@localhost:5432/devflow_test
 ```
 
 Prepare it manually:
@@ -83,6 +88,10 @@ Endpoint examples and role rules live in [docs/api.md](docs/api.md).
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/email-verification/resend`
+- `POST /api/v1/auth/email-verification/confirm`
+- `POST /api/v1/auth/password-reset/request`
+- `POST /api/v1/auth/password-reset/confirm`
 - `GET /api/v1/auth/me`
 
 ## Workspace Endpoints

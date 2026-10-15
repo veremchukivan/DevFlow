@@ -1,3 +1,4 @@
+import type { IncomingMessage } from "node:http";
 import type { RequestHandler } from "express";
 import { pinoHttp } from "pino-http";
 
@@ -11,6 +12,9 @@ export const requestLogger: RequestHandler =
   env.NODE_ENV === "test"
     ? noopRequestLogger
     : pinoHttp({
+        serializers: {
+          req: serializeRequest
+        },
         redact: {
           paths: [
             "req.headers.authorization",
@@ -20,4 +24,18 @@ export const requestLogger: RequestHandler =
           remove: true
         }
       });
+
+export function redactSensitiveRequestUrl(url: string) {
+  return url.replace(
+    /\/api\/v1\/invitations\/[^/?#]+/g,
+    "/api/v1/invitations/[REDACTED]"
+  );
+}
+
+function serializeRequest(req: IncomingMessage) {
+  return {
+    method: req.method,
+    url: req.url ? redactSensitiveRequestUrl(req.url) : undefined
+  };
+}
 

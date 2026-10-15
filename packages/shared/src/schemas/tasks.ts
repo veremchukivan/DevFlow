@@ -96,6 +96,7 @@ export const taskSchema = z.object({
   statusId: z.uuid(),
   title: z.string(),
   updatedAt: z.string().datetime(),
+  version: z.number().int().positive(),
   workspaceId: z.uuid()
 });
 

@@ -141,6 +141,7 @@ describe("Tenant Isolation Integration Tests", () => {
         `/api/v1/workspaces/${workspaceA.id}/projects/${projectA.id}/tasks/${taskA.id}`
       )
       .set("Cookie", userB.cookie)
+      .set("If-Match", `"${taskA.version}"`)
       .send({ title: "Compromised Title" });
 
     expect(res.status).toBe(404);
@@ -152,7 +153,8 @@ describe("Tenant Isolation Integration Tests", () => {
       .delete(
         `/api/v1/workspaces/${workspaceA.id}/projects/${projectA.id}/tasks/${taskA.id}`
       )
-      .set("Cookie", userB.cookie);
+      .set("Cookie", userB.cookie)
+      .set("If-Match", `"${taskA.version}"`);
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("WORKSPACE_NOT_FOUND");
