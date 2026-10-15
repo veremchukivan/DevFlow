@@ -14,15 +14,16 @@ packages/
 docs/
   adr/      Architecture Decision Records
 infra/
-  docker/   Local infrastructure later
+  docker/   Docker Compose and image definitions
+  .env.example  Environment variable template
 ```
 
 ## Commands
 
 ```bash
 pnpm install
-cp .env.example .env
-docker compose up -d --build
+cp infra/.env.example .env
+pnpm infra:up
 pnpm dev
 pnpm typecheck
 pnpm lint
@@ -35,9 +36,9 @@ pnpm build
 Local PostgreSQL runs through Docker Compose:
 
 ```bash
-cp .env.example .env
+cp infra/.env.example .env
 # Update POSTGRES_PASSWORD, DATABASE_URL, and DOCKER_DATABASE_URL together.
-docker compose up -d --build
+pnpm infra:up
 ```
 
 Docker applies migrations through the `api-migrate` service before starting the
@@ -45,7 +46,7 @@ API. PostgreSQL, API, and web ports are bound to `127.0.0.1`, so they are only
 reachable from this computer. Use a reverse proxy and a production-specific
 Compose configuration for public deployment.
 
-The default local connection string in `.env.example` is:
+The default local connection string in `infra/.env.example` is:
 
 ```txt
 postgres://devflow:replace-with-a-unique-local-password@localhost:5432/devflow

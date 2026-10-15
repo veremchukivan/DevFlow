@@ -16,6 +16,8 @@
     "db:studio": "pnpm --filter @devflow/api db:studio",
     "db:test:prepare": "pnpm --filter @devflow/api db:test:prepare",
     "dev": "pnpm --filter @devflow/shared build && turbo dev",
+    "infra:down": "docker compose --env-file .env -f infra/docker/docker-compose.yml down",
+    "infra:up": "docker compose --env-file .env -f infra/docker/docker-compose.yml up -d --build",
     "lint": "turbo lint",
     "test": "turbo test",
     "typecheck": "turbo typecheck",
