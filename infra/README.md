@@ -7,8 +7,9 @@ cp infra/.env.example .env
 pnpm infra:up
 ```
 
-The default stack starts PostgreSQL, API, and Web. Redis and Mailpit are
-available for future integrations, but the API does not use them yet:
+The default stack starts PostgreSQL, Redis, API, and Web. Redis stores the
+rate-limit counters shared by API instances. Mailpit remains optional until
+invitation email delivery is implemented:
 
 ```bash
 pnpm infra:up:integrations
