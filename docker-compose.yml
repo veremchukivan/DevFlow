@@ -52,6 +52,7 @@ services:
       NODE_ENV: production
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     ports:
       - "127.0.0.1:4000:4000"

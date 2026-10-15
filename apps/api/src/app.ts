@@ -5,6 +5,7 @@ import helmet from "helmet";
 
 import { env } from "./config/env.js";
 import { errorHandler } from "./core/http/error-handler.js";
+import { csrfProtection } from "./core/http/csrf-protection.js";
 import { apiRateLimiter } from "./core/http/rate-limiter.js";
 import { requestLogger } from "./core/http/request-logger.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -35,6 +36,7 @@ export function createApp() {
   );
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
+  app.use(csrfProtection);
 
   app.get("/", (_req, res) => {
     res.json({

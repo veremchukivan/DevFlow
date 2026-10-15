@@ -9,6 +9,11 @@ http://localhost:4000
 The API uses cookie-based sessions. After `register` or `login`, keep the
 `devflow_session` cookie and send it on authenticated requests.
 
+In production, every state-changing request (`POST`, `PATCH`, or `DELETE`)
+must include an `Origin` header that exactly matches `WEB_ORIGIN`. Browser
+clients send this automatically; configure `WEB_ORIGIN` to the public web app
+origin before deployment.
+
 ## Roles
 
 Workspace roles are ordered by access level:
