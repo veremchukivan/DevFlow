@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildWorkspaceInvitationEmail } from "../src/core/email/mailer.js";
+import {
+  buildEmailVerificationEmail,
+  buildWorkspaceInvitationEmail
+} from "../src/core/email/mailer.js";
 
-describe("workspace invitation email", () => {
+describe("email messages", () => {
   it("creates an acceptance link", () => {
     const token = "secure-invitation-token";
     const message = buildWorkspaceInvitationEmail({
@@ -20,6 +23,23 @@ describe("workspace invitation email", () => {
         `http://localhost:3000/invitations/${token}`
       ),
       to: "invitee@example.com"
+    });
+  });
+
+  it("creates a verification link", () => {
+    const token = "secure-email-verification-token";
+    const message = buildEmailVerificationEmail({
+      displayName: "Alice",
+      email: "alice@example.com",
+      token
+    });
+
+    expect(message).toEqual({
+      subject: "Verify your DevFlow email address",
+      text: expect.stringContaining(
+        `http://localhost:3000/verify-email/${token}`
+      ),
+      to: "alice@example.com"
     });
   });
 });

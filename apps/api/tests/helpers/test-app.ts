@@ -69,6 +69,7 @@ export async function createTestUser(
       displayName: string;
       email: string;
       id: string;
+      isEmailVerified: boolean;
       isPlatformAdmin: boolean;
     }
   };

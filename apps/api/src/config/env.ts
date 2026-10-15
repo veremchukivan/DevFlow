@@ -36,6 +36,11 @@ const envSchema = z
     SESSION_COOKIE_NAME: z.string().min(1).default("devflow_session"),
     SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
     SESSION_CLEANUP_INTERVAL_HOURS: z.coerce.number().int().positive().default(24),
+    EMAIL_VERIFICATION_TTL_HOURS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(24),
     INVITATION_TTL_DAYS: z.coerce.number().int().positive().default(7),
     WEB_ORIGIN: z.url().default("http://localhost:3000"),
     RATE_LIMIT_WINDOW_MS: z

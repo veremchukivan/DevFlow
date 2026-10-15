@@ -1,12 +1,18 @@
 import { and, eq, gt, isNull, lte } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
+import { authTokens } from "../../core/db/schema/auth-tokens.js";
 import { sessions } from "../../core/db/schema/sessions.js";
 import { users, type NewUser, type User } from "../../core/db/schema/users.js";
 
 export type SessionUser = Pick<
   User,
-  "createdAt" | "displayName" | "email" | "id" | "isPlatformAdmin"
+  | "createdAt"
+  | "displayName"
+  | "email"
+  | "emailVerifiedAt"
+  | "id"
+  | "isPlatformAdmin"
 >;
 
 export async function findUserByEmailNormalized(emailNormalized: string) {
@@ -65,6 +71,7 @@ export async function findSessionUserByTokenHash(tokenHash: string) {
         createdAt: users.createdAt,
         displayName: users.displayName,
         email: users.email,
+        emailVerifiedAt: users.emailVerifiedAt,
         id: users.id,
         isPlatformAdmin: users.isPlatformAdmin
       }
@@ -99,4 +106,68 @@ export async function deleteExpiredSessions(now = new Date()) {
     .delete(sessions)
     .where(lte(sessions.expiresAt, now))
     .returning({ id: sessions.id });
+}
+
+export async function replaceEmailVerificationToken(input: {
+  expiresAt: Date;
+  tokenHash: string;
+  userId: string;
+}) {
+  return db.transaction(async (tx) => {
+    await tx
+      .delete(authTokens)
+      .where(
+        and(
+          eq(authTokens.userId, input.userId),
+          eq(authTokens.type, "email_verification"),
+          isNull(authTokens.consumedAt)
+        )
+      );
+
+    const [token] = await tx
+      .insert(authTokens)
+      .values({
+        expiresAt: input.expiresAt,
+        tokenHash: input.tokenHash,
+        type: "email_verification",
+        userId: input.userId
+      })
+      .returning();
+
+    if (!token) {
+      throw new Error("Failed to create email verification token");
+    }
+
+    return token;
+  });
+}
+
+export async function consumeEmailVerificationToken(tokenHash: string) {
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const [token] = await tx
+      .update(authTokens)
+      .set({ consumedAt: now })
+      .where(
+        and(
+          eq(authTokens.tokenHash, tokenHash),
+          eq(authTokens.type, "email_verification"),
+          gt(authTokens.expiresAt, now),
+          isNull(authTokens.consumedAt)
+        )
+      )
+      .returning({ userId: authTokens.userId });
+
+    if (!token) {
+      return null;
+    }
+
+    const [user] = await tx
+      .update(users)
+      .set({ emailVerifiedAt: now, updatedAt: now })
+      .where(and(eq(users.id, token.userId), isNull(users.deletedAt)))
+      .returning();
+
+    return user ?? null;
+  });
 }

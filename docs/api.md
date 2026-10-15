@@ -81,6 +81,29 @@ Content-Type: application/json
 }
 ```
 
+New accounts receive a verification link by email. The link is single-use and
+expires after `EMAIL_VERIFICATION_TTL_HOURS` (24 hours by default). The raw
+token is never returned by the API.
+
+Resend a verification email for the authenticated user:
+
+```http
+POST /api/v1/auth/email-verification/resend
+```
+
+Confirm a verification link:
+
+```http
+POST /api/v1/auth/email-verification/confirm
+Content-Type: application/json
+```
+
+```json
+{
+  "token": "token-from-email"
+}
+```
+
 Current user:
 
 ```http

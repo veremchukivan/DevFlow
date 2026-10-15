@@ -16,7 +16,12 @@ export const authUserSchema = z.object({
   displayName: z.string(),
   email: z.string().email(),
   id: z.uuid(),
+  isEmailVerified: z.boolean(),
   isPlatformAdmin: z.boolean()
+});
+
+export const emailVerificationTokenRequestSchema = z.object({
+  token: z.string().trim().min(1).max(512)
 });
 
 export const authResponseSchema = z.object({

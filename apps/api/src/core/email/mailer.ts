@@ -11,6 +11,12 @@ type WorkspaceInvitationEmailInput = {
   workspaceName: string;
 };
 
+type EmailVerificationEmailInput = {
+  displayName: string;
+  email: string;
+  token: string;
+};
+
 let transporter: Transporter | undefined;
 
 export async function sendWorkspaceInvitationEmail(
@@ -53,6 +59,44 @@ export function buildWorkspaceInvitationEmail(
       `Accept the invitation: ${invitationUrl}`,
       "",
       `This invitation expires at ${expiresAt}.`
+    ].join("\n")
+  };
+}
+
+export async function sendEmailVerificationEmail(
+  input: EmailVerificationEmailInput
+) {
+  if (env.NODE_ENV === "test") {
+    return;
+  }
+
+  const configuredTransporter = getTransporter();
+
+  if (!configuredTransporter || !env.SMTP_FROM) {
+    return;
+  }
+
+  await configuredTransporter.sendMail({
+    from: env.SMTP_FROM,
+    ...buildEmailVerificationEmail(input)
+  });
+}
+
+export function buildEmailVerificationEmail(input: EmailVerificationEmailInput) {
+  const verificationUrl = new URL(
+    `/verify-email/${encodeURIComponent(input.token)}`,
+    env.WEB_ORIGIN
+  ).toString();
+
+  return {
+    to: input.email,
+    subject: "Verify your DevFlow email address",
+    text: [
+      `Hi ${input.displayName},`,
+      "",
+      `Verify your email address: ${verificationUrl}`,
+      "",
+      `This link expires in ${env.EMAIL_VERIFICATION_TTL_HOURS} hours.`
     ].join("\n")
   };
 }

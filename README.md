@@ -84,6 +84,8 @@ Endpoint examples and role rules live in [docs/api.md](docs/api.md).
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/email-verification/resend`
+- `POST /api/v1/auth/email-verification/confirm`
 - `GET /api/v1/auth/me`
 
 ## Workspace Endpoints
