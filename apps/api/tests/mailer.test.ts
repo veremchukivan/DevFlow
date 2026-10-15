@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildEmailVerificationEmail,
+  buildPasswordResetEmail,
   buildWorkspaceInvitationEmail
 } from "../src/core/email/mailer.js";
 
@@ -38,6 +39,23 @@ describe("email messages", () => {
       subject: "Verify your DevFlow email address",
       text: expect.stringContaining(
         `http://localhost:3000/verify-email/${token}`
+      ),
+      to: "alice@example.com"
+    });
+  });
+
+  it("creates a password reset link", () => {
+    const token = "secure-password-reset-token";
+    const message = buildPasswordResetEmail({
+      displayName: "Alice",
+      email: "alice@example.com",
+      token
+    });
+
+    expect(message).toEqual({
+      subject: "Reset your DevFlow password",
+      text: expect.stringContaining(
+        `http://localhost:3000/reset-password/${token}`
       ),
       to: "alice@example.com"
     });

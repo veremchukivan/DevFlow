@@ -104,6 +104,35 @@ Content-Type: application/json
 }
 ```
 
+Request a password-reset email. This endpoint always responds with `204`, so
+it does not reveal whether an account exists for the submitted address:
+
+```http
+POST /api/v1/auth/password-reset/request
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "alice.tester@example.com"
+}
+```
+
+Set a new password with the single-use link token. All existing sessions are
+revoked after a successful reset:
+
+```http
+POST /api/v1/auth/password-reset/confirm
+Content-Type: application/json
+```
+
+```json
+{
+  "token": "token-from-email",
+  "password": "NewPassword123"
+}
+```
+
 Current user:
 
 ```http

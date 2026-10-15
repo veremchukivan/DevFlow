@@ -171,3 +171,80 @@ export async function consumeEmailVerificationToken(tokenHash: string) {
     return user ?? null;
   });
 }
+
+export async function replacePasswordResetToken(input: {
+  expiresAt: Date;
+  tokenHash: string;
+  userId: string;
+}) {
+  return db.transaction(async (tx) => {
+    await tx
+      .delete(authTokens)
+      .where(
+        and(
+          eq(authTokens.userId, input.userId),
+          eq(authTokens.type, "password_reset"),
+          isNull(authTokens.consumedAt)
+        )
+      );
+
+    const [token] = await tx
+      .insert(authTokens)
+      .values({
+        expiresAt: input.expiresAt,
+        tokenHash: input.tokenHash,
+        type: "password_reset",
+        userId: input.userId
+      })
+      .returning();
+
+    if (!token) {
+      throw new Error("Failed to create password reset token");
+    }
+
+    return token;
+  });
+}
+
+export async function consumePasswordResetToken(input: {
+  passwordHash: string;
+  tokenHash: string;
+}) {
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const [token] = await tx
+      .update(authTokens)
+      .set({ consumedAt: now })
+      .where(
+        and(
+          eq(authTokens.tokenHash, input.tokenHash),
+          eq(authTokens.type, "password_reset"),
+          gt(authTokens.expiresAt, now),
+          isNull(authTokens.consumedAt)
+        )
+      )
+      .returning({ userId: authTokens.userId });
+
+    if (!token) {
+      return null;
+    }
+
+    const [user] = await tx
+      .update(users)
+      .set({
+        emailVerifiedAt: now,
+        passwordHash: input.passwordHash,
+        updatedAt: now
+      })
+      .where(and(eq(users.id, token.userId), isNull(users.deletedAt)))
+      .returning({ id: users.id });
+
+    if (!user) {
+      return null;
+    }
+
+    await tx.delete(sessions).where(eq(sessions.userId, user.id));
+
+    return user;
+  });
+}

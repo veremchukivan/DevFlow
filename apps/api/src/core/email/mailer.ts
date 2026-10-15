@@ -17,6 +17,12 @@ type EmailVerificationEmailInput = {
   token: string;
 };
 
+type PasswordResetEmailInput = {
+  displayName: string;
+  email: string;
+  token: string;
+};
+
 let transporter: Transporter | undefined;
 
 export async function sendWorkspaceInvitationEmail(
@@ -97,6 +103,46 @@ export function buildEmailVerificationEmail(input: EmailVerificationEmailInput) 
       `Verify your email address: ${verificationUrl}`,
       "",
       `This link expires in ${env.EMAIL_VERIFICATION_TTL_HOURS} hours.`
+    ].join("\n")
+  };
+}
+
+export async function sendPasswordResetEmail(input: PasswordResetEmailInput) {
+  if (env.NODE_ENV === "test") {
+    return;
+  }
+
+  const configuredTransporter = getTransporter();
+
+  if (!configuredTransporter || !env.SMTP_FROM) {
+    return;
+  }
+
+  await configuredTransporter.sendMail({
+    from: env.SMTP_FROM,
+    ...buildPasswordResetEmail(input)
+  });
+}
+
+export function buildPasswordResetEmail(input: PasswordResetEmailInput) {
+  const resetUrl = new URL(
+    `/reset-password/${encodeURIComponent(input.token)}`,
+    env.WEB_ORIGIN
+  ).toString();
+  const expiryHours = env.PASSWORD_RESET_TTL_HOURS;
+  const hourLabel = expiryHours === 1 ? "hour" : "hours";
+
+  return {
+    to: input.email,
+    subject: "Reset your DevFlow password",
+    text: [
+      `Hi ${input.displayName},`,
+      "",
+      `Reset your password: ${resetUrl}`,
+      "",
+      `This link expires in ${expiryHours} ${hourLabel}.`,
+      "",
+      "If you did not request a password reset, you can safely ignore this email."
     ].join("\n")
   };
 }

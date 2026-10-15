@@ -24,6 +24,15 @@ export const emailVerificationTokenRequestSchema = z.object({
   token: z.string().trim().min(1).max(512)
 });
 
+export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().email().max(320)
+});
+
+export const passwordResetConfirmRequestSchema = z.object({
+  password: z.string().min(8).max(256),
+  token: z.string().trim().min(1).max(512)
+});
+
 export const authResponseSchema = z.object({
   user: authUserSchema
 });

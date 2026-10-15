@@ -41,6 +41,7 @@ const envSchema = z
       .int()
       .positive()
       .default(24),
+    PASSWORD_RESET_TTL_HOURS: z.coerce.number().int().positive().default(1),
     INVITATION_TTL_DAYS: z.coerce.number().int().positive().default(7),
     WEB_ORIGIN: z.url().default("http://localhost:3000"),
     RATE_LIMIT_WINDOW_MS: z

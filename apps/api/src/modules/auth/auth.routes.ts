@@ -1,13 +1,18 @@
 import {
   emailVerificationTokenRequestSchema,
   loginRequestSchema,
+  passwordResetConfirmRequestSchema,
+  passwordResetRequestSchema,
   registerRequestSchema,
   type AuthResponse
 } from "@devflow/shared";
 import { Router, type Request } from "express";
 
 import { env } from "../../config/env.js";
-import { sendEmailVerificationEmail } from "../../core/email/mailer.js";
+import {
+  sendEmailVerificationEmail,
+  sendPasswordResetEmail
+} from "../../core/email/mailer.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { authRateLimiter } from "../../core/http/rate-limiter.js";
 import {
@@ -23,7 +28,9 @@ import {
   issueEmailVerificationToken,
   login,
   logout,
+  requestPasswordReset,
   register,
+  resetPassword,
   verifyEmail
 } from "./auth.service.js";
 
@@ -76,6 +83,32 @@ authRouter.post(
   async (req, res) => {
     const input = emailVerificationTokenRequestSchema.parse(req.body);
     await verifyEmail(input.token);
+
+    res.status(204).send();
+  }
+);
+
+authRouter.post(
+  "/password-reset/request",
+  authRateLimiter,
+  async (req, res) => {
+    const input = passwordResetRequestSchema.parse(req.body);
+    const result = await requestPasswordReset(input.email);
+
+    if (result) {
+      await deliverPasswordReset(result.user, result.token);
+    }
+
+    res.status(204).send();
+  }
+);
+
+authRouter.post(
+  "/password-reset/confirm",
+  authRateLimiter,
+  async (req, res) => {
+    const input = passwordResetConfirmRequestSchema.parse(req.body);
+    await resetPassword(input);
 
     res.status(204).send();
   }
@@ -156,5 +189,27 @@ async function deliverEmailVerification(
       "EMAIL_VERIFICATION_DELIVERY_FAILED",
       "The account was created, but the verification email could not be delivered. Resend it after resolving the email configuration."
     );
+  }
+}
+
+async function deliverPasswordReset(
+  user: {
+    displayName: string;
+    email: string;
+    id: string;
+  },
+  token: string
+) {
+  try {
+    await sendPasswordResetEmail({
+      displayName: user.displayName,
+      email: user.email,
+      token
+    });
+  } catch (error) {
+    console.error("Password reset delivery failed", {
+      error,
+      userId: user.id
+    });
   }
 }
