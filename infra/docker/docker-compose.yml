@@ -43,7 +43,6 @@ services:
     image: axllent/mailpit:latest
     container_name: devflow-mailpit
     restart: unless-stopped
-    profiles: ["integrations"]
     ports:
       - "127.0.0.1:8025:8025" # Web UI to view intercepted emails
       - "127.0.0.1:1025:1025" # SMTP port
@@ -69,6 +68,12 @@ services:
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
       REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
+      SMTP_FROM: ${SMTP_FROM:-DevFlow <no-reply@devflow.local>}
+      SMTP_HOST: ${DOCKER_SMTP_HOST:-mailpit}
+      SMTP_PORT: ${DOCKER_SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     depends_on:
       postgres:
@@ -89,6 +94,12 @@ services:
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
       REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
+      SMTP_FROM: ${SMTP_FROM:-DevFlow <no-reply@devflow.local>}
+      SMTP_HOST: ${DOCKER_SMTP_HOST:-mailpit}
+      SMTP_PORT: ${DOCKER_SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       TRUST_PROXY: ${TRUST_PROXY:-0}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     ports:
@@ -98,6 +109,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
   web:
     build:

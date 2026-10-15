@@ -7,13 +7,13 @@ cp infra/.env.example .env
 pnpm infra:up
 ```
 
-The default stack starts PostgreSQL, Redis, API, and Web. Redis stores the
-rate-limit counters shared by API instances. Mailpit remains optional until
-invitation email delivery is implemented:
+The default stack starts PostgreSQL, Redis, Mailpit, API, and Web. Redis stores
+the rate-limit counters shared by API instances. Mailpit receives local
+workspace invitation emails at [http://localhost:8025](http://localhost:8025).
 
-```bash
-pnpm infra:up:integrations
-```
+For production, replace `DOCKER_SMTP_HOST`, `DOCKER_SMTP_PORT`, `SMTP_SECURE`,
+`SMTP_FROM`, `SMTP_USER`, and `SMTP_PASSWORD` with values from the email
+provider. Keep SMTP credentials in deployment secrets, never in Git.
 
 Redis is available on `localhost:6380` by default to avoid colliding with an
 existing local Redis instance. Change `REDIS_PORT` in `.env` when necessary.

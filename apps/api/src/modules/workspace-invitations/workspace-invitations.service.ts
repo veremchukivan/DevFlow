@@ -20,6 +20,7 @@ import {
   findInvitationByTokenHash,
   findPendingInvitationByEmail,
   findUserByEmailNormalized,
+  findWorkspaceById,
   listPendingInvitationsForWorkspace,
   removeInvitedMemberIfPresent,
   updateInvitationToken,
@@ -80,6 +81,12 @@ export async function createInvitation(input: {
   }
 
   const targetUser = await findUserByEmailNormalized(emailNormalized);
+  const workspace = await findWorkspaceById(input.workspaceId);
+
+  if (!workspace) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace was not found");
+  }
+
   const token = generateInvitationToken();
   const tokenHash = hashInvitationToken(token);
   const expiresAt = getInvitationExpiresAt();
@@ -102,7 +109,8 @@ export async function createInvitation(input: {
 
     return {
       invitation,
-      token
+      token,
+      workspace
     };
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -238,9 +246,16 @@ export async function resendInvitation(input: {
     throw invitationNoLongerActiveError();
   }
 
+  const workspace = await findWorkspaceById(input.workspaceId);
+
+  if (!workspace) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace was not found");
+  }
+
   return {
     invitation: updated,
-    token
+    token,
+    workspace
   };
 }
 

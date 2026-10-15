@@ -18,6 +18,8 @@ import {
 import { Router } from "express";
 
 import { env } from "../../config/env.js";
+import { sendWorkspaceInvitationEmail } from "../../core/email/mailer.js";
+import { AppError } from "../../core/errors/app-error.js";
 import {
   type AuthenticatedRequest,
   requireAuth
@@ -48,6 +50,8 @@ workspaceInvitationsRouter.post("/", async (req, res) => {
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });
+
+  await deliverInvitation(result);
 
   res.status(201).json(toInvitationResponse(result));
 });
@@ -85,6 +89,8 @@ workspaceInvitationsRouter.post("/:invitationId/resend", async (req, res) => {
     userId: getAuthenticatedUserId(req),
     workspaceId: params.workspaceId
   });
+
+  await deliverInvitation(result);
 
   res.json(toInvitationResponse(result));
 });
@@ -147,6 +153,35 @@ function getAuthenticatedUserId(req: unknown) {
 
 function getAuthenticatedUser(req: unknown) {
   return (req as AuthenticatedRequest).auth.user;
+}
+
+async function deliverInvitation(result: {
+  invitation: Parameters<typeof toWorkspaceInvitationDto>[0];
+  token: string;
+  workspace: {
+    name: string;
+  };
+}) {
+  try {
+    await sendWorkspaceInvitationEmail({
+      email: result.invitation.email,
+      expiresAt: result.invitation.expiresAt,
+      inviterDisplayName: result.invitation.invitedBy?.displayName ?? null,
+      role: result.invitation.role,
+      token: result.token,
+      workspaceName: result.workspace.name
+    });
+  } catch (error) {
+    console.error("Workspace invitation delivery failed", {
+      error,
+      invitationId: result.invitation.id
+    });
+    throw new AppError(
+      502,
+      "INVITATION_DELIVERY_FAILED",
+      "The invitation was created, but the email could not be delivered. Resend it after resolving the email configuration."
+    );
+  }
 }
 
 function toInvitationResponse(result: {

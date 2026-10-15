@@ -179,10 +179,11 @@ Content-Type: application/json
 }
 ```
 
-Only development and test responses include the raw invitation `token`, so the
-flow can be tested without email delivery. Production responses never expose
-the token; configure an email delivery provider before enabling invitations in
-production.
+Only development and test responses include the raw invitation `token`. In
+production, DevFlow sends the acceptance link to the invitee over SMTP and
+never exposes the token in its API response. If delivery fails, the endpoint
+returns `502 INVITATION_DELIVERY_FAILED`; fix the SMTP configuration and use
+the resend endpoint.
 
 List pending invitations:
 
