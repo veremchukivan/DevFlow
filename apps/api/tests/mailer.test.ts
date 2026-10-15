@@ -6,6 +6,8 @@ import {
   buildWorkspaceInvitationEmail
 } from "../src/core/email/mailer.js";
 
+const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
+
 describe("email messages", () => {
   it("creates an acceptance link", () => {
     const token = "secure-invitation-token";
@@ -21,7 +23,7 @@ describe("email messages", () => {
     expect(message).toEqual({
       subject: "You're invited to Acme on DevFlow",
       text: expect.stringContaining(
-        `http://localhost:3000/invitations/${token}`
+        `${webOrigin}/invitations/${token}`
       ),
       to: "invitee@example.com"
     });
@@ -38,7 +40,7 @@ describe("email messages", () => {
     expect(message).toEqual({
       subject: "Verify your DevFlow email address",
       text: expect.stringContaining(
-        `http://localhost:3000/verify-email/${token}`
+        `${webOrigin}/verify-email/${token}`
       ),
       to: "alice@example.com"
     });
@@ -55,7 +57,7 @@ describe("email messages", () => {
     expect(message).toEqual({
       subject: "Reset your DevFlow password",
       text: expect.stringContaining(
-        `http://localhost:3000/reset-password/${token}`
+        `${webOrigin}/reset-password/${token}`
       ),
       to: "alice@example.com"
     });

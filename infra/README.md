@@ -11,6 +11,12 @@ The default stack starts PostgreSQL, Redis, Mailpit, API, and Web. Redis stores
 the rate-limit counters shared by API instances. Mailpit receives local
 workspace invitation emails at [http://localhost:8025](http://localhost:8025).
 
+`db-bootstrap` creates two restricted database roles: `devflow_migrator` owns
+the application schemas and is used only by `api-migrate`; `devflow_runtime`
+is used by the API and has DML privileges only. Keep all three PostgreSQL
+passwords distinct. The bootstrap service is idempotent, so it also upgrades
+an existing local Docker volume after `.env` receives the new credentials.
+
 For production, replace `DOCKER_SMTP_HOST`, `DOCKER_SMTP_PORT`, `SMTP_SECURE`,
 `SMTP_FROM`, `SMTP_USER`, and `SMTP_PASSWORD` with values from the email
 provider. Keep SMTP credentials in deployment secrets, never in Git.

@@ -1,6 +1,9 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import { resolve } from "node:path";
 
 import { z } from "zod";
+
+dotenv.config({ path: resolve(process.cwd(), "../../.env"), quiet: true });
 
 const optionalNonEmptyString = z.preprocess(
   (value) => (value === "" ? undefined : value),

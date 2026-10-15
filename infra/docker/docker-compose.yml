@@ -7,7 +7,9 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:?Set POSTGRES_MIGRATOR_PASSWORD in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:?Set POSTGRES_RUNTIME_PASSWORD in .env}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
     healthcheck:
       # Use $$VAR so Docker passes the literal $VAR to the shell inside the container,
@@ -22,6 +24,27 @@ services:
     volumes:
       - devflow_postgres_data:/var/lib/postgresql/data
       - ../postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  db-bootstrap:
+    image: postgres:17-alpine
+    container_name: devflow-db-bootstrap
+    command:
+      [
+        "sh",
+        "-ec",
+        "psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -v ON_ERROR_STOP=1 -f /bootstrap/init.sql"
+      ]
+    restart: "no"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:?Set POSTGRES_MIGRATOR_PASSWORD in .env}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:?Set POSTGRES_RUNTIME_PASSWORD in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+    volumes:
+      - ../postgres/init.sql:/bootstrap/init.sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
@@ -61,7 +84,7 @@ services:
     restart: "no"
     environment:
       API_PORT: 4000
-      DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
+      DATABASE_URL: ${DOCKER_MIGRATION_DATABASE_URL:?Set DOCKER_MIGRATION_DATABASE_URL in .env}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
       NODE_ENV: production
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
@@ -80,6 +103,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
 
   api:
     build:
@@ -89,7 +114,7 @@ services:
     restart: unless-stopped
     environment:
       API_PORT: 4000
-      DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL in .env}
+      DATABASE_URL: ${DOCKER_RUNTIME_DATABASE_URL:?Set DOCKER_RUNTIME_DATABASE_URL in .env}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
       NODE_ENV: production
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}

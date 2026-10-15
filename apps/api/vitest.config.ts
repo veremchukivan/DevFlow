@@ -1,8 +1,12 @@
+import dotenv from "dotenv";
+import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
+
+dotenv.config({ path: resolve(process.cwd(), "../../.env"), quiet: true });
 
 const testDatabaseUrl =
   process.env.TEST_DATABASE_URL ??
-  "postgres://devflow:devflow@localhost:5432/devflow_test";
+  "postgres://devflow_runtime:devflow_runtime@localhost:5432/devflow_test";
 
 export default defineConfig({
   test: {
