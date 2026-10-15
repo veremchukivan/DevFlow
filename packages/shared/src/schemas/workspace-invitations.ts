@@ -68,7 +68,7 @@ export const publicWorkspaceInvitationSchema = z.object({
 
 export const createWorkspaceInvitationResponseSchema = z.object({
   invitation: workspaceInvitationSchema,
-  token: z.string()
+  token: z.string().optional()
 });
 
 export const workspaceInvitationResponseSchema = z.object({

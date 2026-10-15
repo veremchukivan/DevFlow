@@ -17,6 +17,7 @@ import {
 } from "@devflow/shared";
 import { Router } from "express";
 
+import { env } from "../../config/env.js";
 import {
   type AuthenticatedRequest,
   requireAuth
@@ -48,10 +49,7 @@ workspaceInvitationsRouter.post("/", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
-  res.status(201).json({
-    invitation: toWorkspaceInvitationDto(result.invitation),
-    token: result.token
-  } satisfies CreateWorkspaceInvitationResponse);
+  res.status(201).json(toInvitationResponse(result));
 });
 
 workspaceInvitationsRouter.get("/", async (req, res) => {
@@ -88,10 +86,7 @@ workspaceInvitationsRouter.post("/:invitationId/resend", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
-  res.json({
-    invitation: toWorkspaceInvitationDto(result.invitation),
-    token: result.token
-  } satisfies CreateWorkspaceInvitationResponse);
+  res.json(toInvitationResponse(result));
 });
 
 // ---------------------------------------------------------------------------
@@ -152,6 +147,29 @@ function getAuthenticatedUserId(req: unknown) {
 
 function getAuthenticatedUser(req: unknown) {
   return (req as AuthenticatedRequest).auth.user;
+}
+
+function toInvitationResponse(result: {
+  invitation: Parameters<typeof toWorkspaceInvitationDto>[0];
+  token: string;
+}): CreateWorkspaceInvitationResponse {
+  const response = {
+    invitation: toWorkspaceInvitationDto(result.invitation)
+  };
+
+  // Production must deliver the raw token through an email provider, not JSON.
+  if (!shouldExposeInvitationToken(env.NODE_ENV)) {
+    return response;
+  }
+
+  return {
+    ...response,
+    token: result.token
+  };
+}
+
+export function shouldExposeInvitationToken(nodeEnv: string) {
+  return nodeEnv === "development" || nodeEnv === "test";
 }
 
 function toWorkspaceInvitationDto(invitation: {

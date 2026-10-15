@@ -174,8 +174,10 @@ Content-Type: application/json
 }
 ```
 
-In development, the response includes the raw invitation `token` so the flow can
-be tested without email delivery.
+Only development and test responses include the raw invitation `token`, so the
+flow can be tested without email delivery. Production responses never expose
+the token; configure an email delivery provider before enabling invitations in
+production.
 
 List pending invitations:
 
