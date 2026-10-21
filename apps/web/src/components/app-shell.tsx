@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { ApiClientError, getCurrentUser, logout } from "@/lib/api-client";
+import { ApiClientError, getCurrentUser } from "@/lib/api-client";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
 import type { AuthUser } from "@devflow/shared";
 
 const publicPaths = new Set(["/login", "/register"]);
@@ -14,7 +15,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser>();
   const [isLoading, setIsLoading] = useState(true);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const isPublicPage = publicPaths.has(pathname);
 
   useEffect(() => {
@@ -50,17 +50,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [isPublicPage, router]);
 
-  async function signOut() {
-    setIsSigningOut(true);
-    try {
-      await logout();
-    } finally {
-      router.replace("/login");
-      router.refresh();
-      setIsSigningOut(false);
-    }
-  }
-
   if (isPublicPage) return <>{children}</>;
 
   if (isLoading || !user) {
@@ -69,40 +58,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-shell">
-      <header className="site-header">
-        <div className="site-header-content">
-          <Link className="site-brand" href="/">
-            DevFlow
-          </Link>
-          <nav aria-label="Primary navigation" className="site-navigation">
-            <Link
-              aria-current={pathname === "/" ? "page" : undefined}
-              className="site-navigation-link"
-              href="/"
-            >
-              Workspaces
-            </Link>
-          </nav>
-          <div className="site-user-menu">
-            <span className="site-user-name">{user.displayName}</span>
-            <button
-              className="header-sign-out"
-              disabled={isSigningOut}
-              onClick={signOut}
-              type="button"
-            >
-              {isSigningOut ? "Signing out" : "Sign out"}
-            </button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader user={user} />
       <div className="app-content">{children}</div>
-      <footer className="site-footer">
-        <div className="site-footer-content">
-          <span>DevFlow</span>
-          <span>Workspace and project management</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
