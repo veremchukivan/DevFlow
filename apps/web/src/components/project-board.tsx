@@ -9,6 +9,7 @@ import {
   createTask,
   getProject,
   getTasks,
+  updateTask,
 } from "@/lib/api-client";
 import type { Project, Task, TaskPriority } from "@devflow/shared";
 
@@ -31,6 +32,7 @@ export function ProjectBoard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string>();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -120,6 +122,54 @@ export function ProjectBoard() {
       );
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function onUpdateTask(
+    task: Task,
+    input: { priority?: TaskPriority; statusId?: string },
+  ) {
+    setError(undefined);
+    setUpdatingTaskId(task.id);
+
+    try {
+      const response = await updateTask(
+        workspaceId,
+        projectId,
+        task.id,
+        input,
+        task.version,
+      );
+      setTasks((current) =>
+        current.map((currentTask) =>
+          currentTask.id === response.task.id ? response.task : currentTask,
+        ),
+      );
+    } catch (caughtError) {
+      if (
+        caughtError instanceof ApiClientError &&
+        caughtError.code === "TASK_VERSION_CONFLICT"
+      ) {
+        await loadTasks(filters);
+        setError("This task changed elsewhere. The latest version is shown.");
+        return;
+      }
+
+      if (
+        caughtError instanceof ApiClientError &&
+        caughtError.code === "UNAUTHENTICATED"
+      ) {
+        router.replace("/login");
+        return;
+      }
+
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the task. Try again.",
+      );
+    } finally {
+      setUpdatingTaskId(undefined);
     }
   }
 
@@ -282,6 +332,46 @@ export function ProjectBoard() {
                     </div>
                     <h3>{task.title}</h3>
                     {task.description ? <p>{task.description}</p> : null}
+                    <div className="task-card-controls">
+                      <label>
+                        <span className="sr-only">Status</span>
+                        <select
+                          aria-label={`Status for ${task.key}`}
+                          disabled={updatingTaskId === task.id}
+                          onChange={(event) =>
+                            void onUpdateTask(task, {
+                              statusId: event.target.value,
+                            })
+                          }
+                          value={task.statusId}
+                        >
+                          {project.statuses.map((status) => (
+                            <option key={status.id} value={status.id}>
+                              {status.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span className="sr-only">Priority</span>
+                        <select
+                          aria-label={`Priority for ${task.key}`}
+                          disabled={updatingTaskId === task.id}
+                          onChange={(event) =>
+                            void onUpdateTask(task, {
+                              priority: event.target.value as TaskPriority,
+                            })
+                          }
+                          value={task.priority}
+                        >
+                          {priorities.map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
                   </article>
                 ))}
                 {statusTasks.length === 0 ? (

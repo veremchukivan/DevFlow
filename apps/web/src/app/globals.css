@@ -513,6 +513,35 @@ a {
   overflow-wrap: anywhere;
 }
 
+.task-card-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-top: 14px;
+}
+
+.task-card-controls select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  min-height: 32px;
+  padding: 0 6px;
+  width: 100%;
+}
+
+.sr-only {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .task-card-meta {
   align-items: center;
   color: var(--muted);
