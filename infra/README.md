@@ -35,3 +35,7 @@ pnpm infra:up:proxy
 
 Use the proxy configuration only for local verification. A public deployment
 also requires TLS termination and production-specific secrets.
+
+Backup and recovery commands are documented in
+[docs/operations.md](../docs/operations.md). Backups must be copied to
+encrypted off-host storage; Docker volumes alone are not sufficient.

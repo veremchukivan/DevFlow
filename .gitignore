@@ -6,6 +6,8 @@ coverage
 .env
 .env.*
 !.env.example
+backups/
+infra/backups/
 *.log
 *.tsbuildinfo
 pnpm-debug.log*
