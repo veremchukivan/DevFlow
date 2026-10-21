@@ -296,6 +296,18 @@ export function getTasks(
   );
 }
 
+export function getTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
+    { method: "GET" },
+    taskResponseSchema,
+  );
+}
+
 export function createTask(
   workspaceId: string,
   projectId: string,

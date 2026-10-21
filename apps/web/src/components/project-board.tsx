@@ -338,7 +338,14 @@ export function ProjectBoard() {
                         {task.priority}
                       </span>
                     </div>
-                    <h3>{task.title}</h3>
+                    <h3>
+                      <Link
+                        className={styles.taskLink}
+                        href={`/workspaces/${workspaceId}/projects/${projectId}/tasks/${task.id}`}
+                      >
+                        {task.title}
+                      </Link>
+                    </h3>
                     {task.description ? <p>{task.description}</p> : null}
                     <div className={styles.taskCardControls}>
                       <label>

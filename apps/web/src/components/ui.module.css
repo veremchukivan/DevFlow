@@ -334,6 +334,35 @@
   line-height: 1.35;
   margin: 10px 0 0;
 }
+.taskLink {
+  color: inherit;
+  text-decoration: none;
+}
+.taskLink:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+.taskDetail {
+  max-width: 760px;
+}
+.taskFacts {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 32px 0 0;
+}
+.taskFacts div {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.taskFacts dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.taskFacts dd {
+  margin: 5px 0 0;
+  text-transform: capitalize;
+}
 .taskCard p {
   color: var(--muted);
   font-size: 13px;
@@ -426,5 +455,8 @@
   .taskDescriptionField,
   .taskForm .formActions {
     grid-column: auto;
+  }
+  .taskFacts {
+    grid-template-columns: 1fr;
   }
 }
