@@ -102,5 +102,34 @@ const envSchema = z
     }
   });
 
-export const env = envSchema.parse(process.env);
+export function parseEnv(input: NodeJS.ProcessEnv) {
+  const parsed = envSchema.parse(input);
+
+  if (parsed.NODE_ENV === "production") {
+    const missing = ["DATABASE_URL", "WEB_ORIGIN"].filter(
+      (name) => !input[name]
+    );
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required production environment variables: ${missing.join(", ")}`
+      );
+    }
+
+    if (parsed.COOKIE_SECURE === false) {
+      throw new Error("COOKIE_SECURE cannot be false in production");
+    }
+  }
+
+  const isCookieSecure =
+    parsed.COOKIE_SECURE ?? parsed.NODE_ENV === "production";
+
+  if (parsed.SESSION_COOKIE_SAME_SITE === "none" && !isCookieSecure) {
+    throw new Error("SESSION_COOKIE_SAME_SITE=none requires COOKIE_SECURE=true");
+  }
+
+  return parsed;
+}
+
+export const env = parseEnv(process.env);
 

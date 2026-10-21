@@ -13,6 +13,9 @@ managed outside the repository.
   and SMTP credentials.
 - Set `NODE_ENV=production`, a public `WEB_ORIGIN`, `COOKIE_SECURE=true`, and
   `TRUST_PROXY=1` only behind a trusted TLS reverse proxy.
+- Production startup fails when `DATABASE_URL` or `WEB_ORIGIN` are missing,
+  when `COOKIE_SECURE=false`, or when `SameSite=None` is used without a secure
+  cookie.
 - Configure a real SMTP provider. Mailpit is for local development only.
 - Keep PostgreSQL, Redis, API, and web ports private. Expose only the TLS
   reverse proxy to the internet.
