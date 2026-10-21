@@ -4,11 +4,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "DevFlow",
-  description: "Project management workspace"
+  description: "Project management workspace",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
@@ -18,4 +19,3 @@ export default function RootLayout({
     </html>
   );
 }
-
