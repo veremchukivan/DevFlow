@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 
 import "./globals.css";
+import styles from "./layout.module.css";
 
 export const metadata: Metadata = {
   title: "DevFlow",
@@ -17,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={styles.body}>
         <AppShell>{children}</AppShell>
       </body>
     </html>

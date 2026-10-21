@@ -8,6 +8,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import type { AuthUser } from "@devflow/shared";
 
+import styles from "./app-shell.module.css";
+
 const publicPaths = new Set(["/login", "/register"]);
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -53,13 +55,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (isPublicPage) return <>{children}</>;
 
   if (isLoading || !user) {
-    return <main className="session-loading">Loading DevFlow</main>;
+    return <main className={styles.loading}>Loading DevFlow</main>;
   }
 
   return (
-    <div className="app-shell">
+    <div className={styles.shell}>
       <SiteHeader user={user} />
-      <div className="app-content">{children}</div>
+      <div className={styles.content}>{children}</div>
       <SiteFooter />
     </div>
   );

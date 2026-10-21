@@ -7,6 +7,8 @@ import { useState } from "react";
 import { logout } from "@/lib/api-client";
 import type { AuthUser } from "@devflow/shared";
 
+import styles from "./site-header.module.css";
+
 export function SiteHeader({ user }: { user: AuthUser }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -25,24 +27,24 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   }
 
   return (
-    <header className="site-header">
-      <div className="site-header-content">
-        <Link className="site-brand" href="/">
+    <header className={styles.header}>
+      <div className={styles.content}>
+        <Link className={styles.brand} href="/">
           DevFlow
         </Link>
-        <nav aria-label="Primary navigation" className="site-navigation">
+        <nav aria-label="Primary navigation" className={styles.navigation}>
           <Link
             aria-current={pathname === "/" ? "page" : undefined}
-            className="site-navigation-link"
+            className={styles.navigationLink}
             href="/"
           >
             Workspaces
           </Link>
         </nav>
-        <div className="site-user-menu">
-          <span className="site-user-name">{user.displayName}</span>
+        <div className={styles.userMenu}>
+          <span className={styles.userName}>{user.displayName}</span>
           <button
-            className="header-sign-out"
+            className={styles.signOut}
             disabled={isSigningOut}
             onClick={signOut}
             type="button"
