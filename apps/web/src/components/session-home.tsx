@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ApiClientError, getCurrentUser, logout } from "@/lib/api-client";
@@ -172,13 +173,17 @@ export function SessionHome() {
         ) : (
           <div className="workspace-list">
             {workspaces.map((workspace) => (
-              <article className="workspace-row" key={workspace.id}>
+              <Link
+                className="workspace-row"
+                href={`/workspaces/${workspace.id}`}
+                key={workspace.id}
+              >
                 <div>
                   <h3>{workspace.name}</h3>
                   <p>{workspace.slug}</p>
                 </div>
                 <span className="role-badge">{workspace.role}</span>
-              </article>
+              </Link>
             ))}
           </div>
         )}

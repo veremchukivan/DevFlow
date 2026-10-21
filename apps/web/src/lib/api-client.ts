@@ -4,6 +4,9 @@ import {
   loginRequestSchema,
   registerRequestSchema,
   createWorkspaceRequestSchema,
+  createProjectRequestSchema,
+  projectListResponseSchema,
+  projectResponseSchema,
   workspaceListResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
@@ -13,6 +16,9 @@ import {
   type CreateWorkspaceRequest,
   type WorkspaceListResponse,
   type WorkspaceResponse,
+  type CreateProjectRequest,
+  type ProjectListResponse,
+  type ProjectResponse,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -130,6 +136,36 @@ export function createWorkspace(
       method: "POST",
     },
     workspaceResponseSchema,
+  );
+}
+
+export function getWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}`,
+    { method: "GET" },
+    workspaceResponseSchema,
+  );
+}
+
+export function getProjects(workspaceId: string): Promise<ProjectListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects?limit=100&offset=0`,
+    { method: "GET" },
+    projectListResponseSchema,
+  );
+}
+
+export function createProject(
+  workspaceId: string,
+  input: CreateProjectRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects`,
+    {
+      body: JSON.stringify(createProjectRequestSchema.parse(input)),
+      method: "POST",
+    },
+    projectResponseSchema,
   );
 }
 

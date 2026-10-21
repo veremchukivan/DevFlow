@@ -267,6 +267,87 @@ a {
   margin: 0;
 }
 
+.workspace-row:hover {
+  border-color: var(--brand);
+}
+
+.back-link {
+  color: var(--brand);
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 28px;
+}
+
+.project-form {
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  margin: 22px 0;
+  padding-bottom: 22px;
+}
+
+.project-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.project-form label span {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.project-form input {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  min-height: 42px;
+  padding: 0 11px;
+}
+
+.project-form .project-description {
+  grid-column: span 2;
+}
+
+.project-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.project-row {
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+}
+
+.project-row h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.project-row p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 5px 0 0;
+}
+
+.project-key {
+  background: #eaf0f8;
+  border-radius: 4px;
+  color: #245078;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 7px;
+}
+
 .role-badge {
   background: #e2f0ef;
   border-radius: 4px;
@@ -301,5 +382,14 @@ a {
   .workspace-form {
     align-items: stretch;
     grid-template-columns: 1fr;
+  }
+
+  .project-form {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .project-form .project-description {
+    grid-column: auto;
   }
 }
