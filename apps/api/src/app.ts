@@ -5,7 +5,10 @@ import helmet from "helmet";
 
 import { env } from "./config/env.js";
 import { errorHandler } from "./core/http/error-handler.js";
-import { csrfProtection } from "./core/http/csrf-protection.js";
+import {
+  csrfProtection,
+  getTrustedWebOrigins,
+} from "./core/http/csrf-protection.js";
 import { apiRateLimiter } from "./core/http/rate-limiter.js";
 import { requestId } from "./core/http/request-id.js";
 import { requestLogger } from "./core/http/request-logger.js";
@@ -18,7 +21,7 @@ import { taskCommentsRouter } from "./modules/task-comments/task-comments.routes
 import { tasksRouter } from "./modules/tasks/tasks.routes.js";
 import {
   publicInvitationsRouter,
-  workspaceInvitationsRouter
+  workspaceInvitationsRouter,
 } from "./modules/workspace-invitations/workspace-invitations.routes.js";
 import { workspaceMembersRouter } from "./modules/workspace-members/workspace-members.routes.js";
 import { workspacesRouter } from "./modules/workspaces/workspaces.routes.js";
@@ -34,8 +37,11 @@ export function createApp() {
   app.use(
     cors({
       credentials: true,
-      origin: env.WEB_ORIGIN
-    })
+      origin: getTrustedWebOrigins({
+        webOrigin: env.WEB_ORIGIN,
+        allowedWebOrigins: env.WEB_ALLOWED_ORIGINS,
+      }),
+    }),
   );
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
@@ -44,7 +50,7 @@ export function createApp() {
   app.get("/", (_req, res) => {
     res.json({
       service: "devflow-api",
-      status: "ok"
+      status: "ok",
     });
   });
 
@@ -56,23 +62,20 @@ export function createApp() {
   app.use("/api/v1/workspaces", workspacesRouter);
   app.use(
     "/api/v1/workspaces/:workspaceId/invitations",
-    workspaceInvitationsRouter
+    workspaceInvitationsRouter,
   );
-  app.use(
-    "/api/v1/workspaces/:workspaceId/members",
-    workspaceMembersRouter
-  );
+  app.use("/api/v1/workspaces/:workspaceId/members", workspaceMembersRouter);
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/activity",
-    taskActivityRouter
+    taskActivityRouter,
   );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/comments",
-    taskCommentsRouter
+    taskCommentsRouter,
   );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks",
-    tasksRouter
+    tasksRouter,
   );
   app.use("/api/v1/workspaces/:workspaceId/projects", projectsRouter);
   app.use("/healthz", healthRouter);
@@ -81,4 +84,3 @@ export function createApp() {
 
   return app;
 }
-

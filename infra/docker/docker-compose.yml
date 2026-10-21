@@ -32,7 +32,7 @@ services:
       [
         "sh",
         "-ec",
-        "psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -v ON_ERROR_STOP=1 -f /bootstrap/init.sql"
+        'psql -h postgres -U "$$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -f /bootstrap/init.sql',
       ]
     restart: "no"
     environment:
@@ -86,7 +86,7 @@ services:
       API_PORT: 4000
       DATABASE_URL: ${DOCKER_MIGRATION_DATABASE_URL:?Set DOCKER_MIGRATION_DATABASE_URL in .env}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
@@ -116,7 +116,7 @@ services:
       API_PORT: 4000
       DATABASE_URL: ${DOCKER_RUNTIME_DATABASE_URL:?Set DOCKER_RUNTIME_DATABASE_URL in .env}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
@@ -132,6 +132,7 @@ services:
       SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
       TRUST_PROXY: ${TRUST_PROXY:-0}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
+      WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-}
     ports:
       - "127.0.0.1:4000:4000"
     depends_on:
