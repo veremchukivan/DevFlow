@@ -30,9 +30,27 @@ import {
 } from "@devflow/shared";
 import { z } from "zod";
 
-const apiUrl = (
+const configuredApiUrl = (
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
 ).replace(/\/$/, "");
+
+function getApiUrl() {
+  if (typeof window === "undefined") {
+    return configuredApiUrl;
+  }
+
+  const apiUrl = new URL(configuredApiUrl);
+  const isLocalApi = ["localhost", "127.0.0.1"].includes(apiUrl.hostname);
+  const isLocalPage = ["localhost", "127.0.0.1"].includes(
+    window.location.hostname,
+  );
+
+  if (isLocalApi && isLocalPage) {
+    apiUrl.hostname = window.location.hostname;
+  }
+
+  return apiUrl.origin;
+}
 
 const apiErrorSchema = z.object({
   error: z.object({
@@ -58,7 +76,7 @@ async function request<T>(
   init: RequestInit,
   schema: z.ZodType<T>,
 ): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, {
+  const response = await fetch(`${getApiUrl()}${path}`, {
     credentials: "include",
     ...init,
     headers: {
@@ -112,7 +130,7 @@ export function login(input: LoginRequest): Promise<AuthResponse> {
 }
 
 export async function logout(): Promise<void> {
-  const response = await fetch(`${apiUrl}/api/v1/auth/logout`, {
+  const response = await fetch(`${getApiUrl()}/api/v1/auth/logout`, {
     credentials: "include",
     method: "POST",
   });
@@ -254,7 +272,9 @@ export function updateTask(
 }
 
 export async function getApiHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${apiUrl}/healthz`, { cache: "no-store" });
+  const response = await fetch(`${getApiUrl()}/healthz`, {
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     throw new ApiClientError(
