@@ -6,18 +6,27 @@ import { type ReactNode, useEffect, useState } from "react";
 import { ApiClientError, getCurrentUser } from "@/lib/api-client";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { WorkspaceSidebar } from "@/components/workspace-sidebar";
 import type { AuthUser } from "@devflow/shared";
 
 import styles from "./app-shell.module.css";
 
-const publicPaths = new Set(["/login", "/register"]);
+const publicPaths = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser>();
   const [isLoading, setIsLoading] = useState(true);
-  const isPublicPage = publicPaths.has(pathname);
+  const isPublicPage = publicPaths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
 
   useEffect(() => {
     if (isPublicPage) {
@@ -60,9 +69,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className={styles.shell}>
-      <SiteHeader user={user} />
-      <div className={styles.content}>{children}</div>
-      <SiteFooter />
+      <WorkspaceSidebar />
+      <div className={styles.mainArea}>
+        <SiteHeader user={user} />
+        <div className={styles.content}>{children}</div>
+        <SiteFooter />
+      </div>
     </div>
   );
 }

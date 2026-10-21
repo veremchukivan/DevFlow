@@ -123,6 +123,11 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             {isRegister ? "Sign in" : "Create an account"}
           </Link>
         </p>
+        {!isRegister ? (
+          <p className={styles.authSwitch}>
+            <Link href="/forgot-password">Forgot your password?</Link>
+          </p>
+        ) : null}
       </section>
     </main>
   );

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
+import { LayoutGrid, List } from "lucide-react";
 
 import {
   ApiClientError,
@@ -18,6 +19,8 @@ type BoardFilters = {
   priority?: TaskPriority;
   search?: string;
 };
+
+type ProjectView = "board" | "list";
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
 const priorityStyles: Record<TaskPriority, string> = {
@@ -41,6 +44,7 @@ export function ProjectBoard() {
   const [isCreating, setIsCreating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string>();
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -213,6 +217,33 @@ export function ProjectBoard() {
         </button>
       </header>
 
+      <div
+        className={styles.projectViews}
+        role="tablist"
+        aria-label="Project views"
+      >
+        <button
+          aria-selected={view === "board"}
+          className={styles.projectView}
+          onClick={() => setView("board")}
+          role="tab"
+          type="button"
+        >
+          <LayoutGrid aria-hidden="true" size={17} strokeWidth={1.8} />
+          Kanban
+        </button>
+        <button
+          aria-selected={view === "list"}
+          className={styles.projectView}
+          onClick={() => setView("list")}
+          role="tab"
+          type="button"
+        >
+          <List aria-hidden="true" size={18} strokeWidth={1.8} />
+          List
+        </button>
+      </div>
+
       {showTaskForm ? (
         <form className={styles.taskForm} onSubmit={onCreateTask}>
           <label>
@@ -309,87 +340,180 @@ export function ProjectBoard() {
         </p>
       ) : null}
 
-      <section aria-label="Tasks" className={styles.taskBoard}>
-        {project.statuses.map((status) => {
-          const statusTasks = tasks.filter(
-            (task) => task.statusId === status.id,
-          );
-          return (
-            <section className={styles.taskColumn} key={status.id}>
-              <header className={styles.taskColumnHeader}>
-                <div>
-                  <span
-                    aria-hidden="true"
-                    className={styles.statusDot}
-                    style={{ backgroundColor: status.color }}
-                  />
-                  <h2>{status.name}</h2>
+      {view === "board" ? (
+        <section aria-label="Tasks" className={styles.taskBoard}>
+          {project.statuses.map((status) => {
+            const statusTasks = tasks.filter(
+              (task) => task.statusId === status.id,
+            );
+            return (
+              <section className={styles.taskColumn} key={status.id}>
+                <header className={styles.taskColumnHeader}>
+                  <div>
+                    <span
+                      aria-hidden="true"
+                      className={styles.statusDot}
+                      style={{ backgroundColor: status.color }}
+                    />
+                    <h2>{status.name}</h2>
+                  </div>
+                  <span>{statusTasks.length}</span>
+                </header>
+                <div className={styles.taskList}>
+                  {statusTasks.map((task) => (
+                    <article className={styles.taskCard} key={task.id}>
+                      <div className={styles.taskCardMeta}>
+                        <span>{task.key}</span>
+                        <span
+                          className={`${styles.priority} ${priorityStyles[task.priority]}`}
+                        >
+                          {task.priority}
+                        </span>
+                      </div>
+                      <h3>
+                        <Link
+                          className={styles.taskLink}
+                          href={`/workspaces/${workspaceId}/projects/${projectId}/tasks/${task.id}`}
+                        >
+                          {task.title}
+                        </Link>
+                      </h3>
+                      {task.description ? <p>{task.description}</p> : null}
+                      <TaskControls
+                        onUpdateTask={onUpdateTask}
+                        priorities={priorities}
+                        project={project}
+                        task={task}
+                        updatingTaskId={updatingTaskId}
+                      />
+                    </article>
+                  ))}
+                  {statusTasks.length === 0 ? (
+                    <p className={styles.taskColumnEmpty}>No tasks</p>
+                  ) : null}
                 </div>
-                <span>{statusTasks.length}</span>
-              </header>
-              <div className={styles.taskList}>
-                {statusTasks.map((task) => (
-                  <article className={styles.taskCard} key={task.id}>
-                    <div className={styles.taskCardMeta}>
-                      <span>{task.key}</span>
-                      <span
-                        className={`${styles.priority} ${priorityStyles[task.priority]}`}
-                      >
-                        {task.priority}
-                      </span>
-                    </div>
-                    <h3>{task.title}</h3>
-                    {task.description ? <p>{task.description}</p> : null}
-                    <div className={styles.taskCardControls}>
-                      <label>
-                        <span className={styles.srOnly}>Status</span>
-                        <select
-                          aria-label={`Status for ${task.key}`}
-                          disabled={updatingTaskId === task.id}
-                          onChange={(event) =>
-                            void onUpdateTask(task, {
-                              statusId: event.target.value,
-                            })
-                          }
-                          value={task.statusId}
-                        >
-                          {project.statuses.map((status) => (
-                            <option key={status.id} value={status.id}>
-                              {status.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        <span className={styles.srOnly}>Priority</span>
-                        <select
-                          aria-label={`Priority for ${task.key}`}
-                          disabled={updatingTaskId === task.id}
-                          onChange={(event) =>
-                            void onUpdateTask(task, {
-                              priority: event.target.value as TaskPriority,
-                            })
-                          }
-                          value={task.priority}
-                        >
-                          {priorities.map((item) => (
-                            <option key={item} value={item}>
-                              {item}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  </article>
-                ))}
-                {statusTasks.length === 0 ? (
-                  <p className={styles.taskColumnEmpty}>No tasks</p>
-                ) : null}
+              </section>
+            );
+          })}
+        </section>
+      ) : (
+        <section aria-label="Tasks list" className={styles.taskTable}>
+          <div className={styles.taskTableHeader}>
+            <span>Task</span>
+            <span>Status</span>
+            <span>Priority</span>
+            <span>Assignee</span>
+          </div>
+          {tasks.map((task) => (
+            <article className={styles.taskTableRow} key={task.id}>
+              <div className={styles.taskTableTitle}>
+                <span>{task.key}</span>
+                <Link
+                  href={`/workspaces/${workspaceId}/projects/${projectId}/tasks/${task.id}`}
+                >
+                  {task.title}
+                </Link>
               </div>
-            </section>
-          );
-        })}
-      </section>
+              <label>
+                <span className={styles.srOnly}>Status for {task.key}</span>
+                <select
+                  disabled={updatingTaskId === task.id}
+                  onChange={(event) =>
+                    void onUpdateTask(task, { statusId: event.target.value })
+                  }
+                  value={task.statusId}
+                >
+                  {project.statuses.map((status) => (
+                    <option key={status.id} value={status.id}>
+                      {status.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className={styles.srOnly}>Priority for {task.key}</span>
+                <select
+                  disabled={updatingTaskId === task.id}
+                  onChange={(event) =>
+                    void onUpdateTask(task, {
+                      priority: event.target.value as TaskPriority,
+                    })
+                  }
+                  value={task.priority}
+                >
+                  {priorities.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span>{task.assignee?.displayName ?? "Unassigned"}</span>
+            </article>
+          ))}
+          {tasks.length === 0 ? (
+            <p className={styles.emptyState}>No tasks match these filters.</p>
+          ) : null}
+        </section>
+      )}
     </main>
+  );
+}
+
+function TaskControls({
+  onUpdateTask,
+  priorities,
+  project,
+  task,
+  updatingTaskId,
+}: {
+  onUpdateTask: (
+    task: Task,
+    input: { priority?: TaskPriority; statusId?: string },
+  ) => Promise<void>;
+  priorities: TaskPriority[];
+  project: Project;
+  task: Task;
+  updatingTaskId?: string;
+}) {
+  return (
+    <div className={styles.taskCardControls}>
+      <label>
+        <span className={styles.srOnly}>Status</span>
+        <select
+          aria-label={`Status for ${task.key}`}
+          disabled={updatingTaskId === task.id}
+          onChange={(event) =>
+            void onUpdateTask(task, { statusId: event.target.value })
+          }
+          value={task.statusId}
+        >
+          {project.statuses.map((status) => (
+            <option key={status.id} value={status.id}>
+              {status.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className={styles.srOnly}>Priority</span>
+        <select
+          aria-label={`Priority for ${task.key}`}
+          disabled={updatingTaskId === task.id}
+          onChange={(event) =>
+            void onUpdateTask(task, {
+              priority: event.target.value as TaskPriority,
+            })
+          }
+          value={task.priority}
+        >
+          {priorities.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   );
 }

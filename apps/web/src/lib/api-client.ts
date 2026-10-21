@@ -1,7 +1,11 @@
 import {
   authResponseSchema,
+  createTaskCommentRequestSchema,
+  emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
+  passwordResetConfirmRequestSchema,
+  passwordResetRequestSchema,
   registerRequestSchema,
   createWorkspaceRequestSchema,
   createProjectRequestSchema,
@@ -9,6 +13,9 @@ import {
   projectListResponseSchema,
   projectResponseSchema,
   taskListResponseSchema,
+  taskActivityEventListResponseSchema,
+  taskCommentListResponseSchema,
+  taskCommentResponseSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
   workspaceResponseSchema,
@@ -21,9 +28,13 @@ import {
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateTaskRequest,
+  type CreateTaskCommentRequest,
   type ProjectListResponse,
   type ProjectResponse,
   type TaskListResponse,
+  type TaskActivityEventListResponse,
+  type TaskCommentListResponse,
+  type TaskCommentResponse,
   type TaskPriority,
   type TaskResponse,
   type UpdateTaskRequest,
@@ -107,6 +118,34 @@ async function request<T>(
   return schema.parse(await response.json());
 }
 
+async function requestNoContent(
+  path: string,
+  init: RequestInit,
+): Promise<void> {
+  const response = await fetch(`${getApiUrl()}${path}`, {
+    credentials: "include",
+    ...init,
+    headers: {
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...init.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => undefined);
+    const parsed = apiErrorSchema.safeParse(payload);
+    throw new ApiClientError(
+      parsed.success
+        ? parsed.data.error.message
+        : `Request failed with status ${response.status}`,
+      parsed.success ? parsed.data.error.code : "REQUEST_FAILED",
+      parsed.success
+        ? parsed.data.error.requestId
+        : (response.headers.get("x-request-id") ?? undefined),
+    );
+  }
+}
+
 export function register(input: RegisterRequest): Promise<AuthResponse> {
   return request(
     "/api/v1/auth/register",
@@ -127,6 +166,33 @@ export function login(input: LoginRequest): Promise<AuthResponse> {
     },
     authResponseSchema,
   );
+}
+
+export function requestPasswordReset(
+  input: z.infer<typeof passwordResetRequestSchema>,
+): Promise<void> {
+  return requestNoContent("/api/v1/auth/password-reset/request", {
+    body: JSON.stringify(passwordResetRequestSchema.parse(input)),
+    method: "POST",
+  });
+}
+
+export function resetPassword(
+  input: z.infer<typeof passwordResetConfirmRequestSchema>,
+): Promise<void> {
+  return requestNoContent("/api/v1/auth/password-reset/confirm", {
+    body: JSON.stringify(passwordResetConfirmRequestSchema.parse(input)),
+    method: "POST",
+  });
+}
+
+export function verifyEmail(
+  input: z.infer<typeof emailVerificationTokenRequestSchema>,
+): Promise<void> {
+  return requestNoContent("/api/v1/auth/email-verification/confirm", {
+    body: JSON.stringify(emailVerificationTokenRequestSchema.parse(input)),
+    method: "POST",
+  });
 }
 
 export async function logout(): Promise<void> {
@@ -235,6 +301,58 @@ export function getTasks(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks?${query.toString()}`,
     { method: "GET" },
     taskListResponseSchema,
+  );
+}
+
+export function getTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
+    { method: "GET" },
+    taskResponseSchema,
+  );
+}
+
+export function getTaskComments(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskCommentListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments?limit=100&offset=0`,
+    { method: "GET" },
+    taskCommentListResponseSchema,
+  );
+}
+
+export function createTaskComment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: CreateTaskCommentRequest,
+): Promise<TaskCommentResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments`,
+    {
+      body: JSON.stringify(createTaskCommentRequestSchema.parse(input)),
+      method: "POST",
+    },
+    taskCommentResponseSchema,
+  );
+}
+
+export function getTaskActivity(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskActivityEventListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/activity?limit=100&offset=0`,
+    { method: "GET" },
+    taskActivityEventListResponseSchema,
   );
 }
 
