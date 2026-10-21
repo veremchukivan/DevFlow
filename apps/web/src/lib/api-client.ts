@@ -5,8 +5,11 @@ import {
   registerRequestSchema,
   createWorkspaceRequestSchema,
   createProjectRequestSchema,
+  createTaskRequestSchema,
   projectListResponseSchema,
   projectResponseSchema,
+  taskListResponseSchema,
+  taskResponseSchema,
   workspaceListResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
@@ -17,8 +20,12 @@ import {
   type WorkspaceListResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
+  type CreateTaskRequest,
   type ProjectListResponse,
   type ProjectResponse,
+  type TaskListResponse,
+  type TaskPriority,
+  type TaskResponse,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -166,6 +173,64 @@ export function createProject(
       method: "POST",
     },
     projectResponseSchema,
+  );
+}
+
+export function getProject(
+  workspaceId: string,
+  projectId: string,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    { method: "GET" },
+    projectResponseSchema,
+  );
+}
+
+type TaskListFilters = {
+  priority?: TaskPriority;
+  search?: string;
+};
+
+export function getTasks(
+  workspaceId: string,
+  projectId: string,
+  filters: TaskListFilters = {},
+): Promise<TaskListResponse> {
+  const query = new URLSearchParams({
+    limit: "100",
+    offset: "0",
+    sortBy: "number",
+    sortOrder: "asc",
+  });
+
+  if (filters.priority) {
+    query.set("priority", filters.priority);
+  }
+
+  if (filters.search) {
+    query.set("search", filters.search);
+  }
+
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks?${query.toString()}`,
+    { method: "GET" },
+    taskListResponseSchema,
+  );
+}
+
+export function createTask(
+  workspaceId: string,
+  projectId: string,
+  input: CreateTaskRequest,
+): Promise<TaskResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks`,
+    {
+      body: JSON.stringify(createTaskRequestSchema.parse(input)),
+      method: "POST",
+    },
+    taskResponseSchema,
   );
 }
 

@@ -176,13 +176,17 @@ export function WorkspaceDetail() {
         ) : (
           <div className="project-list">
             {projects.map((project) => (
-              <article className="project-row" key={project.id}>
+              <Link
+                className="project-row"
+                href={`/workspaces/${workspaceId}/projects/${project.id}`}
+                key={project.id}
+              >
                 <span className="project-key">{project.key}</span>
                 <div>
                   <h3>{project.name}</h3>
                   {project.description ? <p>{project.description}</p> : null}
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         )}
