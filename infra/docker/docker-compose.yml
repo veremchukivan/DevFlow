@@ -32,7 +32,7 @@ services:
       [
         "sh",
         "-ec",
-        "psql -h postgres -U \"$$POSTGRES_USER\" -d postgres -v ON_ERROR_STOP=1 -f /bootstrap/init.sql"
+        'psql -h postgres -U "$$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -f /bootstrap/init.sql',
       ]
     restart: "no"
     environment:
@@ -132,6 +132,7 @@ services:
       SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
       TRUST_PROXY: ${TRUST_PROXY:-0}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
+      WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-}
     ports:
       - "127.0.0.1:4000:4000"
     depends_on:

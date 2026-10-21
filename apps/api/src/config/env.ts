@@ -7,7 +7,7 @@ dotenv.config({ path: resolve(process.cwd(), "../../.env"), quiet: true });
 
 const optionalNonEmptyString = z.preprocess(
   (value) => (value === "" ? undefined : value),
-  z.string().min(1).optional()
+  z.string().min(1).optional(),
 );
 
 const booleanFromEnv = z.preprocess((value) => {
@@ -38,7 +38,11 @@ const envSchema = z
       .default("development"),
     SESSION_COOKIE_NAME: z.string().min(1).default("devflow_session"),
     SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
-    SESSION_CLEANUP_INTERVAL_HOURS: z.coerce.number().int().positive().default(24),
+    SESSION_CLEANUP_INTERVAL_HOURS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(24),
     EMAIL_VERIFICATION_TTL_HOURS: z.coerce
       .number()
       .int()
@@ -47,8 +51,19 @@ const envSchema = z
     PASSWORD_RESET_TTL_HOURS: z.coerce.number().int().positive().default(1),
     INVITATION_TTL_DAYS: z.coerce.number().int().positive().default(7),
     WEB_ORIGIN: z.url().default("http://localhost:3000"),
-    RATE_LIMIT_WINDOW_MS: z
-      .coerce.number()
+    WEB_ALLOWED_ORIGINS: z
+      .string()
+      .optional()
+      .transform(
+        (value) =>
+          value
+            ?.split(",")
+            .map((origin) => origin.trim())
+            .filter(Boolean) ?? [],
+      )
+      .pipe(z.array(z.url())),
+    RATE_LIMIT_WINDOW_MS: z.coerce
+      .number()
       .int()
       .positive()
       .default(15 * 60 * 1000),
@@ -65,14 +80,14 @@ const envSchema = z
     SMTP_SECURE: booleanFromEnv.default(false),
     SMTP_USER: optionalNonEmptyString,
     SMTP_PASSWORD: optionalNonEmptyString,
-    SMTP_FROM: optionalNonEmptyString
+    SMTP_FROM: optionalNonEmptyString,
   })
   .superRefine((value, context) => {
     if (value.NODE_ENV === "production" && !value.REDIS_URL) {
       context.addIssue({
         code: "custom",
         message: "REDIS_URL is required in production",
-        path: ["REDIS_URL"]
+        path: ["REDIS_URL"],
       });
     }
 
@@ -81,7 +96,7 @@ const envSchema = z
         context.addIssue({
           code: "custom",
           message: "SMTP_HOST is required in production",
-          path: ["SMTP_HOST"]
+          path: ["SMTP_HOST"],
         });
       }
 
@@ -89,7 +104,7 @@ const envSchema = z
         context.addIssue({
           code: "custom",
           message: "SMTP_FROM is required in production",
-          path: ["SMTP_FROM"]
+          path: ["SMTP_FROM"],
         });
       }
     }
@@ -98,7 +113,7 @@ const envSchema = z
       context.addIssue({
         code: "custom",
         message: "SMTP_USER and SMTP_PASSWORD must be configured together",
-        path: ["SMTP_USER"]
+        path: ["SMTP_USER"],
       });
     }
   });
@@ -108,12 +123,12 @@ export function parseEnv(input: NodeJS.ProcessEnv) {
 
   if (parsed.NODE_ENV === "production") {
     const missing = ["DATABASE_URL", "WEB_ORIGIN"].filter(
-      (name) => !input[name]
+      (name) => !input[name],
     );
 
     if (missing.length > 0) {
       throw new Error(
-        `Missing required production environment variables: ${missing.join(", ")}`
+        `Missing required production environment variables: ${missing.join(", ")}`,
       );
     }
 
@@ -126,11 +141,12 @@ export function parseEnv(input: NodeJS.ProcessEnv) {
     parsed.COOKIE_SECURE ?? parsed.NODE_ENV === "production";
 
   if (parsed.SESSION_COOKIE_SAME_SITE === "none" && !isCookieSecure) {
-    throw new Error("SESSION_COOKIE_SAME_SITE=none requires COOKIE_SECURE=true");
+    throw new Error(
+      "SESSION_COOKIE_SAME_SITE=none requires COOKIE_SECURE=true",
+    );
   }
 
   return parsed;
 }
 
 export const env = parseEnv(process.env);
-
