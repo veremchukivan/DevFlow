@@ -261,6 +261,28 @@
   max-width: none;
   padding: 40px 42px 56px;
 }
+.projectViews {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 28px;
+  margin-top: 34px;
+}
+.projectView {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  display: inline-flex;
+  font-weight: 700;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 2px;
+}
+.projectView[aria-selected="true"] {
+  border-bottom-color: var(--brand);
+  color: var(--brand);
+}
 .taskForm,
 .taskFilters {
   align-items: end;
@@ -293,6 +315,63 @@
   margin-top: 30px;
   overflow-x: auto;
   padding-bottom: 8px;
+}
+.taskTable {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 30px;
+  overflow-x: auto;
+}
+.taskTableHeader,
+.taskTableRow {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(250px, 1.8fr) minmax(150px, 1fr) minmax(
+      120px,
+      0.8fr
+    ) minmax(150px, 1fr);
+  min-width: 740px;
+  padding: 14px 18px;
+}
+.taskTableHeader {
+  background: #f3f6fa;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.taskTableRow {
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.taskTableRow select {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  min-height: 34px;
+  padding: 0 8px;
+  width: 100%;
+}
+.taskTableTitle {
+  display: grid;
+  gap: 5px;
+}
+.taskTableTitle span {
+  color: var(--muted);
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+.taskTableTitle a {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+.taskTableTitle a:hover {
+  color: var(--brand);
 }
 .taskColumn {
   background: #e9edf3;
