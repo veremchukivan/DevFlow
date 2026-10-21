@@ -12,6 +12,7 @@ import {
   updateTask,
 } from "@/lib/api-client";
 import type { Project, Task, TaskPriority } from "@devflow/shared";
+import styles from "@/components/ui.module.css";
 
 type BoardFilters = {
   priority?: TaskPriority;
@@ -19,6 +20,12 @@ type BoardFilters = {
 };
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
+const priorityStyles: Record<TaskPriority, string> = {
+  high: styles.priorityHigh!,
+  low: styles.priorityLow!,
+  medium: styles.priorityMedium!,
+  urgent: styles.priorityUrgent!,
+};
 
 export function ProjectBoard() {
   const router = useRouter();
@@ -173,33 +180,32 @@ export function ProjectBoard() {
     }
   }
 
-  if (isLoading)
-    return <main className="session-loading">Loading project</main>;
+  if (isLoading) return <main className={styles.loading}>Loading project</main>;
 
   if (!project) {
     return (
-      <main className="workspace-home">
-        <Link className="back-link" href={`/workspaces/${workspaceId}`}>
+      <main className={styles.workspaceHome}>
+        <Link className={styles.backLink} href={`/workspaces/${workspaceId}`}>
           Back to workspace
         </Link>
-        <p className="form-error">{error ?? "Project not found."}</p>
+        <p className={styles.formError}>{error ?? "Project not found."}</p>
       </main>
     );
   }
 
   return (
-    <main className="project-board-page">
-      <Link className="back-link" href={`/workspaces/${workspaceId}`}>
+    <main className={styles.projectBoardPage}>
+      <Link className={styles.backLink} href={`/workspaces/${workspaceId}`}>
         {"<- Back to workspace"}
       </Link>
-      <header className="project-board-header">
+      <header className={styles.projectBoardHeader}>
         <div>
-          <p className="eyebrow">{project.key}</p>
+          <p className={styles.eyebrow}>{project.key}</p>
           <h1>{project.name}</h1>
           {project.description ? <p>{project.description}</p> : null}
         </div>
         <button
-          className="primary-button"
+          className={styles.primaryButton}
           onClick={() => setShowTaskForm((current) => !current)}
           type="button"
         >
@@ -208,8 +214,8 @@ export function ProjectBoard() {
       </header>
 
       {showTaskForm ? (
-        <form className="task-form" onSubmit={onCreateTask}>
-          <label className="task-title-field">
+        <form className={styles.taskForm} onSubmit={onCreateTask}>
+          <label>
             <span>Task title</span>
             <input maxLength={200} minLength={2} name="title" required />
           </label>
@@ -239,20 +245,20 @@ export function ProjectBoard() {
               ))}
             </select>
           </label>
-          <label className="task-description-field">
+          <label className={styles.taskDescriptionField}>
             <span>Description</span>
             <textarea maxLength={10000} name="description" rows={3} />
           </label>
-          <div className="form-actions">
+          <div className={styles.formActions}>
             <button
-              className="primary-button"
+              className={styles.primaryButton}
               disabled={isCreating}
               type="submit"
             >
               {isCreating ? "Creating" : "Create task"}
             </button>
             <button
-              className="text-button"
+              className={styles.textButton}
               onClick={() => setShowTaskForm(false)}
               type="button"
             >
@@ -262,7 +268,7 @@ export function ProjectBoard() {
         </form>
       ) : null}
 
-      <form className="task-filters" onSubmit={onFilter}>
+      <form className={styles.taskFilters} onSubmit={onFilter}>
         <label>
           <span>Search</span>
           <input
@@ -289,7 +295,7 @@ export function ProjectBoard() {
           </select>
         </label>
         <button
-          className="secondary-button"
+          className={styles.secondaryButton}
           disabled={isRefreshing}
           type="submit"
         >
@@ -298,43 +304,45 @@ export function ProjectBoard() {
       </form>
 
       {error ? (
-        <p className="form-error" role="alert">
+        <p className={styles.formError} role="alert">
           {error}
         </p>
       ) : null}
 
-      <section aria-label="Tasks" className="task-board">
+      <section aria-label="Tasks" className={styles.taskBoard}>
         {project.statuses.map((status) => {
           const statusTasks = tasks.filter(
             (task) => task.statusId === status.id,
           );
           return (
-            <section className="task-column" key={status.id}>
-              <header className="task-column-header">
+            <section className={styles.taskColumn} key={status.id}>
+              <header className={styles.taskColumnHeader}>
                 <div>
                   <span
                     aria-hidden="true"
-                    className="status-dot"
+                    className={styles.statusDot}
                     style={{ backgroundColor: status.color }}
                   />
                   <h2>{status.name}</h2>
                 </div>
                 <span>{statusTasks.length}</span>
               </header>
-              <div className="task-list">
+              <div className={styles.taskList}>
                 {statusTasks.map((task) => (
-                  <article className="task-card" key={task.id}>
-                    <div className="task-card-meta">
+                  <article className={styles.taskCard} key={task.id}>
+                    <div className={styles.taskCardMeta}>
                       <span>{task.key}</span>
-                      <span className={`priority priority-${task.priority}`}>
+                      <span
+                        className={`${styles.priority} ${priorityStyles[task.priority]}`}
+                      >
                         {task.priority}
                       </span>
                     </div>
                     <h3>{task.title}</h3>
                     {task.description ? <p>{task.description}</p> : null}
-                    <div className="task-card-controls">
+                    <div className={styles.taskCardControls}>
                       <label>
-                        <span className="sr-only">Status</span>
+                        <span className={styles.srOnly}>Status</span>
                         <select
                           aria-label={`Status for ${task.key}`}
                           disabled={updatingTaskId === task.id}
@@ -353,7 +361,7 @@ export function ProjectBoard() {
                         </select>
                       </label>
                       <label>
-                        <span className="sr-only">Priority</span>
+                        <span className={styles.srOnly}>Priority</span>
                         <select
                           aria-label={`Priority for ${task.key}`}
                           disabled={updatingTaskId === task.id}
@@ -375,7 +383,7 @@ export function ProjectBoard() {
                   </article>
                 ))}
                 {statusTasks.length === 0 ? (
-                  <p className="task-column-empty">No tasks</p>
+                  <p className={styles.taskColumnEmpty}>No tasks</p>
                 ) : null}
               </div>
             </section>

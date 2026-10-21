@@ -9,6 +9,7 @@ import {
   getWorkspaces,
 } from "@/lib/api-client";
 import type { Workspace } from "@devflow/shared";
+import styles from "@/components/ui.module.css";
 
 export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -70,26 +71,29 @@ export default function HomePage() {
   }
 
   if (isLoading) {
-    return <main className="session-loading">Loading workspaces</main>;
+    return <main className={styles.loading}>Loading workspaces</main>;
   }
 
   return (
-    <main className="workspace-home">
-      <header className="workspace-home-header">
+    <main className={styles.workspaceHome}>
+      <header className={styles.workspaceHomeHeader}>
         <div>
-          <p className="eyebrow">Workspaces</p>
+          <p className={styles.eyebrow}>Workspaces</p>
           <h1>Organize work with your team</h1>
           <p>Choose a workspace to manage its projects and tasks.</p>
         </div>
       </header>
-      <section className="workspace-section" aria-labelledby="workspaces-title">
-        <div className="section-heading">
+      <section
+        className={styles.workspaceSection}
+        aria-labelledby="workspaces-title"
+      >
+        <div className={styles.sectionHeading}>
           <div>
             <h2 id="workspaces-title">Your workspaces</h2>
             <p>{workspaces.length} available</p>
           </div>
           <button
-            className="primary-button"
+            className={styles.primaryButton}
             onClick={() => setShowWorkspaceForm((current) => !current)}
             type="button"
           >
@@ -98,7 +102,7 @@ export default function HomePage() {
         </div>
 
         {showWorkspaceForm ? (
-          <form className="workspace-form" onSubmit={onCreateWorkspace}>
+          <form className={styles.workspaceForm} onSubmit={onCreateWorkspace}>
             <label>
               <span>Workspace name</span>
               <input maxLength={120} minLength={2} name="name" required />
@@ -108,20 +112,20 @@ export default function HomePage() {
               <input maxLength={80} name="slug" placeholder="product-team" />
             </label>
             {workspaceError ? (
-              <p className="form-error" role="alert">
+              <p className={styles.formError} role="alert">
                 {workspaceError}
               </p>
             ) : null}
-            <div className="form-actions">
+            <div className={styles.formActions}>
               <button
-                className="primary-button"
+                className={styles.primaryButton}
                 disabled={isCreatingWorkspace}
                 type="submit"
               >
                 {isCreatingWorkspace ? "Creating" : "Create workspace"}
               </button>
               <button
-                className="text-button"
+                className={styles.textButton}
                 onClick={() => setShowWorkspaceForm(false)}
                 type="button"
               >
@@ -132,20 +136,20 @@ export default function HomePage() {
         ) : null}
 
         {workspaceError && !showWorkspaceForm ? (
-          <p className="form-error" role="alert">
+          <p className={styles.formError} role="alert">
             {workspaceError}
           </p>
         ) : null}
 
         {workspaces.length === 0 ? (
-          <p className="empty-state">
+          <p className={styles.emptyState}>
             Create your first workspace to start organizing work.
           </p>
         ) : (
-          <div className="workspace-list">
+          <div className={styles.workspaceList}>
             {workspaces.map((workspace) => (
               <Link
-                className="workspace-row"
+                className={styles.workspaceRow}
                 href={`/workspaces/${workspace.id}`}
                 key={workspace.id}
               >
@@ -153,7 +157,7 @@ export default function HomePage() {
                   <h3>{workspace.name}</h3>
                   <p>{workspace.slug}</p>
                 </div>
-                <span className="role-badge">{workspace.role}</span>
+                <span className={styles.roleBadge}>{workspace.role}</span>
               </Link>
             ))}
           </div>

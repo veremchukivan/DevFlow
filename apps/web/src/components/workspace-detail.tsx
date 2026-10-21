@@ -11,6 +11,7 @@ import {
   getWorkspace,
 } from "@/lib/api-client";
 import type { ProjectSummary, Workspace } from "@devflow/shared";
+import styles from "@/components/ui.module.css";
 
 export function WorkspaceDetail() {
   const router = useRouter();
@@ -89,41 +90,44 @@ export function WorkspaceDetail() {
   }
 
   if (isLoading) {
-    return <main className="session-loading">Loading workspace</main>;
+    return <main className={styles.loading}>Loading workspace</main>;
   }
 
   if (!workspace) {
     return (
-      <main className="workspace-home">
-        <Link className="back-link" href="/">
+      <main className={styles.workspaceHome}>
+        <Link className={styles.backLink} href="/">
           All workspaces
         </Link>
-        <p className="form-error">{error ?? "Workspace not found."}</p>
+        <p className={styles.formError}>{error ?? "Workspace not found."}</p>
       </main>
     );
   }
 
   return (
-    <main className="workspace-home">
-      <Link className="back-link" href="/">
+    <main className={styles.workspaceHome}>
+      <Link className={styles.backLink} href="/">
         All workspaces
       </Link>
-      <header className="workspace-home-header">
+      <header className={styles.workspaceHomeHeader}>
         <div>
-          <p className="eyebrow">{workspace.slug}</p>
+          <p className={styles.eyebrow}>{workspace.slug}</p>
           <h1>{workspace.name}</h1>
           <p>Projects are where tasks, status, and activity live.</p>
         </div>
       </header>
 
-      <section className="workspace-section" aria-labelledby="projects-title">
-        <div className="section-heading">
+      <section
+        className={styles.workspaceSection}
+        aria-labelledby="projects-title"
+      >
+        <div className={styles.sectionHeading}>
           <div>
             <h2 id="projects-title">Projects</h2>
             <p>{projects.length} available</p>
           </div>
           <button
-            className="primary-button"
+            className={styles.primaryButton}
             onClick={() => setShowProjectForm((current) => !current)}
             type="button"
           >
@@ -132,7 +136,7 @@ export function WorkspaceDetail() {
         </div>
 
         {showProjectForm ? (
-          <form className="project-form" onSubmit={onCreateProject}>
+          <form className={styles.projectForm} onSubmit={onCreateProject}>
             <label>
               <span>Project name</span>
               <input maxLength={160} minLength={2} name="name" required />
@@ -141,25 +145,25 @@ export function WorkspaceDetail() {
               <span>Key</span>
               <input maxLength={12} name="key" placeholder="WEB" />
             </label>
-            <label className="project-description">
+            <label className={styles.projectDescription}>
               <span>Description</span>
               <input maxLength={2000} name="description" />
             </label>
             {error ? (
-              <p className="form-error" role="alert">
+              <p className={styles.formError} role="alert">
                 {error}
               </p>
             ) : null}
-            <div className="form-actions">
+            <div className={styles.formActions}>
               <button
-                className="primary-button"
+                className={styles.primaryButton}
                 disabled={isCreatingProject}
                 type="submit"
               >
                 {isCreatingProject ? "Creating" : "Create project"}
               </button>
               <button
-                className="text-button"
+                className={styles.textButton}
                 onClick={() => setShowProjectForm(false)}
                 type="button"
               >
@@ -170,18 +174,18 @@ export function WorkspaceDetail() {
         ) : null}
 
         {projects.length === 0 ? (
-          <p className="empty-state">
+          <p className={styles.emptyState}>
             Create a project to start tracking work.
           </p>
         ) : (
-          <div className="project-list">
+          <div className={styles.projectList}>
             {projects.map((project) => (
               <Link
-                className="project-row"
+                className={styles.projectRow}
                 href={`/workspaces/${workspaceId}/projects/${project.id}`}
                 key={project.id}
               >
-                <span className="project-key">{project.key}</span>
+                <span className={styles.projectKey}>{project.key}</span>
                 <div>
                   <h3>{project.name}</h3>
                   {project.description ? <p>{project.description}</p> : null}
