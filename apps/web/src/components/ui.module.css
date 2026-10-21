@@ -1,0 +1,430 @@
+.loading {
+  color: var(--muted);
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+.eyebrow {
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 20px;
+}
+.primaryButton,
+.secondaryButton {
+  border-radius: 6px;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 0 16px;
+}
+.primaryButton {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  color: #fff;
+}
+.primaryButton:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+.secondaryButton {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  color: var(--ink);
+}
+.textButton {
+  background: transparent;
+  border: 0;
+  color: var(--brand);
+  font-weight: 700;
+  min-height: 42px;
+  padding: 0 6px;
+}
+.formError {
+  color: var(--danger);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: -4px 0 0;
+}
+.formActions {
+  display: flex;
+  gap: 10px;
+}
+.emptyState {
+  color: var(--muted);
+  margin: 28px 0;
+}
+.backLink {
+  color: var(--brand);
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 28px;
+}
+
+.authPage {
+  align-items: center;
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+}
+.authPanel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 46px rgb(31 44 61 / 10%);
+  max-width: 440px;
+  padding: 36px;
+  width: 100%;
+}
+.authBrand {
+  composes: eyebrow;
+}
+.authPanel h1,
+.workspaceHome h1,
+.projectBoardPage h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 0;
+}
+.authSubtitle,
+.workspaceHome p,
+.projectBoardHeader p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+.authForm {
+  display: grid;
+  gap: 18px;
+  margin-top: 30px;
+}
+.authForm label,
+.workspaceForm label,
+.projectForm label,
+.taskForm label,
+.taskFilters label {
+  display: grid;
+  gap: 7px;
+}
+.authForm label span,
+.workspaceForm label span,
+.projectForm label span,
+.taskForm label span,
+.taskFilters label span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.authForm input,
+.workspaceForm input,
+.projectForm input,
+.taskForm input,
+.taskForm select,
+.taskForm textarea,
+.taskFilters input,
+.taskFilters select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 11px;
+  width: 100%;
+}
+.authForm input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgb(0 108 103 / 15%);
+  outline: none;
+}
+.authSwitch {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 24px 0 0;
+}
+.authSwitch a {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.workspaceHome {
+  margin: 0 auto;
+  max-width: 980px;
+  padding: 56px 32px;
+}
+.workspaceHomeHeader,
+.projectBoardHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+.workspaceSection {
+  border-top: 1px solid var(--line);
+  margin-top: 42px;
+  padding-top: 26px;
+}
+.sectionHeading {
+  align-items: center;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+.sectionHeading h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.sectionHeading p,
+.workspaceRow p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 5px 0 0;
+}
+.workspaceForm {
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  margin: 22px 0;
+  padding-bottom: 22px;
+}
+.workspaceList,
+.projectList,
+.taskList {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+.workspaceRow,
+.projectRow {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  text-decoration: none;
+}
+.workspaceRow {
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px;
+}
+.workspaceRow:hover {
+  border-color: var(--brand);
+}
+.workspaceRow h3,
+.projectRow h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.roleBadge {
+  background: #e2f0ef;
+  border-radius: 4px;
+  color: var(--brand-hover);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 8px;
+}
+
+.projectForm {
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  margin: 22px 0;
+  padding-bottom: 22px;
+}
+.projectDescription {
+  grid-column: span 2;
+}
+.projectRow {
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+}
+.projectRow p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 5px 0 0;
+}
+.projectKey {
+  background: #eaf0f8;
+  border-radius: 4px;
+  color: #245078;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 7px;
+}
+
+.projectBoardPage {
+  margin: 0 auto;
+  max-width: 1280px;
+  padding: 48px 32px;
+}
+.taskForm,
+.taskFilters {
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  margin-top: 28px;
+  padding-bottom: 24px;
+}
+.taskForm {
+  grid-template-columns: minmax(0, 1fr) 160px 140px;
+}
+.taskFilters {
+  grid-template-columns: minmax(0, 320px) 160px auto;
+}
+.taskForm textarea {
+  padding: 10px 11px;
+  resize: vertical;
+}
+.taskDescriptionField,
+.taskForm .formActions {
+  grid-column: span 3;
+}
+.taskBoard {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  margin-top: 28px;
+}
+.taskColumn {
+  min-width: 0;
+}
+.taskColumnHeader {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 12px;
+}
+.taskColumnHeader div {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.taskColumnHeader h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.taskColumnHeader > span,
+.taskColumnEmpty {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.statusDot {
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
+}
+.taskList {
+  margin-top: 12px;
+}
+.taskCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px;
+}
+.taskCard h3 {
+  font-size: 15px;
+  line-height: 1.35;
+  margin: 10px 0 0;
+}
+.taskCard p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+.taskCardMeta {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+  justify-content: space-between;
+}
+.taskCardControls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 14px;
+}
+.taskCardControls select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  min-height: 32px;
+  padding: 0 6px;
+  width: 100%;
+}
+.priority {
+  border-radius: 4px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  padding: 3px 5px;
+  text-transform: uppercase;
+}
+.priorityLow {
+  background: #e6edf4;
+  color: #3c5872;
+}
+.priorityMedium {
+  background: #e2f0ef;
+  color: #065b57;
+}
+.priorityHigh {
+  background: #fcedd9;
+  color: #9a5800;
+}
+.priorityUrgent {
+  background: #f8e1e1;
+  color: #9f2525;
+}
+.srOnly {
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 560px) {
+  .authPage {
+    padding: 16px;
+  }
+  .authPanel {
+    padding: 28px 22px;
+  }
+  .workspaceHome,
+  .projectBoardPage {
+    padding: 32px 20px;
+  }
+  .workspaceHomeHeader,
+  .projectBoardHeader {
+    flex-direction: column;
+  }
+  .workspaceForm,
+  .projectForm,
+  .taskForm,
+  .taskFilters {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+  .projectDescription,
+  .taskDescriptionField,
+  .taskForm .formActions {
+    grid-column: auto;
+  }
+}

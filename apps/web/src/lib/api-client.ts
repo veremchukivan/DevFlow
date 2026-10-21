@@ -26,6 +26,7 @@ import {
   type TaskListResponse,
   type TaskPriority,
   type TaskResponse,
+  type UpdateTaskRequest,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -229,6 +230,24 @@ export function createTask(
     {
       body: JSON.stringify(createTaskRequestSchema.parse(input)),
       method: "POST",
+    },
+    taskResponseSchema,
+  );
+}
+
+export function updateTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: UpdateTaskRequest,
+  version: number,
+): Promise<TaskResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
+    {
+      body: JSON.stringify(input),
+      headers: { "If-Match": `"${version}"` },
+      method: "PATCH",
     },
     taskResponseSchema,
   );

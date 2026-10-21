@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import { ApiClientError, login, register } from "@/lib/api-client";
+import styles from "@/components/ui.module.css";
 
 type AuthMode = "login" | "register";
 
@@ -50,19 +51,19 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-panel" aria-labelledby="auth-title">
-        <div className="auth-brand">DevFlow</div>
+    <main className={styles.authPage}>
+      <section className={styles.authPanel} aria-labelledby="auth-title">
+        <div className={styles.authBrand}>DevFlow</div>
         <h1 id="auth-title">
           {isRegister ? "Create your account" : "Welcome back"}
         </h1>
-        <p className="auth-subtitle">
+        <p className={styles.authSubtitle}>
           {isRegister
             ? "Start organizing work with your team."
             : "Sign in to continue to your workspace."}
         </p>
 
-        <form className="auth-form" onSubmit={onSubmit}>
+        <form className={styles.authForm} onSubmit={onSubmit}>
           {isRegister ? (
             <label>
               <span>Name</span>
@@ -98,13 +99,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           </label>
 
           {error ? (
-            <p className="form-error" role="alert">
+            <p className={styles.formError} role="alert">
               {error}
             </p>
           ) : null}
 
           <button
-            className="primary-button"
+            className={styles.primaryButton}
             disabled={isSubmitting}
             type="submit"
           >
@@ -116,7 +117,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           </button>
         </form>
 
-        <p className="auth-switch">
+        <p className={styles.authSwitch}>
           {isRegister ? "Already have an account?" : "New to DevFlow?"}{" "}
           <Link href={isRegister ? "/login" : "/register"}>
             {isRegister ? "Sign in" : "Create an account"}
