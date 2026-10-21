@@ -1,7 +1,13 @@
 .shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 272px minmax(0, 1fr);
   min-height: 100vh;
+}
+
+.mainArea {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
 }
 
 .content {
@@ -13,4 +19,10 @@
   display: grid;
   min-height: 100vh;
   place-items: center;
+}
+
+@media (max-width: 840px) {
+  .shell {
+    display: block;
+  }
 }

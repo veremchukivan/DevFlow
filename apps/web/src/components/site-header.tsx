@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { LogOut, Plus } from "lucide-react";
+import Link from "next/link";
 
 import { logout } from "@/lib/api-client";
 import type { AuthUser } from "@devflow/shared";
@@ -29,27 +30,27 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   return (
     <header className={styles.header}>
       <div className={styles.content}>
-        <Link className={styles.brand} href="/">
-          DevFlow
-        </Link>
-        <nav aria-label="Primary navigation" className={styles.navigation}>
-          <Link
-            aria-current={pathname === "/" ? "page" : undefined}
-            className={styles.navigationLink}
-            href="/"
-          >
-            Workspaces
-          </Link>
-        </nav>
+        <div className={styles.mobileBrand}>DevFlow</div>
+        <div className={styles.breadcrumb}>
+          {pathname === "/" ? "Workspaces" : "Project workspace"}
+        </div>
         <div className={styles.userMenu}>
-          <span className={styles.userName}>{user.displayName}</span>
+          <Link className={styles.createButton} href="/">
+            <Plus aria-hidden="true" size={18} strokeWidth={2} />
+            Create
+          </Link>
+          <span aria-label={user.displayName} className={styles.userAvatar}>
+            {user.displayName.slice(0, 2).toUpperCase()}
+          </span>
           <button
+            aria-label="Sign out"
             className={styles.signOut}
             disabled={isSigningOut}
             onClick={signOut}
+            title="Sign out"
             type="button"
           >
-            {isSigningOut ? "Signing out" : "Sign out"}
+            <LogOut aria-hidden="true" size={18} strokeWidth={1.8} />
           </button>
         </div>
       </div>

@@ -1,0 +1,103 @@
+"use client";
+
+import { FolderKanban, LayoutDashboard, Plus } from "lucide-react";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { getWorkspaces } from "@/lib/api-client";
+import type { Workspace } from "@devflow/shared";
+
+import styles from "./workspace-sidebar.module.css";
+
+export function WorkspaceSidebar() {
+  const pathname = usePathname();
+  const params = useParams<{ workspaceId?: string }>();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+
+  useEffect(() => {
+    void getWorkspaces().then((response) => setWorkspaces(response.workspaces));
+  }, []);
+
+  const activeWorkspace = workspaces.find(
+    (workspace) => workspace.id === params.workspaceId,
+  );
+
+  return (
+    <aside className={styles.sidebar}>
+      <Link className={styles.brand} href="/">
+        <span className={styles.brandMark}>D</span>
+        <span>DevFlow</span>
+      </Link>
+
+      {activeWorkspace ? (
+        <div className={styles.activeWorkspace}>
+          <span className={styles.workspaceAvatar}>
+            {initials(activeWorkspace.name)}
+          </span>
+          <span>
+            <strong>{activeWorkspace.name}</strong>
+            <small>Workspace</small>
+          </span>
+        </div>
+      ) : null}
+
+      <nav aria-label="Workspace navigation" className={styles.navigation}>
+        <Link
+          className={styles.navigationLink}
+          href={activeWorkspace ? `/workspaces/${activeWorkspace.id}` : "/"}
+        >
+          <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
+          Workspaces
+        </Link>
+        {activeWorkspace ? (
+          <Link
+            aria-current={
+              pathname.startsWith(`/workspaces/${activeWorkspace.id}`)
+                ? "page"
+                : undefined
+            }
+            className={styles.navigationLink}
+            href={`/workspaces/${activeWorkspace.id}`}
+          >
+            <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
+            Projects
+          </Link>
+        ) : null}
+      </nav>
+
+      <div className={styles.projects}>
+        <div className={styles.projectsHeading}>
+          <span>Workspaces</span>
+          <Link aria-label="Create workspace" href="/" title="Create workspace">
+            <Plus aria-hidden="true" size={18} strokeWidth={1.8} />
+          </Link>
+        </div>
+        <div className={styles.workspaceList}>
+          {workspaces.map((workspace) => (
+            <Link
+              aria-current={
+                workspace.id === activeWorkspace?.id ? "page" : undefined
+              }
+              className={styles.workspaceLink}
+              href={`/workspaces/${workspace.id}`}
+              key={workspace.id}
+            >
+              {workspace.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}

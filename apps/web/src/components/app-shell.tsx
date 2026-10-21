@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { ApiClientError, getCurrentUser } from "@/lib/api-client";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { WorkspaceSidebar } from "@/components/workspace-sidebar";
 import type { AuthUser } from "@devflow/shared";
 
 import styles from "./app-shell.module.css";
@@ -68,9 +69,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className={styles.shell}>
-      <SiteHeader user={user} />
-      <div className={styles.content}>{children}</div>
-      <SiteFooter />
+      <WorkspaceSidebar />
+      <div className={styles.mainArea}>
+        <SiteHeader user={user} />
+        <div className={styles.content}>{children}</div>
+        <SiteFooter />
+      </div>
     </div>
   );
 }
