@@ -3,10 +3,16 @@ import {
   healthResponseSchema,
   loginRequestSchema,
   registerRequestSchema,
+  createWorkspaceRequestSchema,
+  workspaceListResponseSchema,
+  workspaceResponseSchema,
   type AuthResponse,
   type HealthResponse,
   type LoginRequest,
   type RegisterRequest,
+  type CreateWorkspaceRequest,
+  type WorkspaceListResponse,
+  type WorkspaceResponse,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -104,6 +110,27 @@ export async function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
+}
+
+export function getWorkspaces(): Promise<WorkspaceListResponse> {
+  return request(
+    "/api/v1/workspaces?limit=100&offset=0",
+    { method: "GET" },
+    workspaceListResponseSchema,
+  );
+}
+
+export function createWorkspace(
+  input: CreateWorkspaceRequest,
+): Promise<WorkspaceResponse> {
+  return request(
+    "/api/v1/workspaces",
+    {
+      body: JSON.stringify(createWorkspaceRequestSchema.parse(input)),
+      method: "POST",
+    },
+    workspaceResponseSchema,
+  );
 }
 
 export async function getApiHealth(): Promise<HealthResponse> {
