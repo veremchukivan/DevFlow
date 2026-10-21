@@ -21,6 +21,9 @@ managed outside the repository.
   reverse proxy to the internet.
 - Monitor `GET /healthz` for process availability and `GET /readyz` for
   PostgreSQL and Redis availability.
+- The API drains active HTTP connections on `SIGTERM` and forcibly exits after
+  `SHUTDOWN_TIMEOUT_MS` (10 seconds by default). Configure the orchestrator's
+  termination grace period above that value.
 
 ## Backup
 

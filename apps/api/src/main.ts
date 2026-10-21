@@ -31,16 +31,38 @@ async function start() {
     console.log(`Received ${signal}, shutting down DevFlow API`);
     stopSessionCleanup();
 
-    server.close(async (error) => {
-      await Promise.all([closeDbConnection(), closeRedisConnection()]);
+    const forceExitTimer = setTimeout(() => {
+      console.error("Graceful shutdown timed out, forcing exit");
+      process.exit(1);
+    }, env.SHUTDOWN_TIMEOUT_MS);
+    forceExitTimer.unref();
 
-      if (error) {
-        console.error(error);
-        process.exit(1);
-      }
-
-      process.exit(0);
+    server.close((error) => {
+      void finishShutdown(error, forceExitTimer);
     });
+  }
+
+  async function finishShutdown(
+    serverError: Error | undefined,
+    forceExitTimer: NodeJS.Timeout
+  ) {
+    clearTimeout(forceExitTimer);
+
+    try {
+      await Promise.all([closeDbConnection(), closeRedisConnection()]);
+    } catch (error) {
+      console.error("Failed to close API dependencies", error);
+      process.exit(1);
+      return;
+    }
+
+    if (serverError) {
+      console.error(serverError);
+      process.exit(1);
+      return;
+    }
+
+    process.exit(0);
   }
 
   process.on("SIGINT", (signal) => {

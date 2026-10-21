@@ -15,7 +15,8 @@ describe("environment validation", () => {
   it("accepts an explicit, secure production configuration", () => {
     expect(parseEnv(productionEnvironment)).toMatchObject({
       NODE_ENV: "production",
-      SESSION_COOKIE_SAME_SITE: "lax"
+      SESSION_COOKIE_SAME_SITE: "lax",
+      SHUTDOWN_TIMEOUT_MS: 10_000
     });
   });
 
@@ -38,5 +39,11 @@ describe("environment validation", () => {
         SESSION_COOKIE_SAME_SITE: "none"
       })
     ).toThrow("SESSION_COOKIE_SAME_SITE=none requires COOKIE_SECURE=true");
+  });
+
+  it("requires a practical graceful shutdown timeout", () => {
+    expect(() =>
+      parseEnv({ SHUTDOWN_TIMEOUT_MS: "999" })
+    ).toThrow(">=1000");
   });
 });

@@ -55,6 +55,7 @@ const envSchema = z
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
     API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
     DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+    SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),
     COOKIE_SECURE: booleanFromEnv.optional(),
     SESSION_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
     TRUST_PROXY: z.coerce.number().int().nonnegative().default(0),
