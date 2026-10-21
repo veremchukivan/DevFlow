@@ -12,6 +12,9 @@ export const requestLogger: RequestHandler =
   env.NODE_ENV === "test"
     ? noopRequestLogger
     : pinoHttp({
+        customProps: (_req, res) => ({
+          requestId: res.locals.requestId
+        }),
         serializers: {
           req: serializeRequest
         },

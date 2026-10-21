@@ -7,6 +7,7 @@ import { env } from "./config/env.js";
 import { errorHandler } from "./core/http/error-handler.js";
 import { csrfProtection } from "./core/http/csrf-protection.js";
 import { apiRateLimiter } from "./core/http/rate-limiter.js";
+import { requestId } from "./core/http/request-id.js";
 import { requestLogger } from "./core/http/request-logger.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
@@ -26,6 +27,7 @@ export function createApp() {
   const app = express();
 
   app.set("trust proxy", env.TRUST_PROXY);
+  app.use(requestId);
   app.use(requestLogger);
   app.use(helmet());
   app.use(
