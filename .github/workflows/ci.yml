@@ -47,6 +47,9 @@ jobs:
       - name: Lint monorepo
         run: pnpm lint
 
+      - name: Verify OpenAPI document
+        run: pnpm api:openapi:check
+
   test:
     name: Integration Tests
     runs-on: ubuntu-latest
