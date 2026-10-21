@@ -3,10 +3,29 @@ import {
   healthResponseSchema,
   loginRequestSchema,
   registerRequestSchema,
+  createWorkspaceRequestSchema,
+  createProjectRequestSchema,
+  createTaskRequestSchema,
+  projectListResponseSchema,
+  projectResponseSchema,
+  taskListResponseSchema,
+  taskResponseSchema,
+  workspaceListResponseSchema,
+  workspaceResponseSchema,
   type AuthResponse,
   type HealthResponse,
   type LoginRequest,
   type RegisterRequest,
+  type CreateWorkspaceRequest,
+  type WorkspaceListResponse,
+  type WorkspaceResponse,
+  type CreateProjectRequest,
+  type CreateTaskRequest,
+  type ProjectListResponse,
+  type ProjectResponse,
+  type TaskListResponse,
+  type TaskPriority,
+  type TaskResponse,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -104,6 +123,115 @@ export async function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
+}
+
+export function getWorkspaces(): Promise<WorkspaceListResponse> {
+  return request(
+    "/api/v1/workspaces?limit=100&offset=0",
+    { method: "GET" },
+    workspaceListResponseSchema,
+  );
+}
+
+export function createWorkspace(
+  input: CreateWorkspaceRequest,
+): Promise<WorkspaceResponse> {
+  return request(
+    "/api/v1/workspaces",
+    {
+      body: JSON.stringify(createWorkspaceRequestSchema.parse(input)),
+      method: "POST",
+    },
+    workspaceResponseSchema,
+  );
+}
+
+export function getWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}`,
+    { method: "GET" },
+    workspaceResponseSchema,
+  );
+}
+
+export function getProjects(workspaceId: string): Promise<ProjectListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects?limit=100&offset=0`,
+    { method: "GET" },
+    projectListResponseSchema,
+  );
+}
+
+export function createProject(
+  workspaceId: string,
+  input: CreateProjectRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects`,
+    {
+      body: JSON.stringify(createProjectRequestSchema.parse(input)),
+      method: "POST",
+    },
+    projectResponseSchema,
+  );
+}
+
+export function getProject(
+  workspaceId: string,
+  projectId: string,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    { method: "GET" },
+    projectResponseSchema,
+  );
+}
+
+type TaskListFilters = {
+  priority?: TaskPriority;
+  search?: string;
+};
+
+export function getTasks(
+  workspaceId: string,
+  projectId: string,
+  filters: TaskListFilters = {},
+): Promise<TaskListResponse> {
+  const query = new URLSearchParams({
+    limit: "100",
+    offset: "0",
+    sortBy: "number",
+    sortOrder: "asc",
+  });
+
+  if (filters.priority) {
+    query.set("priority", filters.priority);
+  }
+
+  if (filters.search) {
+    query.set("search", filters.search);
+  }
+
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks?${query.toString()}`,
+    { method: "GET" },
+    taskListResponseSchema,
+  );
+}
+
+export function createTask(
+  workspaceId: string,
+  projectId: string,
+  input: CreateTaskRequest,
+): Promise<TaskResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks`,
+    {
+      body: JSON.stringify(createTaskRequestSchema.parse(input)),
+      method: "POST",
+    },
+    taskResponseSchema,
+  );
 }
 
 export async function getApiHealth(): Promise<HealthResponse> {
