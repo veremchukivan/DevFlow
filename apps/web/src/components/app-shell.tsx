@@ -10,14 +10,22 @@ import type { AuthUser } from "@devflow/shared";
 
 import styles from "./app-shell.module.css";
 
-const publicPaths = new Set(["/login", "/register"]);
+const publicPaths = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser>();
   const [isLoading, setIsLoading] = useState(true);
-  const isPublicPage = publicPaths.has(pathname);
+  const isPublicPage = publicPaths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
 
   useEffect(() => {
     if (isPublicPage) {
