@@ -13,8 +13,12 @@
     "db:generate": "pnpm --filter @devflow/api db:generate",
     "db:migrate": "pnpm --filter @devflow/api db:migrate",
     "db:push": "pnpm --filter @devflow/api db:push",
+    "db:backup": "bash infra/scripts/postgres-backup.sh",
+    "db:restore": "bash infra/scripts/postgres-restore.sh",
     "db:studio": "pnpm --filter @devflow/api db:studio",
     "db:test:prepare": "pnpm --filter @devflow/api db:test:prepare",
+    "api:openapi": "pnpm --filter @devflow/api exec tsx scripts/generate-openapi.ts",
+    "api:openapi:check": "pnpm --filter @devflow/api exec tsx scripts/generate-openapi.ts --check",
     "dev": "pnpm --filter @devflow/shared build && turbo dev",
     "infra:down": "docker compose --env-file .env -f infra/docker/docker-compose.yml down",
     "infra:up:integrations": "docker compose --env-file .env -f infra/docker/docker-compose.yml --profile integrations up -d --build",
@@ -31,4 +35,3 @@
     "typescript": "^5.9.2"
   }
 }
-

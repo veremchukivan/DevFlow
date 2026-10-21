@@ -81,7 +81,12 @@ pnpm db:test:prepare
 
 ## API Documentation
 
-Endpoint examples and role rules live in [docs/api.md](docs/api.md).
+Endpoint examples and role rules live in [docs/api.md](docs/api.md). The
+machine-readable contract is available at
+[docs/openapi.json](docs/openapi.json) and from a running API at
+`GET /openapi.json`.
+Production deployment, backup, recovery, and secret rotation procedures live
+in [docs/operations.md](docs/operations.md).
 
 ## Auth Endpoints
 
@@ -141,4 +146,3 @@ Endpoint examples and role rules live in [docs/api.md](docs/api.md).
 ## Task Activity Endpoints
 
 - `GET /api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/activity`
-

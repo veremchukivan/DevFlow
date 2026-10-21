@@ -39,6 +39,11 @@ Current permission rules:
 
 ## Errors
 
+Every response contains an `X-Request-Id` header. Send a valid value in that
+header to preserve it across the request, or use the returned UUID when
+reporting a problem. Error responses also include this value as
+`error.requestId`.
+
 Errors use a stable code and message:
 
 ```json

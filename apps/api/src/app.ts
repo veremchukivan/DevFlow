@@ -7,7 +7,9 @@ import { env } from "./config/env.js";
 import { errorHandler } from "./core/http/error-handler.js";
 import { csrfProtection } from "./core/http/csrf-protection.js";
 import { apiRateLimiter } from "./core/http/rate-limiter.js";
+import { requestId } from "./core/http/request-id.js";
 import { requestLogger } from "./core/http/request-logger.js";
+import { openApiRouter } from "./core/openapi/openapi.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { projectsRouter } from "./modules/projects/projects.routes.js";
@@ -26,6 +28,7 @@ export function createApp() {
   const app = express();
 
   app.set("trust proxy", env.TRUST_PROXY);
+  app.use(requestId);
   app.use(requestLogger);
   app.use(helmet());
   app.use(
@@ -46,6 +49,7 @@ export function createApp() {
   });
 
   app.use("/api", apiRateLimiter);
+  app.use("/openapi.json", openApiRouter);
 
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/invitations", publicInvitationsRouter);

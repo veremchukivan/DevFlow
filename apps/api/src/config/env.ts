@@ -55,6 +55,7 @@ const envSchema = z
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
     API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
     DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+    SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),
     COOKIE_SECURE: booleanFromEnv.optional(),
     SESSION_COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
     TRUST_PROXY: z.coerce.number().int().nonnegative().default(0),
@@ -102,5 +103,34 @@ const envSchema = z
     }
   });
 
-export const env = envSchema.parse(process.env);
+export function parseEnv(input: NodeJS.ProcessEnv) {
+  const parsed = envSchema.parse(input);
+
+  if (parsed.NODE_ENV === "production") {
+    const missing = ["DATABASE_URL", "WEB_ORIGIN"].filter(
+      (name) => !input[name]
+    );
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required production environment variables: ${missing.join(", ")}`
+      );
+    }
+
+    if (parsed.COOKIE_SECURE === false) {
+      throw new Error("COOKIE_SECURE cannot be false in production");
+    }
+  }
+
+  const isCookieSecure =
+    parsed.COOKIE_SECURE ?? parsed.NODE_ENV === "production";
+
+  if (parsed.SESSION_COOKIE_SAME_SITE === "none" && !isCookieSecure) {
+    throw new Error("SESSION_COOKIE_SAME_SITE=none requires COOKIE_SECURE=true");
+  }
+
+  return parsed;
+}
+
+export const env = parseEnv(process.env);
 

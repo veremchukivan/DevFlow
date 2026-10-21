@@ -23,3 +23,24 @@ export async function closeRedisConnection() {
     await redisClient.quit();
   }
 }
+
+type RedisReadinessClient = Pick<RedisClientType, "isReady" | "ping">;
+
+export async function checkRedisReadiness(
+  client: RedisReadinessClient | undefined = redisClient
+) {
+  if (!client) {
+    return "not_configured" as const;
+  }
+
+  if (!client.isReady) {
+    return "error" as const;
+  }
+
+  try {
+    await client.ping();
+    return "ok" as const;
+  } catch {
+    return "error" as const;
+  }
+}
