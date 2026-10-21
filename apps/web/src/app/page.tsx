@@ -1,5 +1,5 @@
-import { SessionHome } from "@/components/session-home";
+import { WorkspaceHome } from "@/components/workspace-home";
 
 export default function HomePage() {
-  return <SessionHome />;
+  return <WorkspaceHome />;
 }

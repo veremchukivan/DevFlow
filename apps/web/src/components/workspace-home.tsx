@@ -1,18 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
-import { ApiClientError, getCurrentUser, logout } from "@/lib/api-client";
-import { createWorkspace, getWorkspaces } from "@/lib/api-client";
-import type { AuthUser, Workspace } from "@devflow/shared";
+import {
+  ApiClientError,
+  createWorkspace,
+  getWorkspaces,
+} from "@/lib/api-client";
+import type { Workspace } from "@devflow/shared";
 
-export function SessionHome() {
-  const router = useRouter();
-  const [user, setUser] = useState<AuthUser>();
+export function WorkspaceHome() {
   const [isLoading, setIsLoading] = useState(true);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [showWorkspaceForm, setShowWorkspaceForm] = useState(false);
@@ -21,55 +20,29 @@ export function SessionHome() {
   useEffect(() => {
     let active = true;
 
-    void getCurrentUser()
+    void getWorkspaces()
       .then((response) => {
-        if (active) {
-          setUser(response.user);
-        }
-
-        return getWorkspaces();
-      })
-      .then((response) => {
-        if (active && response) {
-          setWorkspaces(response.workspaces);
-        }
+        if (active) setWorkspaces(response.workspaces);
       })
       .catch((error: unknown) => {
-        if (
-          error instanceof ApiClientError &&
-          error.code === "UNAUTHENTICATED"
-        ) {
-          router.replace("/login");
-          return;
-        }
-
         if (active) {
-          router.replace("/login?reason=unavailable");
+          setWorkspaceError(
+            error instanceof ApiClientError
+              ? error.message
+              : "Unable to load workspaces. Try again.",
+          );
         }
       })
       .finally(() => {
-        if (active) {
-          setIsLoading(false);
-        }
+        if (active) setIsLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [router]);
+  }, []);
 
-  async function signOut() {
-    setIsSigningOut(true);
-
-    try {
-      await logout();
-    } finally {
-      router.replace("/login");
-      router.refresh();
-    }
-  }
-
-  async function onCreateWorkspace(event: React.FormEvent<HTMLFormElement>) {
+  async function onCreateWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setWorkspaceError(undefined);
     setIsCreatingWorkspace(true);
@@ -96,26 +69,18 @@ export function SessionHome() {
     }
   }
 
-  if (isLoading || !user) {
-    return <main className="session-loading">Loading your workspace</main>;
+  if (isLoading) {
+    return <main className="session-loading">Loading workspaces</main>;
   }
 
   return (
     <main className="workspace-home">
       <header className="workspace-home-header">
         <div>
-          <p className="eyebrow">DevFlow</p>
-          <h1>Welcome, {user.displayName}</h1>
+          <p className="eyebrow">Workspaces</p>
+          <h1>Organize work with your team</h1>
           <p>Choose a workspace to manage its projects and tasks.</p>
         </div>
-        <button
-          className="secondary-button"
-          disabled={isSigningOut}
-          onClick={signOut}
-          type="button"
-        >
-          {isSigningOut ? "Signing out" : "Sign out"}
-        </button>
       </header>
       <section className="workspace-section" aria-labelledby="workspaces-title">
         <div className="section-heading">
@@ -164,6 +129,12 @@ export function SessionHome() {
               </button>
             </div>
           </form>
+        ) : null}
+
+        {workspaceError && !showWorkspaceForm ? (
+          <p className="form-error" role="alert">
+            {workspaceError}
+          </p>
         ) : null}
 
         {workspaces.length === 0 ? (
