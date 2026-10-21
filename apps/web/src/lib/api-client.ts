@@ -1,5 +1,6 @@
 import {
   authResponseSchema,
+  createTaskCommentRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
@@ -12,6 +13,9 @@ import {
   projectListResponseSchema,
   projectResponseSchema,
   taskListResponseSchema,
+  taskActivityEventListResponseSchema,
+  taskCommentListResponseSchema,
+  taskCommentResponseSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
   workspaceResponseSchema,
@@ -24,9 +28,13 @@ import {
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateTaskRequest,
+  type CreateTaskCommentRequest,
   type ProjectListResponse,
   type ProjectResponse,
   type TaskListResponse,
+  type TaskActivityEventListResponse,
+  type TaskCommentListResponse,
+  type TaskCommentResponse,
   type TaskPriority,
   type TaskResponse,
   type UpdateTaskRequest,
@@ -305,6 +313,46 @@ export function getTask(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
     { method: "GET" },
     taskResponseSchema,
+  );
+}
+
+export function getTaskComments(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskCommentListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments?limit=100&offset=0`,
+    { method: "GET" },
+    taskCommentListResponseSchema,
+  );
+}
+
+export function createTaskComment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: CreateTaskCommentRequest,
+): Promise<TaskCommentResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments`,
+    {
+      body: JSON.stringify(createTaskCommentRequestSchema.parse(input)),
+      method: "POST",
+    },
+    taskCommentResponseSchema,
+  );
+}
+
+export function getTaskActivity(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskActivityEventListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/activity?limit=100&offset=0`,
+    { method: "GET" },
+    taskActivityEventListResponseSchema,
   );
 }
 
