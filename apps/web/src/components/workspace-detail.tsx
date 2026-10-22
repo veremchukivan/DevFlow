@@ -14,6 +14,7 @@ import {
   getWorkspace,
   getWorkspaceLabels,
   updateWorkspace,
+  updateWorkspaceLabel,
 } from "@/lib/api-client";
 import type { Label, ProjectSummary, Workspace } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
@@ -26,6 +27,8 @@ export function WorkspaceDetail() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [editingLabelId, setEditingLabelId] = useState<string>();
+  const [isSavingLabel, setIsSavingLabel] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -136,6 +139,34 @@ export function WorkspaceDetail() {
           ? caughtError.message
           : "Unable to delete label.",
       );
+    }
+  }
+
+  async function onUpdateLabel(
+    event: FormEvent<HTMLFormElement>,
+    labelId: string,
+  ) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingLabel(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await updateWorkspaceLabel(workspaceId, labelId, {
+        name: String(form.get("name") ?? ""),
+        color: String(form.get("color") ?? ""),
+      });
+      setLabels((current) =>
+        current.map((label) => (label.id === labelId ? response.label : label)),
+      );
+      setEditingLabelId(undefined);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update label.",
+      );
+    } finally {
+      setIsSavingLabel(false);
     }
   }
 
@@ -383,15 +414,58 @@ export function WorkspaceDetail() {
         <div className={styles.labelPicker}>
           {labels.map((label) => (
             <div key={label.id}>
-              <span style={{ backgroundColor: label.color }} />
-              {label.name}
-              <button
-                className={styles.textButton}
-                onClick={() => void onDeleteLabel(label.id)}
-                type="button"
-              >
-                Remove
-              </button>
+              {editingLabelId === label.id ? (
+                <form
+                  className={styles.inlineLabelForm}
+                  onSubmit={(event) => void onUpdateLabel(event, label.id)}
+                >
+                  <input
+                    defaultValue={label.name}
+                    maxLength={80}
+                    name="name"
+                    required
+                  />
+                  <input
+                    defaultValue={label.color}
+                    name="color"
+                    pattern="#[0-9A-Fa-f]{6}"
+                    required
+                  />
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={isSavingLabel}
+                    type="submit"
+                  >
+                    Save
+                  </button>
+                  <button
+                    className={styles.textButton}
+                    onClick={() => setEditingLabelId(undefined)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <span style={{ backgroundColor: label.color }} />
+                  {label.name}
+                  <button
+                    className={styles.textButton}
+                    onClick={() => setEditingLabelId(label.id)}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className={styles.textButton}
+                    onClick={() => void onDeleteLabel(label.id)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>

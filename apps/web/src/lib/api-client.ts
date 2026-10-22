@@ -3,6 +3,7 @@ import {
   labelListResponseSchema,
   labelResponseSchema,
   createLabelRequestSchema,
+  updateLabelRequestSchema,
   createTaskCommentRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
@@ -36,6 +37,7 @@ import {
   type LabelListResponse,
   type LabelResponse,
   type CreateLabelRequest,
+  type UpdateLabelRequest,
   type ChangePasswordRequest,
   type HealthResponse,
   type LoginRequest,
@@ -343,6 +345,21 @@ export function deleteWorkspaceLabel(
   return requestNoContent(
     `/api/v1/workspaces/${workspaceId}/labels/${labelId}`,
     { method: "DELETE" },
+  );
+}
+
+export function updateWorkspaceLabel(
+  workspaceId: string,
+  labelId: string,
+  input: UpdateLabelRequest,
+): Promise<LabelResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/labels/${labelId}`,
+    {
+      body: JSON.stringify(updateLabelRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    labelResponseSchema,
   );
 }
 

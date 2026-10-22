@@ -646,6 +646,18 @@
   height: 9px;
   width: 9px;
 }
+.inlineLabelForm {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.inlineLabelForm input {
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 7px;
+  width: 120px;
+}
 .commentList,
 .activityList {
   display: grid;
