@@ -533,6 +533,34 @@
   border-left: 3px solid var(--line);
   padding: 4px 0 4px 14px;
 }
+.commentHeading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.commentActions {
+  display: flex;
+  gap: 4px;
+}
+.commentAction,
+.commentActionDanger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  width: 28px;
+}
+.commentAction:hover {
+  color: var(--brand);
+}
+.commentActionDanger:hover {
+  color: var(--danger);
+}
 .comment strong,
 .activityList span {
   font-size: 14px;
@@ -542,6 +570,19 @@
   line-height: 1.5;
   margin: 8px 0;
   white-space: pre-wrap;
+}
+.commentEditForm {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.commentEditForm textarea {
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
 }
 .comment time,
 .activityList time {

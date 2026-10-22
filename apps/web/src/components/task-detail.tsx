@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
@@ -8,11 +8,14 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import {
   ApiClientError,
   createTaskComment,
+  deleteTaskComment,
+  getCurrentUser,
   getTask,
   getTaskActivity,
   getTaskComments,
   getWorkspaceMembers,
   updateTask,
+  updateTaskComment,
 } from "@/lib/api-client";
 import type {
   Task,
@@ -34,6 +37,7 @@ export function TaskDetail() {
   }>();
   const router = useRouter();
   const [task, setTask] = useState<Task>();
+  const [currentUserId, setCurrentUserId] = useState<string>();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
@@ -43,6 +47,8 @@ export function TaskDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string>();
+  const [isSavingCommentId, setIsSavingCommentId] = useState<string>();
 
   const loadTaskDetails = useCallback(async () => {
     try {
@@ -51,11 +57,13 @@ export function TaskDetail() {
         membersResponse,
         commentsResponse,
         activityResponse,
+        currentUserResponse,
       ] = await Promise.all([
         getTask(params.workspaceId, params.projectId, params.taskId),
         getWorkspaceMembers(params.workspaceId),
         getTaskComments(params.workspaceId, params.projectId, params.taskId),
         getTaskActivity(params.workspaceId, params.projectId, params.taskId),
+        getCurrentUser(),
       ]);
 
       setTask(taskResponse.task);
@@ -64,6 +72,7 @@ export function TaskDetail() {
       );
       setComments(commentsResponse.comments);
       setActivity(activityResponse.events);
+      setCurrentUserId(currentUserResponse.user.id);
     } catch (caughtError) {
       if (
         caughtError instanceof ApiClientError &&
@@ -164,6 +173,83 @@ export function TaskDetail() {
       );
     } finally {
       setIsSubmittingComment(false);
+    }
+  }
+
+  async function onCommentUpdate(
+    event: FormEvent<HTMLFormElement>,
+    commentId: string,
+  ) {
+    event.preventDefault();
+    setCommentError(undefined);
+    setIsSavingCommentId(commentId);
+    const body = String(new FormData(event.currentTarget).get("body") ?? "");
+
+    try {
+      const response = await updateTaskComment(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        commentId,
+        { body },
+      );
+      const activityResponse = await getTaskActivity(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+      );
+
+      setComments((current) =>
+        current.map((comment) =>
+          comment.id === commentId ? response.comment : comment,
+        ),
+      );
+      setActivity(activityResponse.events);
+      setEditingCommentId(undefined);
+    } catch (caughtError) {
+      setCommentError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the comment.",
+      );
+    } finally {
+      setIsSavingCommentId(undefined);
+    }
+  }
+
+  async function onCommentDelete(commentId: string) {
+    if (!window.confirm("Delete this comment?")) {
+      return;
+    }
+
+    setCommentError(undefined);
+    setIsSavingCommentId(commentId);
+
+    try {
+      await deleteTaskComment(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        commentId,
+      );
+      const activityResponse = await getTaskActivity(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+      );
+
+      setComments((current) =>
+        current.filter((comment) => comment.id !== commentId),
+      );
+      setActivity(activityResponse.events);
+    } catch (caughtError) {
+      setCommentError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete the comment.",
+      );
+    } finally {
+      setIsSavingCommentId(undefined);
     }
   }
 
@@ -328,10 +414,71 @@ export function TaskDetail() {
               <ol className={styles.commentList}>
                 {comments.map((comment) => (
                   <li className={styles.comment} key={comment.id}>
-                    <strong>
-                      {comment.author?.displayName ?? "Former member"}
-                    </strong>
-                    <p>{comment.body}</p>
+                    <div className={styles.commentHeading}>
+                      <strong>
+                        {comment.author?.displayName ?? "Former member"}
+                      </strong>
+                      {comment.authorUserId === currentUserId ? (
+                        <div className={styles.commentActions}>
+                          <button
+                            aria-label="Edit comment"
+                            className={styles.commentAction}
+                            disabled={isSavingCommentId === comment.id}
+                            onClick={() => setEditingCommentId(comment.id)}
+                            title="Edit comment"
+                            type="button"
+                          >
+                            <Pencil aria-hidden="true" size={15} />
+                          </button>
+                          <button
+                            aria-label="Delete comment"
+                            className={styles.commentActionDanger}
+                            disabled={isSavingCommentId === comment.id}
+                            onClick={() => void onCommentDelete(comment.id)}
+                            title="Delete comment"
+                            type="button"
+                          >
+                            <Trash2 aria-hidden="true" size={15} />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                    {editingCommentId === comment.id ? (
+                      <form
+                        className={styles.commentEditForm}
+                        onSubmit={(event) =>
+                          void onCommentUpdate(event, comment.id)
+                        }
+                      >
+                        <textarea
+                          defaultValue={comment.body}
+                          maxLength={5000}
+                          name="body"
+                          required
+                          rows={3}
+                        />
+                        <div className={styles.formActions}>
+                          <button
+                            className={styles.secondaryButton}
+                            disabled={isSavingCommentId === comment.id}
+                            type="submit"
+                          >
+                            {isSavingCommentId === comment.id
+                              ? "Saving"
+                              : "Save"}
+                          </button>
+                          <button
+                            className={styles.textButton}
+                            onClick={() => setEditingCommentId(undefined)}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <p>{comment.body}</p>
+                    )}
                     <time dateTime={comment.createdAt}>
                       {formatDateTime(comment.createdAt)}
                     </time>

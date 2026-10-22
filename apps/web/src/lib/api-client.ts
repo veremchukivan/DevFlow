@@ -16,6 +16,7 @@ import {
   taskActivityEventListResponseSchema,
   taskCommentListResponseSchema,
   taskCommentResponseSchema,
+  updateTaskCommentRequestSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
   workspaceMemberListResponseSchema,
@@ -37,6 +38,7 @@ import {
   type TaskActivityEventListResponse,
   type TaskCommentListResponse,
   type TaskCommentResponse,
+  type UpdateTaskCommentRequest,
   type TaskPriority,
   type TaskResponse,
   type UpdateTaskRequest,
@@ -353,6 +355,35 @@ export function createTaskComment(
       method: "POST",
     },
     taskCommentResponseSchema,
+  );
+}
+
+export function updateTaskComment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  commentId: string,
+  input: UpdateTaskCommentRequest,
+): Promise<TaskCommentResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments/${commentId}`,
+    {
+      body: JSON.stringify(updateTaskCommentRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    taskCommentResponseSchema,
+  );
+}
+
+export function deleteTaskComment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  commentId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments/${commentId}`,
+    { method: "DELETE" },
   );
 }
 
