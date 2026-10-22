@@ -7,10 +7,13 @@ import { type FormEvent, useEffect, useState } from "react";
 import {
   ApiClientError,
   createProject,
+  createWorkspaceLabel,
+  deleteWorkspaceLabel,
   getProjects,
   getWorkspace,
+  getWorkspaceLabels,
 } from "@/lib/api-client";
-import type { ProjectSummary, Workspace } from "@devflow/shared";
+import type { Label, ProjectSummary, Workspace } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
 export function WorkspaceDetail() {
@@ -19,6 +22,8 @@ export function WorkspaceDetail() {
   const workspaceId = params.workspaceId;
   const [workspace, setWorkspace] = useState<Workspace>();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -27,14 +32,19 @@ export function WorkspaceDetail() {
   useEffect(() => {
     let active = true;
 
-    void Promise.all([getWorkspace(workspaceId), getProjects(workspaceId)])
-      .then(([workspaceResponse, projectResponse]) => {
+    void Promise.all([
+      getWorkspace(workspaceId),
+      getProjects(workspaceId),
+      getWorkspaceLabels(workspaceId),
+    ])
+      .then(([workspaceResponse, projectResponse, labelResponse]) => {
         if (!active) {
           return;
         }
 
         setWorkspace(workspaceResponse.workspace);
         setProjects(projectResponse.projects);
+        setLabels(labelResponse.labels);
       })
       .catch((caughtError: unknown) => {
         if (
@@ -86,6 +96,42 @@ export function WorkspaceDetail() {
       );
     } finally {
       setIsCreatingProject(false);
+    }
+  }
+
+  async function onCreateLabel(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setIsCreatingLabel(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await createWorkspaceLabel(workspaceId, {
+        name: String(form.get("name") ?? ""),
+        color: String(form.get("color") ?? "#2764ee"),
+      });
+      setLabels((current) => [...current, response.label]);
+      event.currentTarget.reset();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to create label.",
+      );
+    } finally {
+      setIsCreatingLabel(false);
+    }
+  }
+
+  async function onDeleteLabel(labelId: string) {
+    try {
+      await deleteWorkspaceLabel(workspaceId, labelId);
+      setLabels((current) => current.filter((label) => label.id !== labelId));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete label.",
+      );
     }
   }
 
@@ -194,6 +240,56 @@ export function WorkspaceDetail() {
             ))}
           </div>
         )}
+      </section>
+      <section
+        className={styles.workspaceSection}
+        aria-labelledby="labels-title"
+      >
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2 id="labels-title">Labels</h2>
+            <p>Reusable labels for tasks in this workspace.</p>
+          </div>
+        </div>
+        <form className={styles.projectForm} onSubmit={onCreateLabel}>
+          <label>
+            <span>Name</span>
+            <input maxLength={80} minLength={1} name="name" required />
+          </label>
+          <label>
+            <span>Color</span>
+            <input
+              defaultValue="#2764ee"
+              name="color"
+              pattern="#[0-9A-Fa-f]{6}"
+              required
+            />
+          </label>
+          <div className={styles.formActions}>
+            <button
+              className={styles.primaryButton}
+              disabled={isCreatingLabel}
+              type="submit"
+            >
+              {isCreatingLabel ? "Creating" : "Add label"}
+            </button>
+          </div>
+        </form>
+        <div className={styles.labelPicker}>
+          {labels.map((label) => (
+            <div key={label.id}>
+              <span style={{ backgroundColor: label.color }} />
+              {label.name}
+              <button
+                className={styles.textButton}
+                onClick={() => void onDeleteLabel(label.id)}
+                type="button"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
       </section>
     </main>
   );

@@ -32,3 +32,4 @@ export type Label = z.infer<typeof labelSchema>;
 export type CreateLabelRequest = z.infer<typeof createLabelRequestSchema>;
 export type UpdateLabelRequest = z.infer<typeof updateLabelRequestSchema>;
 export type LabelListResponse = z.infer<typeof labelListResponseSchema>;
+export type LabelResponse = z.infer<typeof labelResponseSchema>;

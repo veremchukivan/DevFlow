@@ -1,6 +1,8 @@
 import {
   authResponseSchema,
   labelListResponseSchema,
+  labelResponseSchema,
+  createLabelRequestSchema,
   createTaskCommentRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
@@ -30,6 +32,8 @@ import {
   workspaceResponseSchema,
   type AuthResponse,
   type LabelListResponse,
+  type LabelResponse,
+  type CreateLabelRequest,
   type ChangePasswordRequest,
   type HealthResponse,
   type LoginRequest,
@@ -285,6 +289,30 @@ export function getWorkspaceLabels(
     `/api/v1/workspaces/${workspaceId}/labels`,
     { method: "GET" },
     labelListResponseSchema,
+  );
+}
+
+export function createWorkspaceLabel(
+  workspaceId: string,
+  input: CreateLabelRequest,
+): Promise<LabelResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/labels`,
+    {
+      body: JSON.stringify(createLabelRequestSchema.parse(input)),
+      method: "POST",
+    },
+    labelResponseSchema,
+  );
+}
+
+export function deleteWorkspaceLabel(
+  workspaceId: string,
+  labelId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/labels/${labelId}`,
+    { method: "DELETE" },
   );
 }
 
