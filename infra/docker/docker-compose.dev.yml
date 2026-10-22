@@ -1,0 +1,26 @@
+services:
+  web:
+    build:
+      target: development
+    command:
+      ["pnpm", "--filter", "@devflow/web", "dev", "--hostname", "0.0.0.0"]
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+    develop:
+      watch:
+        - action: sync
+          path: ../../apps/web
+          target: /app/apps/web
+          ignore:
+            - node_modules/
+            - .next/
+        - action: sync
+          path: ../../packages/shared/src
+          target: /app/packages/shared/src
+        - action: rebuild
+          path: ../../apps/web/package.json
+        - action: rebuild
+          path: ../../packages/shared/package.json
+        - action: rebuild
+          path: ../../pnpm-lock.yaml

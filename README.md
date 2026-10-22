@@ -24,12 +24,27 @@ infra/
 pnpm install
 cp infra/.env.example .env
 pnpm infra:up
+pnpm infra:dev
 pnpm dev
 pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build
 ```
+
+## Frontend Live Reload
+
+For frontend development inside Docker, use Docker Compose Watch instead of
+`infra:up`:
+
+```bash
+pnpm infra:dev
+```
+
+Keep this command running in its own terminal. Changes under `apps/web` are
+synchronized into the container and Next.js updates the browser through Fast
+Refresh at [http://127.0.0.1:3001](http://127.0.0.1:3001). Use `pnpm infra:up`
+when you need the production-like standalone web image instead.
 
 ## Database
 
