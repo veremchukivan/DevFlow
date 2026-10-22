@@ -35,7 +35,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         await login({ email, password });
       }
 
-      router.replace("/");
+      router.replace("/workspaces");
       router.refresh();
     } catch (caughtError) {
       if (caughtError instanceof ApiClientError) {

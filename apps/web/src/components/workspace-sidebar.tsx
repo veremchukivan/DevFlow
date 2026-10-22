@@ -45,7 +45,7 @@ export function WorkspaceSidebar() {
 
   return (
     <aside className={styles.sidebar}>
-      <Link className={styles.brand} href="/">
+      <Link className={styles.brand} href="/workspaces">
         <span className={styles.brandMark}>D</span>
         <span>DevFlow</span>
       </Link>
@@ -65,7 +65,11 @@ export function WorkspaceSidebar() {
       <nav aria-label="Workspace navigation" className={styles.navigation}>
         <Link
           className={styles.navigationLink}
-          href={activeWorkspace ? `/workspaces/${activeWorkspace.id}` : "/"}
+          href={
+            activeWorkspace
+              ? `/workspaces/${activeWorkspace.id}`
+              : "/workspaces"
+          }
         >
           <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
           Workspaces
@@ -103,7 +107,11 @@ export function WorkspaceSidebar() {
       <div className={styles.projects}>
         <div className={styles.projectsHeading}>
           <span>Workspaces</span>
-          <Link aria-label="Create workspace" href="/" title="Create workspace">
+          <Link
+            aria-label="Create workspace"
+            href="/workspaces"
+            title="Create workspace"
+          >
             <Plus aria-hidden="true" size={18} strokeWidth={1.8} />
           </Link>
         </div>

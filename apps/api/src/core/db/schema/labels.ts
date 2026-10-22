@@ -28,6 +28,7 @@ export const labels = pgTable(
       table.workspaceId,
       table.name,
     ),
+    uniqueIndex("labels_workspace_id_unique").on(table.workspaceId, table.id),
     index("labels_workspace_idx").on(table.workspaceId),
   ],
 );

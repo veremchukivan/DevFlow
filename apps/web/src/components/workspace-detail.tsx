@@ -96,7 +96,7 @@ export function WorkspaceDetail() {
   if (!workspace) {
     return (
       <main className={styles.workspaceHome}>
-        <Link className={styles.backLink} href="/">
+        <Link className={styles.backLink} href="/workspaces">
           All workspaces
         </Link>
         <p className={styles.formError}>{error ?? "Workspace not found."}</p>
@@ -106,7 +106,7 @@ export function WorkspaceDetail() {
 
   return (
     <main className={styles.workspaceHome}>
-      <Link className={styles.backLink} href="/">
+      <Link className={styles.backLink} href="/workspaces">
         All workspaces
       </Link>
       <header className={styles.workspaceHomeHeader}>
