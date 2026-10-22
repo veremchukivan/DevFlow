@@ -8,6 +8,7 @@ import {
   createWorkspace,
   getWorkspaces,
 } from "@/lib/api-client";
+import { notifyWorkspacesChanged } from "@/lib/workspace-events";
 import type { Workspace } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
@@ -57,6 +58,7 @@ export default function HomePage() {
         ...(slug ? { slug } : {}),
       });
       setWorkspaces((current) => [response.workspace, ...current]);
+      notifyWorkspacesChanged();
       setShowWorkspaceForm(false);
       event.currentTarget.reset();
     } catch (error) {

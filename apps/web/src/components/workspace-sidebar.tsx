@@ -6,6 +6,7 @@ import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { getWorkspaces } from "@/lib/api-client";
+import { subscribeToWorkspaceChanges } from "@/lib/workspace-events";
 import type { Workspace } from "@devflow/shared";
 
 import styles from "./workspace-sidebar.module.css";
@@ -16,7 +17,26 @@ export function WorkspaceSidebar() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
 
   useEffect(() => {
-    void getWorkspaces().then((response) => setWorkspaces(response.workspaces));
+    let active = true;
+
+    async function loadWorkspaces() {
+      try {
+        const response = await getWorkspaces();
+        if (active) setWorkspaces(response.workspaces);
+      } catch {
+        // Authentication is handled by AppShell; keep the navigation stable on failures.
+      }
+    }
+
+    void loadWorkspaces();
+    const unsubscribe = subscribeToWorkspaceChanges(() => {
+      void loadWorkspaces();
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const activeWorkspace = workspaces.find(
