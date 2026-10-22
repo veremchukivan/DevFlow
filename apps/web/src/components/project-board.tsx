@@ -12,15 +12,23 @@ import {
   getProject,
   getTasks,
   getWorkspaceLabels,
+  getWorkspaceMembers,
   updateTask,
   updateProject,
 } from "@/lib/api-client";
-import type { Label, Project, Task, TaskPriority } from "@devflow/shared";
+import type {
+  Label,
+  Project,
+  Task,
+  TaskPriority,
+  WorkspaceMember,
+} from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
 type BoardFilters = {
   priority?: TaskPriority;
   labelId?: string;
+  assigneeUserId?: string | "none";
   search?: string;
 };
 
@@ -45,6 +53,8 @@ export function ProjectBoard() {
   const [priority, setPriority] = useState<"" | TaskPriority>("");
   const [labels, setLabels] = useState<Label[]>([]);
   const [labelId, setLabelId] = useState("");
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [assigneeUserId, setAssigneeUserId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -64,13 +74,21 @@ export function ProjectBoard() {
       getProject(workspaceId, projectId),
       getTasks(workspaceId, projectId),
       getWorkspaceLabels(workspaceId),
+      getWorkspaceMembers(workspaceId),
     ])
-      .then(([projectResponse, taskResponse, labelsResponse]) => {
-        if (!active) return;
-        setProject(projectResponse.project);
-        setTasks(taskResponse.tasks);
-        setLabels(labelsResponse.labels);
-      })
+      .then(
+        ([projectResponse, taskResponse, labelsResponse, membersResponse]) => {
+          if (!active) return;
+          setProject(projectResponse.project);
+          setTasks(taskResponse.tasks);
+          setLabels(labelsResponse.labels);
+          setMembers(
+            membersResponse.members.filter(
+              (member) => member.status === "active",
+            ),
+          );
+        },
+      )
       .catch((caughtError: unknown) => {
         if (
           caughtError instanceof ApiClientError &&
@@ -116,6 +134,9 @@ export function ProjectBoard() {
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(priority ? { priority } : {}),
       ...(labelId ? { labelId } : {}),
+      ...(assigneeUserId
+        ? { assigneeUserId: assigneeUserId as string | "none" }
+        : {}),
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
@@ -468,6 +489,21 @@ export function ProjectBoard() {
             {labels.map((label) => (
               <option key={label.id} value={label.id}>
                 {label.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Assignee</span>
+          <select
+            onChange={(event) => setAssigneeUserId(event.target.value)}
+            value={assigneeUserId}
+          >
+            <option value="">All assignees</option>
+            <option value="none">Unassigned</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.user.displayName}
               </option>
             ))}
           </select>

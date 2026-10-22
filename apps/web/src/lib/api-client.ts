@@ -451,6 +451,7 @@ export function deleteProject(
 }
 
 type TaskListFilters = {
+  assigneeUserId?: string | "none";
   labelId?: string;
   priority?: TaskPriority;
   search?: string;
@@ -472,6 +473,8 @@ export function getTasks(
     query.set("priority", filters.priority);
   }
   if (filters.labelId) query.set("labelId", filters.labelId);
+  if (filters.assigneeUserId)
+    query.set("assigneeUserId", filters.assigneeUserId);
 
   if (filters.search) {
     query.set("search", filters.search);
