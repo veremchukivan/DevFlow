@@ -165,6 +165,16 @@ export function ProjectBoard() {
     await loadTasks(nextFilters);
   }
 
+  async function onClearFilters() {
+    setSearch("");
+    setPriority("");
+    setLabelId("");
+    setAssigneeUserId("");
+    setDue("");
+    setFilters({});
+    await loadTasks({});
+  }
+
   async function onCreateTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(undefined);
@@ -595,6 +605,14 @@ export function ProjectBoard() {
           type="submit"
         >
           {isRefreshing ? "Loading" : "Apply"}
+        </button>
+        <button
+          className={styles.textButton}
+          disabled={isRefreshing}
+          onClick={() => void onClearFilters()}
+          type="button"
+        >
+          Clear
         </button>
       </form>
 
