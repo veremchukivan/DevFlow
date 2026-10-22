@@ -21,6 +21,7 @@
     "api:openapi:check": "pnpm --filter @devflow/api exec tsx scripts/generate-openapi.ts --check",
     "dev": "pnpm --filter @devflow/shared build && turbo dev",
     "infra:down": "docker compose --env-file .env -f infra/docker/docker-compose.yml down",
+    "infra:dev": "docker compose --env-file .env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.dev.yml watch",
     "infra:up:integrations": "docker compose --env-file .env -f infra/docker/docker-compose.yml --profile integrations up -d --build",
     "infra:up:proxy": "docker compose --env-file .env -f infra/docker/docker-compose.yml --profile proxy up -d --build",
     "infra:up": "docker compose --env-file .env -f infra/docker/docker-compose.yml up -d --build",

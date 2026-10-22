@@ -7,6 +7,13 @@ cp infra/.env.example .env
 pnpm infra:up
 ```
 
+For Next.js Fast Refresh while editing frontend files, run this command in a
+separate terminal instead:
+
+```bash
+pnpm infra:dev
+```
+
 The default stack starts PostgreSQL, Redis, Mailpit, API, and Web. Redis stores
 the rate-limit counters shared by API instances. Mailpit receives local
 workspace invitation emails at [http://localhost:8025](http://localhost:8025).

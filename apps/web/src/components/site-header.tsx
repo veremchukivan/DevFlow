@@ -32,16 +32,21 @@ export function SiteHeader({ user }: { user: AuthUser }) {
       <div className={styles.content}>
         <div className={styles.mobileBrand}>DevFlow</div>
         <div className={styles.breadcrumb}>
-          {pathname === "/" ? "Workspaces" : "Project workspace"}
+          {pathname === "/workspaces" ? "Workspaces" : "Project workspace"}
         </div>
         <div className={styles.userMenu}>
-          <Link className={styles.createButton} href="/">
+          <Link className={styles.createButton} href="/workspaces">
             <Plus aria-hidden="true" size={18} strokeWidth={2} />
             Create
           </Link>
-          <span aria-label={user.displayName} className={styles.userAvatar}>
+          <Link
+            aria-label="Profile settings"
+            className={styles.userAvatar}
+            href="/profile"
+            title="Profile settings"
+          >
             {user.displayName.slice(0, 2).toUpperCase()}
-          </span>
+          </Link>
           <button
             aria-label="Sign out"
             className={styles.signOut}

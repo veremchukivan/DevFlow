@@ -233,6 +233,61 @@
   margin: 22px 0;
   padding-bottom: 22px;
 }
+.memberInviteForm {
+  align-items: end;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  margin-top: 22px;
+}
+.memberInviteForm label {
+  display: grid;
+  gap: 7px;
+}
+.memberInviteForm label span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.memberInviteForm input,
+.memberInviteForm select,
+.memberRow select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 11px;
+  width: 100%;
+}
+.memberList {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.memberRow {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.memberRow div {
+  display: grid;
+  gap: 4px;
+}
+.memberRow strong {
+  font-size: 14px;
+}
+.memberRow div span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.memberRow select {
+  max-width: 150px;
+}
 .projectDescription {
   grid-column: span 2;
 }
@@ -328,10 +383,9 @@
   align-items: center;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(250px, 1.8fr) minmax(150px, 1fr) minmax(
-      120px,
-      0.8fr
-    ) minmax(150px, 1fr);
+  grid-template-columns:
+    minmax(250px, 1.8fr) minmax(150px, 1fr) minmax(120px, 0.8fr)
+    minmax(150px, 1fr);
   min-width: 740px;
   padding: 14px 18px;
 }
@@ -446,6 +500,59 @@
 .taskDetail {
   max-width: 760px;
 }
+.taskDetailHeading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+}
+.taskDetailHeading .eyebrow {
+  margin-bottom: 12px;
+}
+.iconButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+.iconButton:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.taskEditForm {
+  display: grid;
+  gap: 16px;
+}
+.taskEditForm label {
+  display: grid;
+  gap: 7px;
+}
+.taskEditForm label span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.taskEditForm input,
+.taskEditForm select,
+.taskEditForm textarea {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 11px;
+  width: 100%;
+}
+.taskEditForm textarea {
+  padding: 10px 11px;
+  resize: vertical;
+}
+.taskEditDescription {
+  grid-column: 1 / -1;
+}
 .taskFacts {
   display: grid;
   gap: 16px;
@@ -481,6 +588,34 @@
   border-left: 3px solid var(--line);
   padding: 4px 0 4px 14px;
 }
+.commentHeading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.commentActions {
+  display: flex;
+  gap: 4px;
+}
+.commentAction,
+.commentActionDanger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  width: 28px;
+}
+.commentAction:hover {
+  color: var(--brand);
+}
+.commentActionDanger:hover {
+  color: var(--danger);
+}
 .comment strong,
 .activityList span {
   font-size: 14px;
@@ -490,6 +625,19 @@
   line-height: 1.5;
   margin: 8px 0;
   white-space: pre-wrap;
+}
+.commentEditForm {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.commentEditForm textarea {
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
 }
 .comment time,
 .activityList time {

@@ -1,12 +1,15 @@
 import {
   authResponseSchema,
   createTaskCommentRequestSchema,
+  createWorkspaceInvitationRequestSchema,
+  changePasswordRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
   registerRequestSchema,
+  updateProfileRequestSchema,
   createWorkspaceRequestSchema,
   createProjectRequestSchema,
   createTaskRequestSchema,
@@ -16,28 +19,42 @@ import {
   taskActivityEventListResponseSchema,
   taskCommentListResponseSchema,
   taskCommentResponseSchema,
+  updateTaskCommentRequestSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
+  workspaceInvitationListResponseSchema,
+  workspaceInvitationResponseSchema,
+  workspaceMemberListResponseSchema,
+  workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type ChangePasswordRequest,
   type HealthResponse,
   type LoginRequest,
   type RegisterRequest,
   type CreateWorkspaceRequest,
   type WorkspaceListResponse,
+  type WorkspaceInvitationListResponse,
+  type WorkspaceInvitationResponse,
+  type WorkspaceMemberListResponse,
+  type WorkspaceMemberResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
+  type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
   type ProjectResponse,
   type TaskListResponse,
   type TaskActivityEventListResponse,
   type TaskCommentListResponse,
   type TaskCommentResponse,
+  type UpdateTaskCommentRequest,
   type TaskPriority,
   type TaskResponse,
   type UpdateTaskRequest,
+  type UpdateProfileRequest,
+  type UpdateWorkspaceMemberRequest,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -210,6 +227,26 @@ export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
 }
 
+export function updateProfile(
+  input: UpdateProfileRequest,
+): Promise<AuthResponse> {
+  return request(
+    "/api/v1/auth/profile",
+    {
+      body: JSON.stringify(updateProfileRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    authResponseSchema,
+  );
+}
+
+export function changePassword(input: ChangePasswordRequest): Promise<void> {
+  return requestNoContent("/api/v1/auth/password/change", {
+    body: JSON.stringify(changePasswordRequestSchema.parse(input)),
+    method: "POST",
+  });
+}
+
 export function getWorkspaces(): Promise<WorkspaceListResponse> {
   return request(
     "/api/v1/workspaces?limit=100&offset=0",
@@ -236,6 +273,52 @@ export function getWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
     `/api/v1/workspaces/${workspaceId}`,
     { method: "GET" },
     workspaceResponseSchema,
+  );
+}
+
+export function getWorkspaceMembers(
+  workspaceId: string,
+): Promise<WorkspaceMemberListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/members?limit=100&offset=0`,
+    { method: "GET" },
+    workspaceMemberListResponseSchema,
+  );
+}
+
+export function updateWorkspaceMember(
+  workspaceId: string,
+  userId: string,
+  input: UpdateWorkspaceMemberRequest,
+): Promise<WorkspaceMemberResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/members/${userId}`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    workspaceMemberResponseSchema,
+  );
+}
+
+export function getWorkspaceInvitations(
+  workspaceId: string,
+): Promise<WorkspaceInvitationListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/invitations?limit=100&offset=0`,
+    { method: "GET" },
+    workspaceInvitationListResponseSchema,
+  );
+}
+
+export function createWorkspaceInvitation(
+  workspaceId: string,
+  input: CreateWorkspaceInvitationRequest,
+): Promise<WorkspaceInvitationResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/invitations`,
+    {
+      body: JSON.stringify(createWorkspaceInvitationRequestSchema.parse(input)),
+      method: "POST",
+    },
+    workspaceInvitationResponseSchema,
   );
 }
 
@@ -341,6 +424,35 @@ export function createTaskComment(
       method: "POST",
     },
     taskCommentResponseSchema,
+  );
+}
+
+export function updateTaskComment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  commentId: string,
+  input: UpdateTaskCommentRequest,
+): Promise<TaskCommentResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments/${commentId}`,
+    {
+      body: JSON.stringify(updateTaskCommentRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    taskCommentResponseSchema,
+  );
+}
+
+export function deleteTaskComment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  commentId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments/${commentId}`,
+    { method: "DELETE" },
   );
 }
 

@@ -7,6 +7,7 @@ import { ApiClientError, getCurrentUser } from "@/lib/api-client";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { WorkspaceSidebar } from "@/components/workspace-sidebar";
+import { subscribeToUserChanges } from "@/lib/user-events";
 import type { AuthUser } from "@devflow/shared";
 
 import styles from "./app-shell.module.css";
@@ -24,9 +25,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser>();
   const [isLoading, setIsLoading] = useState(true);
-  const isPublicPage = publicPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  );
+  const isPublicPage =
+    pathname === "/" ||
+    publicPaths.some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    );
 
   useEffect(() => {
     if (isPublicPage) {
@@ -60,6 +63,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       active = false;
     };
   }, [isPublicPage, router]);
+
+  useEffect(() => subscribeToUserChanges(setUser), []);
 
   if (isPublicPage) return <>{children}</>;
 

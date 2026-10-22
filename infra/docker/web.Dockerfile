@@ -32,6 +32,28 @@ RUN pnpm --filter @devflow/shared build
 RUN pnpm --filter @devflow/web build
 
 # -----------------------------------------------------------------------------
+# Development stage: Next.js dev server for Docker Compose Watch
+# -----------------------------------------------------------------------------
+FROM base AS development
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/package.json
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/config/package.json ./packages/config/package.json
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@devflow/web", "dev", "--hostname", "0.0.0.0"]
+
+# -----------------------------------------------------------------------------
 # Runner stage: Minimal production image
 # -----------------------------------------------------------------------------
 FROM node:22-bookworm-slim AS runner

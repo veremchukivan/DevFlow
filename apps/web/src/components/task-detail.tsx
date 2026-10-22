@@ -1,19 +1,33 @@
 "use client";
 
+import { Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   ApiClientError,
   createTaskComment,
+  deleteTaskComment,
+  getCurrentUser,
   getTask,
   getTaskActivity,
   getTaskComments,
+  getWorkspaceMembers,
+  updateTask,
+  updateTaskComment,
 } from "@/lib/api-client";
-import type { Task, TaskActivityEvent, TaskComment } from "@devflow/shared";
+import type {
+  Task,
+  TaskActivityEvent,
+  TaskComment,
+  TaskPriority,
+  WorkspaceMember,
+} from "@devflow/shared";
 
 import styles from "@/components/ui.module.css";
+
+const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
 
 export function TaskDetail() {
   const params = useParams<{
@@ -23,34 +37,110 @@ export function TaskDetail() {
   }>();
   const router = useRouter();
   const [task, setTask] = useState<Task>();
+  const [currentUserId, setCurrentUserId] = useState<string>();
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
   const [error, setError] = useState<string>();
   const [commentError, setCommentError] = useState<string>();
+  const [editError, setEditError] = useState<string>();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string>();
+  const [isSavingCommentId, setIsSavingCommentId] = useState<string>();
+
+  const loadTaskDetails = useCallback(async () => {
+    try {
+      const [
+        taskResponse,
+        membersResponse,
+        commentsResponse,
+        activityResponse,
+        currentUserResponse,
+      ] = await Promise.all([
+        getTask(params.workspaceId, params.projectId, params.taskId),
+        getWorkspaceMembers(params.workspaceId),
+        getTaskComments(params.workspaceId, params.projectId, params.taskId),
+        getTaskActivity(params.workspaceId, params.projectId, params.taskId),
+        getCurrentUser(),
+      ]);
+
+      setTask(taskResponse.task);
+      setMembers(
+        membersResponse.members.filter((member) => member.status === "active"),
+      );
+      setComments(commentsResponse.comments);
+      setActivity(activityResponse.events);
+      setCurrentUserId(currentUserResponse.user.id);
+    } catch (caughtError) {
+      if (
+        caughtError instanceof ApiClientError &&
+        caughtError.code === "UNAUTHENTICATED"
+      ) {
+        router.replace("/login");
+        return;
+      }
+      setError("Unable to load this task.");
+    }
+  }, [params.projectId, params.taskId, params.workspaceId, router]);
 
   useEffect(() => {
-    void Promise.all([
-      getTask(params.workspaceId, params.projectId, params.taskId),
-      getTaskComments(params.workspaceId, params.projectId, params.taskId),
-      getTaskActivity(params.workspaceId, params.projectId, params.taskId),
-    ])
-      .then(([taskResponse, commentsResponse, activityResponse]) => {
-        setTask(taskResponse.task);
-        setComments(commentsResponse.comments);
-        setActivity(activityResponse.events);
-      })
-      .catch((caughtError: unknown) => {
-        if (
-          caughtError instanceof ApiClientError &&
-          caughtError.code === "UNAUTHENTICATED"
-        ) {
-          router.replace("/login");
-          return;
-        }
-        setError("Unable to load this task.");
-      });
-  }, [params.projectId, params.taskId, params.workspaceId, router]);
+    void loadTaskDetails();
+  }, [loadTaskDetails]);
+
+  async function onTaskSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!task) return;
+
+    setEditError(undefined);
+    setIsSavingTask(true);
+    const form = new FormData(event.currentTarget);
+    const description = String(form.get("description") ?? "").trim();
+    const assigneeUserId = String(form.get("assigneeUserId") ?? "");
+
+    try {
+      const response = await updateTask(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        {
+          assigneeUserId: assigneeUserId || null,
+          description: description || null,
+          dueDate: String(form.get("dueDate") ?? "") || null,
+          priority: form.get("priority") as TaskPriority,
+          title: String(form.get("title") ?? ""),
+        },
+        task.version,
+      );
+      const activityResponse = await getTaskActivity(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+      );
+
+      setTask(response.task);
+      setActivity(activityResponse.events);
+      setIsEditing(false);
+    } catch (caughtError) {
+      if (
+        caughtError instanceof ApiClientError &&
+        caughtError.code === "TASK_VERSION_CONFLICT"
+      ) {
+        await loadTaskDetails();
+        setEditError("This task changed elsewhere. Review the latest version.");
+        return;
+      }
+
+      setEditError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the task.",
+      );
+    } finally {
+      setIsSavingTask(false);
+    }
+  }
 
   async function onCommentSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,6 +177,83 @@ export function TaskDetail() {
     }
   }
 
+  async function onCommentUpdate(
+    event: FormEvent<HTMLFormElement>,
+    commentId: string,
+  ) {
+    event.preventDefault();
+    setCommentError(undefined);
+    setIsSavingCommentId(commentId);
+    const body = String(new FormData(event.currentTarget).get("body") ?? "");
+
+    try {
+      const response = await updateTaskComment(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        commentId,
+        { body },
+      );
+      const activityResponse = await getTaskActivity(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+      );
+
+      setComments((current) =>
+        current.map((comment) =>
+          comment.id === commentId ? response.comment : comment,
+        ),
+      );
+      setActivity(activityResponse.events);
+      setEditingCommentId(undefined);
+    } catch (caughtError) {
+      setCommentError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the comment.",
+      );
+    } finally {
+      setIsSavingCommentId(undefined);
+    }
+  }
+
+  async function onCommentDelete(commentId: string) {
+    if (!window.confirm("Delete this comment?")) {
+      return;
+    }
+
+    setCommentError(undefined);
+    setIsSavingCommentId(commentId);
+
+    try {
+      await deleteTaskComment(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        commentId,
+      );
+      const activityResponse = await getTaskActivity(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+      );
+
+      setComments((current) =>
+        current.filter((comment) => comment.id !== commentId),
+      );
+      setActivity(activityResponse.events);
+    } catch (caughtError) {
+      setCommentError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete the comment.",
+      );
+    } finally {
+      setIsSavingCommentId(undefined);
+    }
+  }
+
   if (!task && !error) {
     return <main className={styles.loading}>Loading task</main>;
   }
@@ -103,25 +270,125 @@ export function TaskDetail() {
         <p className={styles.formError}>{error ?? "Task not found."}</p>
       ) : (
         <section className={styles.taskDetail}>
-          <p className={styles.eyebrow}>{task.key}</p>
-          <h1>{task.title}</h1>
-          <p className={styles.authSubtitle}>
-            {task.description ?? "No description yet."}
-          </p>
-          <dl className={styles.taskFacts}>
-            <div>
-              <dt>Status</dt>
-              <dd>{task.status.name}</dd>
-            </div>
-            <div>
-              <dt>Priority</dt>
-              <dd>{task.priority}</dd>
-            </div>
-            <div>
-              <dt>Assignee</dt>
-              <dd>{task.assignee?.displayName ?? "Unassigned"}</dd>
-            </div>
-          </dl>
+          <div className={styles.taskDetailHeading}>
+            <p className={styles.eyebrow}>{task.key}</p>
+            {!isEditing ? (
+              <button
+                aria-label="Edit task"
+                className={styles.iconButton}
+                onClick={() => setIsEditing(true)}
+                title="Edit task"
+                type="button"
+              >
+                <Pencil aria-hidden="true" size={17} strokeWidth={1.8} />
+              </button>
+            ) : null}
+          </div>
+
+          {isEditing ? (
+            <form className={styles.taskEditForm} onSubmit={onTaskSubmit}>
+              <label>
+                <span>Title</span>
+                <input
+                  defaultValue={task.title}
+                  maxLength={200}
+                  minLength={2}
+                  name="title"
+                  required
+                />
+              </label>
+              <label className={styles.taskEditDescription}>
+                <span>Description</span>
+                <textarea
+                  defaultValue={task.description ?? ""}
+                  maxLength={10000}
+                  name="description"
+                  rows={5}
+                />
+              </label>
+              <label>
+                <span>Priority</span>
+                <select defaultValue={task.priority} name="priority">
+                  {priorities.map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priority}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Assignee</span>
+                <select
+                  defaultValue={task.assigneeUserId ?? ""}
+                  name="assigneeUserId"
+                >
+                  <option value="">Unassigned</option>
+                  {members.map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.user.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Due date</span>
+                <input
+                  defaultValue={task.dueDate ?? ""}
+                  name="dueDate"
+                  type="date"
+                />
+              </label>
+              {editError ? (
+                <p className={styles.formError} role="alert">
+                  {editError}
+                </p>
+              ) : null}
+              <div className={styles.formActions}>
+                <button
+                  className={styles.primaryButton}
+                  disabled={isSavingTask}
+                  type="submit"
+                >
+                  {isSavingTask ? "Saving" : "Save changes"}
+                </button>
+                <button
+                  className={styles.textButton}
+                  onClick={() => {
+                    setEditError(undefined);
+                    setIsEditing(false);
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <h1>{task.title}</h1>
+              <p className={styles.authSubtitle}>
+                {task.description ?? "No description yet."}
+              </p>
+              <dl className={styles.taskFacts}>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{task.status.name}</dd>
+                </div>
+                <div>
+                  <dt>Priority</dt>
+                  <dd>{task.priority}</dd>
+                </div>
+                <div>
+                  <dt>Assignee</dt>
+                  <dd>{task.assignee?.displayName ?? "Unassigned"}</dd>
+                </div>
+                <div>
+                  <dt>Due date</dt>
+                  <dd>{task.dueDate ?? "No due date"}</dd>
+                </div>
+              </dl>
+            </>
+          )}
 
           <section
             aria-labelledby="comments-title"
@@ -160,10 +427,71 @@ export function TaskDetail() {
               <ol className={styles.commentList}>
                 {comments.map((comment) => (
                   <li className={styles.comment} key={comment.id}>
-                    <strong>
-                      {comment.author?.displayName ?? "Former member"}
-                    </strong>
-                    <p>{comment.body}</p>
+                    <div className={styles.commentHeading}>
+                      <strong>
+                        {comment.author?.displayName ?? "Former member"}
+                      </strong>
+                      {comment.authorUserId === currentUserId ? (
+                        <div className={styles.commentActions}>
+                          <button
+                            aria-label="Edit comment"
+                            className={styles.commentAction}
+                            disabled={isSavingCommentId === comment.id}
+                            onClick={() => setEditingCommentId(comment.id)}
+                            title="Edit comment"
+                            type="button"
+                          >
+                            <Pencil aria-hidden="true" size={15} />
+                          </button>
+                          <button
+                            aria-label="Delete comment"
+                            className={styles.commentActionDanger}
+                            disabled={isSavingCommentId === comment.id}
+                            onClick={() => void onCommentDelete(comment.id)}
+                            title="Delete comment"
+                            type="button"
+                          >
+                            <Trash2 aria-hidden="true" size={15} />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                    {editingCommentId === comment.id ? (
+                      <form
+                        className={styles.commentEditForm}
+                        onSubmit={(event) =>
+                          void onCommentUpdate(event, comment.id)
+                        }
+                      >
+                        <textarea
+                          defaultValue={comment.body}
+                          maxLength={5000}
+                          name="body"
+                          required
+                          rows={3}
+                        />
+                        <div className={styles.formActions}>
+                          <button
+                            className={styles.secondaryButton}
+                            disabled={isSavingCommentId === comment.id}
+                            type="submit"
+                          >
+                            {isSavingCommentId === comment.id
+                              ? "Saving"
+                              : "Save"}
+                          </button>
+                          <button
+                            className={styles.textButton}
+                            onClick={() => setEditingCommentId(undefined)}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <p>{comment.body}</p>
+                    )}
                     <time dateTime={comment.createdAt}>
                       {formatDateTime(comment.createdAt)}
                     </time>

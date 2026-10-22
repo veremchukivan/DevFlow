@@ -71,6 +71,20 @@
       "when": 1792099170510,
       "tag": "0009_sweet_nomad",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792696771664,
+      "tag": "0010_heavy_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792697011618,
+      "tag": "0011_illegal_pretty_boy",
+      "breakpoints": true
     }
   ]
 }
