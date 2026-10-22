@@ -8,10 +8,12 @@ import { LayoutGrid, List } from "lucide-react";
 import {
   ApiClientError,
   createTask,
+  deleteProject,
   getProject,
   getTasks,
   getWorkspaceLabels,
   updateTask,
+  updateProject,
 } from "@/lib/api-client";
 import type { Label, Project, Task, TaskPriority } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
@@ -48,6 +50,8 @@ export function ProjectBoard() {
   const [isCreating, setIsCreating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string>();
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
 
@@ -143,6 +147,52 @@ export function ProjectBoard() {
     }
   }
 
+  async function onProjectSettingsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!project) return;
+    setError(undefined);
+    setIsSavingProject(true);
+    const form = new FormData(event.currentTarget);
+    const description = String(form.get("description") ?? "").trim();
+    try {
+      const response = await updateProject(workspaceId, projectId, {
+        name: String(form.get("name") ?? ""),
+        key: String(form.get("key") ?? ""),
+        description: description || null,
+      });
+      setProject(response.project);
+      setShowProjectSettings(false);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update project.",
+      );
+    } finally {
+      setIsSavingProject(false);
+    }
+  }
+
+  async function onProjectDelete() {
+    if (
+      !window.confirm(
+        "Delete this project and its tasks? This cannot be undone.",
+      )
+    )
+      return;
+    try {
+      await deleteProject(workspaceId, projectId);
+      router.replace(`/workspaces/${workspaceId}`);
+      router.refresh();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete project.",
+      );
+    }
+  }
+
   async function onUpdateTask(
     task: Task,
     input: { priority?: TaskPriority; statusId?: string },
@@ -215,14 +265,78 @@ export function ProjectBoard() {
           <h1>{project.name}</h1>
           {project.description ? <p>{project.description}</p> : null}
         </div>
-        <button
-          className={styles.primaryButton}
-          onClick={() => setShowTaskForm((current) => !current)}
-          type="button"
-        >
-          New task
-        </button>
+        <div className={styles.formActions}>
+          <button
+            className={styles.secondaryButton}
+            onClick={() => setShowProjectSettings((current) => !current)}
+            type="button"
+          >
+            Settings
+          </button>
+          <button
+            className={styles.textButton}
+            onClick={() => void onProjectDelete()}
+            type="button"
+          >
+            Delete
+          </button>
+          <button
+            className={styles.primaryButton}
+            onClick={() => setShowTaskForm((current) => !current)}
+            type="button"
+          >
+            New task
+          </button>
+        </div>
       </header>
+      {showProjectSettings ? (
+        <form className={styles.taskForm} onSubmit={onProjectSettingsSubmit}>
+          <label>
+            <span>Project name</span>
+            <input
+              defaultValue={project.name}
+              maxLength={160}
+              minLength={2}
+              name="name"
+              required
+            />
+          </label>
+          <label>
+            <span>Key</span>
+            <input
+              defaultValue={project.key}
+              maxLength={12}
+              name="key"
+              required
+            />
+          </label>
+          <label className={styles.taskDescriptionField}>
+            <span>Description</span>
+            <textarea
+              defaultValue={project.description ?? ""}
+              maxLength={2000}
+              name="description"
+              rows={3}
+            />
+          </label>
+          <div className={styles.formActions}>
+            <button
+              className={styles.primaryButton}
+              disabled={isSavingProject}
+              type="submit"
+            >
+              {isSavingProject ? "Saving" : "Save settings"}
+            </button>
+            <button
+              className={styles.textButton}
+              onClick={() => setShowProjectSettings(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <div
         className={styles.projectViews}

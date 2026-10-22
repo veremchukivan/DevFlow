@@ -16,6 +16,7 @@ import {
   createWorkspaceRequestSchema,
   updateWorkspaceRequestSchema,
   createProjectRequestSchema,
+  updateProjectRequestSchema,
   createTaskRequestSchema,
   projectListResponseSchema,
   projectResponseSchema,
@@ -48,6 +49,7 @@ import {
   type WorkspaceMemberResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
+  type UpdateProjectRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
   type CreateWorkspaceInvitationRequest,
@@ -420,6 +422,31 @@ export function getProject(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
     { method: "GET" },
     projectResponseSchema,
+  );
+}
+
+export function updateProject(
+  workspaceId: string,
+  projectId: string,
+  input: UpdateProjectRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    {
+      body: JSON.stringify(updateProjectRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    projectResponseSchema,
+  );
+}
+
+export function deleteProject(
+  workspaceId: string,
+  projectId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    { method: "DELETE" },
   );
 }
 
