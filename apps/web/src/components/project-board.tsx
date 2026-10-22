@@ -13,6 +13,7 @@ import {
   getTasks,
   getWorkspaceLabels,
   getWorkspaceMembers,
+  getWorkspace,
   replaceTaskLabels,
   updateTask,
   updateProject,
@@ -23,7 +24,9 @@ import type {
   Task,
   TaskPriority,
   WorkspaceMember,
+  WorkspaceRole,
 } from "@devflow/shared";
+import { can } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
 type BoardFilters = {
@@ -56,6 +59,7 @@ export function ProjectBoard() {
   const [labels, setLabels] = useState<Label[]>([]);
   const [labelId, setLabelId] = useState("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [role, setRole] = useState<WorkspaceRole>();
   const [assigneeUserId, setAssigneeUserId] = useState("");
   const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
     "",
@@ -72,6 +76,10 @@ export function ProjectBoard() {
   const [error, setError] = useState<string>();
   const [draggedTaskId, setDraggedTaskId] = useState<string>();
   const [dropStatusId, setDropStatusId] = useState<string>();
+  const canCreateTasks = role ? can(role, "task:create") : false;
+  const canUpdateTasks = role ? can(role, "task:update") : false;
+  const canUpdateProject = role ? can(role, "project:update") : false;
+  const canDeleteProject = role ? can(role, "project:delete") : false;
 
   useEffect(() => {
     let active = true;
@@ -81,9 +89,16 @@ export function ProjectBoard() {
       getTasks(workspaceId, projectId),
       getWorkspaceLabels(workspaceId),
       getWorkspaceMembers(workspaceId),
+      getWorkspace(workspaceId),
     ])
       .then(
-        ([projectResponse, taskResponse, labelsResponse, membersResponse]) => {
+        ([
+          projectResponse,
+          taskResponse,
+          labelsResponse,
+          membersResponse,
+          workspaceResponse,
+        ]) => {
           if (!active) return;
           setProject(projectResponse.project);
           setTasks(taskResponse.tasks);
@@ -93,6 +108,7 @@ export function ProjectBoard() {
               (member) => member.status === "active",
             ),
           );
+          setRole(workspaceResponse.workspace.role);
         },
       )
       .catch((caughtError: unknown) => {
@@ -320,6 +336,7 @@ export function ProjectBoard() {
         <div className={styles.formActions}>
           <button
             className={styles.secondaryButton}
+            disabled={!canUpdateProject}
             onClick={() => setShowProjectSettings((current) => !current)}
             type="button"
           >
@@ -327,6 +344,7 @@ export function ProjectBoard() {
           </button>
           <button
             className={styles.textButton}
+            disabled={!canDeleteProject}
             onClick={() => void onProjectDelete()}
             type="button"
           >
@@ -334,6 +352,7 @@ export function ProjectBoard() {
           </button>
           <button
             className={styles.primaryButton}
+            disabled={!canCreateTasks}
             onClick={() => setShowTaskForm((current) => !current)}
             type="button"
           >
@@ -613,6 +632,7 @@ export function ProjectBoard() {
                   <button
                     aria-label={`Create task in ${status.name}`}
                     className={styles.iconButton}
+                    disabled={!canCreateTasks}
                     onClick={() => {
                       setDraftStatusId(status.id);
                       setShowTaskForm(true);
@@ -627,7 +647,7 @@ export function ProjectBoard() {
                   {statusTasks.map((task) => (
                     <article
                       className={styles.taskCard}
-                      draggable
+                      draggable={canUpdateTasks}
                       onDragEnd={() => {
                         setDraggedTaskId(undefined);
                         setDropStatusId(undefined);
@@ -677,6 +697,7 @@ export function ProjectBoard() {
                         project={project}
                         task={task}
                         updatingTaskId={updatingTaskId}
+                        canUpdate={canUpdateTasks}
                       />
                     </article>
                   ))}
@@ -709,7 +730,7 @@ export function ProjectBoard() {
               <label>
                 <span className={styles.srOnly}>Status for {task.key}</span>
                 <select
-                  disabled={updatingTaskId === task.id}
+                  disabled={!canUpdateTasks || updatingTaskId === task.id}
                   onChange={(event) =>
                     void onUpdateTask(task, { statusId: event.target.value })
                   }
@@ -725,7 +746,7 @@ export function ProjectBoard() {
               <label>
                 <span className={styles.srOnly}>Priority for {task.key}</span>
                 <select
-                  disabled={updatingTaskId === task.id}
+                  disabled={!canUpdateTasks || updatingTaskId === task.id}
                   onChange={(event) =>
                     void onUpdateTask(task, {
                       priority: event.target.value as TaskPriority,
@@ -758,6 +779,7 @@ function TaskControls({
   project,
   task,
   updatingTaskId,
+  canUpdate,
 }: {
   onUpdateTask: (
     task: Task,
@@ -767,6 +789,7 @@ function TaskControls({
   project: Project;
   task: Task;
   updatingTaskId?: string;
+  canUpdate: boolean;
 }) {
   return (
     <div className={styles.taskCardControls}>
@@ -774,7 +797,7 @@ function TaskControls({
         <span className={styles.srOnly}>Status</span>
         <select
           aria-label={`Status for ${task.key}`}
-          disabled={updatingTaskId === task.id}
+          disabled={!canUpdate || updatingTaskId === task.id}
           onChange={(event) =>
             void onUpdateTask(task, { statusId: event.target.value })
           }
@@ -791,7 +814,7 @@ function TaskControls({
         <span className={styles.srOnly}>Priority</span>
         <select
           aria-label={`Priority for ${task.key}`}
-          disabled={updatingTaskId === task.id}
+          disabled={!canUpdate || updatingTaskId === task.id}
           onChange={(event) =>
             void onUpdateTask(task, {
               priority: event.target.value as TaskPriority,
