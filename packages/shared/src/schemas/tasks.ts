@@ -11,6 +11,7 @@ export const createTaskRequestSchema = z.object({
   description: z.string().trim().max(10000).optional(),
   dueDate: taskDueDateSchema.optional(),
   priority: taskPrioritySchema.optional(),
+  labelId: z.uuid().optional(),
   statusId: z.uuid().optional(),
   title: z.string().trim().min(2).max(200),
 });

@@ -15,6 +15,7 @@ import { type DbExecutor, db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
+import { taskLabels } from "../../core/db/schema/labels.js";
 import { users } from "../../core/db/schema/users.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
@@ -238,6 +239,7 @@ export async function listTasksForProject(input: {
   filters: {
     statusId?: string;
     priority?: TaskPriority;
+    labelId?: string;
     assigneeUserId?: string | "none";
     search?: string;
     archived?: boolean;
@@ -267,6 +269,11 @@ export async function listTasksForProject(input: {
 
   if (f.priority !== undefined) {
     conditions.push(eq(tasks.priority, f.priority));
+  }
+  if (f.labelId !== undefined) {
+    conditions.push(
+      sql`exists (select 1 from ${taskLabels} where ${taskLabels.taskId} = ${tasks.id} and ${taskLabels.labelId} = ${f.labelId})`,
+    );
   }
 
   if (f.assigneeUserId === "none") {

@@ -10,13 +10,15 @@ import {
   createTask,
   getProject,
   getTasks,
+  getWorkspaceLabels,
   updateTask,
 } from "@/lib/api-client";
-import type { Project, Task, TaskPriority } from "@devflow/shared";
+import type { Label, Project, Task, TaskPriority } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
 type BoardFilters = {
   priority?: TaskPriority;
+  labelId?: string;
   search?: string;
 };
 
@@ -39,6 +41,8 @@ export function ProjectBoard() {
   const [filters, setFilters] = useState<BoardFilters>({});
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<"" | TaskPriority>("");
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [labelId, setLabelId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -53,11 +57,13 @@ export function ProjectBoard() {
     void Promise.all([
       getProject(workspaceId, projectId),
       getTasks(workspaceId, projectId),
+      getWorkspaceLabels(workspaceId),
     ])
-      .then(([projectResponse, taskResponse]) => {
+      .then(([projectResponse, taskResponse, labelsResponse]) => {
         if (!active) return;
         setProject(projectResponse.project);
         setTasks(taskResponse.tasks);
+        setLabels(labelsResponse.labels);
       })
       .catch((caughtError: unknown) => {
         if (
@@ -103,6 +109,7 @@ export function ProjectBoard() {
     const nextFilters = {
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(priority ? { priority } : {}),
+      ...(labelId ? { labelId } : {}),
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
@@ -321,6 +328,20 @@ export function ProjectBoard() {
             {priorities.map((item) => (
               <option key={item} value={item}>
                 {item}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Label</span>
+          <select
+            onChange={(event) => setLabelId(event.target.value)}
+            value={labelId}
+          >
+            <option value="">All labels</option>
+            {labels.map((label) => (
+              <option key={label.id} value={label.id}>
+                {label.name}
               </option>
             ))}
           </select>

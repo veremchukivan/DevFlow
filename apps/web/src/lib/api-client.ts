@@ -218,6 +218,12 @@ export function verifyEmail(
   });
 }
 
+export function resendEmailVerification(): Promise<void> {
+  return requestNoContent("/api/v1/auth/email-verification/resend", {
+    method: "POST",
+  });
+}
+
 export async function logout(): Promise<void> {
   const response = await fetch(`${getApiUrl()}/api/v1/auth/logout`, {
     credentials: "include",
@@ -396,6 +402,7 @@ export function getProject(
 }
 
 type TaskListFilters = {
+  labelId?: string;
   priority?: TaskPriority;
   search?: string;
 };
@@ -415,6 +422,7 @@ export function getTasks(
   if (filters.priority) {
     query.set("priority", filters.priority);
   }
+  if (filters.labelId) query.set("labelId", filters.labelId);
 
   if (filters.search) {
     query.set("search", filters.search);
