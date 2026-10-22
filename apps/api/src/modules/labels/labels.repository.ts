@@ -1,6 +1,6 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../core/db/client.js";
-import { labels } from "../../core/db/schema/labels.js";
+import { labels, taskLabels } from "../../core/db/schema/labels.js";
 
 export const listLabels = (workspaceId: string) =>
   db
@@ -51,3 +51,46 @@ export const deleteLabel = (workspaceId: string, labelId: string) =>
   db
     .delete(labels)
     .where(and(eq(labels.workspaceId, workspaceId), eq(labels.id, labelId)));
+
+export const listTaskLabels = (taskId: string) =>
+  db
+    .select()
+    .from(taskLabels)
+    .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+    .where(eq(taskLabels.taskId, taskId))
+    .orderBy(asc(labels.name));
+
+export async function replaceTaskLabels(input: {
+  workspaceId: string;
+  projectId: string;
+  taskId: string;
+  labelIds: string[];
+}) {
+  return db.transaction(async (tx) => {
+    const available = input.labelIds.length
+      ? await tx
+          .select({ id: labels.id })
+          .from(labels)
+          .where(
+            and(
+              eq(labels.workspaceId, input.workspaceId),
+              inArray(labels.id, input.labelIds),
+            ),
+          )
+      : [];
+    if (available.length !== input.labelIds.length) return false;
+    await tx.delete(taskLabels).where(eq(taskLabels.taskId, input.taskId));
+    if (input.labelIds.length)
+      await tx
+        .insert(taskLabels)
+        .values(
+          input.labelIds.map((labelId) => ({
+            workspaceId: input.workspaceId,
+            projectId: input.projectId,
+            taskId: input.taskId,
+            labelId,
+          })),
+        );
+    return true;
+  });
+}

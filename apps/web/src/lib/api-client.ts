@@ -1,5 +1,6 @@
 import {
   authResponseSchema,
+  labelListResponseSchema,
   createTaskCommentRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
@@ -28,6 +29,7 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type LabelListResponse,
   type ChangePasswordRequest,
   type HealthResponse,
   type LoginRequest,
@@ -273,6 +275,16 @@ export function getWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
     `/api/v1/workspaces/${workspaceId}`,
     { method: "GET" },
     workspaceResponseSchema,
+  );
+}
+
+export function getWorkspaceLabels(
+  workspaceId: string,
+): Promise<LabelListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/labels`,
+    { method: "GET" },
+    labelListResponseSchema,
   );
 }
 

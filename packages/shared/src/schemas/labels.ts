@@ -25,6 +25,9 @@ export const labelResponseSchema = z.object({ label: labelSchema });
 export const labelListResponseSchema = z.object({
   labels: z.array(labelSchema),
 });
+export const taskLabelsRequestSchema = z.object({
+  labelIds: z.array(z.uuid()).max(20),
+});
 export type Label = z.infer<typeof labelSchema>;
 export type CreateLabelRequest = z.infer<typeof createLabelRequestSchema>;
 export type UpdateLabelRequest = z.infer<typeof updateLabelRequestSchema>;
