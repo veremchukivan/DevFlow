@@ -35,12 +35,7 @@ export async function createWorkspaceLabel(input: {
       ...input.data,
     });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error &&
-      "code" in error &&
-      error.code === "23505"
-    )
+    if (isUniqueViolation(error))
       throw new AppError(
         409,
         "LABEL_NAME_TAKEN",
@@ -65,12 +60,7 @@ export async function updateWorkspaceLabel(input: {
     if (!label) throw new AppError(404, "LABEL_NOT_FOUND", "Label not found");
     return label;
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error &&
-      "code" in error &&
-      error.code === "23505"
-    )
+    if (isUniqueViolation(error))
       throw new AppError(
         409,
         "LABEL_NAME_TAKEN",
@@ -88,4 +78,23 @@ export async function removeWorkspaceLabel(input: {
   const label = await repository.findLabel(input.workspaceId, input.labelId);
   if (!label) throw new AppError(404, "LABEL_NOT_FOUND", "Label not found");
   await repository.deleteLabel(input.workspaceId, input.labelId);
+}
+
+function isUniqueViolation(error: unknown) {
+  if (hasCode(error, "23505")) return true;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "cause" in error &&
+    hasCode(error.cause, "23505")
+  );
+}
+
+function hasCode(value: unknown, code: string) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "code" in value &&
+    value.code === code
+  );
 }
