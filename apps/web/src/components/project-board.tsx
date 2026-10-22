@@ -582,6 +582,18 @@ export function ProjectBoard() {
                         </Link>
                       </h3>
                       {task.description ? <p>{task.description}</p> : null}
+                      {task.labels.length ? (
+                        <div className={styles.taskLabels}>
+                          {task.labels.map((label) => (
+                            <span
+                              key={label.id}
+                              style={{ backgroundColor: label.color }}
+                            >
+                              {label.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       {task.dueDate ? (
                         <p className={styles.taskDueDate}>Due {task.dueDate}</p>
                       ) : null}

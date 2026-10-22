@@ -18,6 +18,7 @@ import {
   findProjectStatusInProject,
   findTaskInProject,
   listTasksForProject,
+  listLabelsForTaskIds,
   softDeleteTaskInProject,
   updateTaskInProject,
 } from "./tasks.repository.js";
@@ -94,13 +95,30 @@ export async function listTasks(input: {
     filters: input.filters,
   });
 
+  const labelRows = await listLabelsForTaskIds(
+    result.tasks.map((task) => task.id),
+  );
+  const labelsByTask = new Map<
+    string,
+    Array<{ id: string; name: string; color: string }>
+  >();
+  for (const label of labelRows) {
+    labelsByTask.set(label.taskId, [
+      ...(labelsByTask.get(label.taskId) ?? []),
+      { id: label.id, name: label.name, color: label.color },
+    ]);
+  }
+
   return {
     pageInfo: buildPageInfo({
       limit: input.filters.limit,
       offset: input.filters.offset,
       total: result.total,
     }),
-    tasks: result.tasks,
+    tasks: result.tasks.map((task) => ({
+      ...task,
+      labels: labelsByTask.get(task.id) ?? [],
+    })),
   };
 }
 

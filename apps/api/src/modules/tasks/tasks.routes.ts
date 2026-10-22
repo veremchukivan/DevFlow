@@ -186,6 +186,7 @@ function toTaskDto(task: {
   description: string | null;
   dueDate: string | null;
   id: string;
+  labels?: Array<{ id: string; name: string; color: string }>;
   number: number;
   priority: "low" | "medium" | "high" | "urgent";
   projectId: string;
@@ -223,6 +224,7 @@ function toTaskDto(task: {
     description: task.description,
     dueDate: task.dueDate,
     id: task.id,
+    labels: task.labels ?? [],
     key: `${task.projectKey}-${task.number}`,
     number: task.number,
     priority: task.priority,
