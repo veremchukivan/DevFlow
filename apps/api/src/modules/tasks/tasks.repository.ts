@@ -241,6 +241,7 @@ export async function listTasksForProject(input: {
     statusId?: string;
     priority?: TaskPriority;
     labelId?: string;
+    due?: "overdue" | "today" | "week" | "none";
     assigneeUserId?: string | "none";
     search?: string;
     archived?: boolean;
@@ -276,6 +277,14 @@ export async function listTasksForProject(input: {
       sql`exists (select 1 from ${taskLabels} where ${taskLabels.taskId} = ${tasks.id} and ${taskLabels.labelId} = ${f.labelId})`,
     );
   }
+  if (f.due === "none") conditions.push(isNull(tasks.dueDate));
+  if (f.due === "overdue")
+    conditions.push(sql`${tasks.dueDate} < CURRENT_DATE`);
+  if (f.due === "today") conditions.push(sql`${tasks.dueDate} = CURRENT_DATE`);
+  if (f.due === "week")
+    conditions.push(
+      sql`${tasks.dueDate} >= CURRENT_DATE and ${tasks.dueDate} < CURRENT_DATE + interval '7 days'`,
+    );
 
   if (f.assigneeUserId === "none") {
     conditions.push(isNull(tasks.assigneeUserId));

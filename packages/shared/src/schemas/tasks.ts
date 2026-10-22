@@ -49,6 +49,7 @@ export const taskSortFieldSchema = z.enum([
 ]);
 
 export const taskSortOrderSchema = z.enum(["asc", "desc"]);
+export const taskDueFilterSchema = z.enum(["overdue", "today", "week", "none"]);
 
 export const listTasksQuerySchema = paginationQuerySchema.extend({
   archived: z
@@ -57,6 +58,7 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
     .optional(),
   assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
   labelId: z.uuid().optional(),
+  due: taskDueFilterSchema.optional(),
   priority: taskPrioritySchema.optional(),
   search: z.string().trim().min(1).max(200).optional(),
   sortBy: taskSortFieldSchema.default("createdAt"),

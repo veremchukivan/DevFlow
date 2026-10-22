@@ -13,6 +13,7 @@ import {
   getTasks,
   getWorkspaceLabels,
   getWorkspaceMembers,
+  replaceTaskLabels,
   updateTask,
   updateProject,
 } from "@/lib/api-client";
@@ -29,6 +30,7 @@ type BoardFilters = {
   priority?: TaskPriority;
   labelId?: string;
   assigneeUserId?: string | "none";
+  due?: "overdue" | "today" | "week" | "none";
   search?: string;
 };
 
@@ -55,11 +57,15 @@ export function ProjectBoard() {
   const [labelId, setLabelId] = useState("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [assigneeUserId, setAssigneeUserId] = useState("");
+  const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
+    "",
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string>();
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
@@ -137,6 +143,7 @@ export function ProjectBoard() {
       ...(assigneeUserId
         ? { assigneeUserId: assigneeUserId as string | "none" }
         : {}),
+      ...(due ? { due } : {}),
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
@@ -150,14 +157,26 @@ export function ProjectBoard() {
     const description = String(form.get("description") ?? "").trim();
 
     try {
-      await createTask(workspaceId, projectId, {
+      const response = await createTask(workspaceId, projectId, {
         title: String(form.get("title") ?? ""),
         statusId: String(form.get("statusId")),
         priority: form.get("priority") as TaskPriority,
+        assigneeUserId: String(form.get("assigneeUserId") ?? "") || undefined,
+        dueDate: String(form.get("dueDate") ?? "") || undefined,
         ...(description ? { description } : {}),
       });
+      const labelIds = form.getAll("labelIds").map(String);
+      if (labelIds.length) {
+        await replaceTaskLabels(
+          workspaceId,
+          projectId,
+          response.task.id,
+          labelIds,
+        );
+      }
       event.currentTarget.reset();
       setShowTaskForm(false);
+      setDraftStatusId(undefined);
       await loadTasks(filters);
     } catch (caughtError) {
       setError(
@@ -408,6 +427,7 @@ export function ProjectBoard() {
             <span>Status</span>
             <select
               defaultValue={
+                draftStatusId ??
                 project.statuses.find((status) => status.isDefault)?.id
               }
               name="statusId"
@@ -430,6 +450,32 @@ export function ProjectBoard() {
               ))}
             </select>
           </label>
+          <label>
+            <span>Assignee</span>
+            <select defaultValue="" name="assigneeUserId">
+              <option value="">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.user.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Due date</span>
+            <input name="dueDate" type="date" />
+          </label>
+          {labels.length ? (
+            <fieldset className={styles.taskLabelsFieldset}>
+              <legend>Labels</legend>
+              {labels.map((label) => (
+                <label key={label.id}>
+                  <input name="labelIds" type="checkbox" value={label.id} />
+                  {label.name}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
           <label className={styles.taskDescriptionField}>
             <span>Description</span>
             <textarea maxLength={10000} name="description" rows={3} />
@@ -444,7 +490,10 @@ export function ProjectBoard() {
             </button>
             <button
               className={styles.textButton}
-              onClick={() => setShowTaskForm(false)}
+              onClick={() => {
+                setShowTaskForm(false);
+                setDraftStatusId(undefined);
+              }}
               type="button"
             >
               Cancel
@@ -508,6 +557,19 @@ export function ProjectBoard() {
             ))}
           </select>
         </label>
+        <label>
+          <span>Due date</span>
+          <select
+            onChange={(event) => setDue(event.target.value as typeof due)}
+            value={due}
+          >
+            <option value="">Any date</option>
+            <option value="overdue">Overdue</option>
+            <option value="today">Today</option>
+            <option value="week">This week</option>
+            <option value="none">No due date</option>
+          </select>
+        </label>
         <button
           className={styles.secondaryButton}
           disabled={isRefreshing}
@@ -548,6 +610,18 @@ export function ProjectBoard() {
                     <h2>{status.name}</h2>
                   </div>
                   <span>{statusTasks.length}</span>
+                  <button
+                    aria-label={`Create task in ${status.name}`}
+                    className={styles.iconButton}
+                    onClick={() => {
+                      setDraftStatusId(status.id);
+                      setShowTaskForm(true);
+                    }}
+                    title="Create task"
+                    type="button"
+                  >
+                    +
+                  </button>
                 </header>
                 <div className={styles.taskList}>
                   {statusTasks.map((task) => (
