@@ -576,6 +576,29 @@
   margin-top: 38px;
   padding-top: 24px;
 }
+
+.labelPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.labelPicker label {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+  padding: 7px 9px;
+}
+.labelPicker input {
+  accent-color: var(--brand);
+}
+.labelPicker span {
+  border-radius: 50%;
+  height: 9px;
+  width: 9px;
+}
 .commentList,
 .activityList {
   display: grid;

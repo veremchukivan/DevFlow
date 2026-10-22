@@ -11,17 +11,21 @@ import {
   deleteTaskComment,
   getCurrentUser,
   getTask,
+  getTaskLabels,
+  getWorkspaceLabels,
   getTaskActivity,
   getTaskComments,
   getWorkspaceMembers,
   updateTask,
   updateTaskComment,
+  replaceTaskLabels,
 } from "@/lib/api-client";
 import type {
   Task,
   TaskActivityEvent,
   TaskComment,
   TaskPriority,
+  Label,
   WorkspaceMember,
 } from "@devflow/shared";
 
@@ -41,6 +45,9 @@ export function TaskDetail() {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
+  const [workspaceLabels, setWorkspaceLabels] = useState<Label[]>([]);
+  const [taskLabels, setTaskLabels] = useState<Label[]>([]);
+  const [isSavingLabels, setIsSavingLabels] = useState(false);
   const [error, setError] = useState<string>();
   const [commentError, setCommentError] = useState<string>();
   const [editError, setEditError] = useState<string>();
@@ -58,12 +65,16 @@ export function TaskDetail() {
         commentsResponse,
         activityResponse,
         currentUserResponse,
+        workspaceLabelsResponse,
+        taskLabelsResponse,
       ] = await Promise.all([
         getTask(params.workspaceId, params.projectId, params.taskId),
         getWorkspaceMembers(params.workspaceId),
         getTaskComments(params.workspaceId, params.projectId, params.taskId),
         getTaskActivity(params.workspaceId, params.projectId, params.taskId),
         getCurrentUser(),
+        getWorkspaceLabels(params.workspaceId),
+        getTaskLabels(params.workspaceId, params.projectId, params.taskId),
       ]);
 
       setTask(taskResponse.task);
@@ -73,6 +84,8 @@ export function TaskDetail() {
       setComments(commentsResponse.comments);
       setActivity(activityResponse.events);
       setCurrentUserId(currentUserResponse.user.id);
+      setWorkspaceLabels(workspaceLabelsResponse.labels);
+      setTaskLabels(taskLabelsResponse.labels);
     } catch (caughtError) {
       if (
         caughtError instanceof ApiClientError &&
@@ -84,6 +97,32 @@ export function TaskDetail() {
       setError("Unable to load this task.");
     }
   }, [params.projectId, params.taskId, params.workspaceId, router]);
+
+  async function onLabelsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEditError(undefined);
+    setIsSavingLabels(true);
+    try {
+      const labelIds = new FormData(event.currentTarget)
+        .getAll("labelIds")
+        .map(String);
+      const response = await replaceTaskLabels(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        labelIds,
+      );
+      setTaskLabels(response.labels);
+    } catch (caughtError) {
+      setEditError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update labels.",
+      );
+    } finally {
+      setIsSavingLabels(false);
+    }
+  }
 
   useEffect(() => {
     void loadTaskDetails();
@@ -387,6 +426,52 @@ export function TaskDetail() {
                   <dd>{task.dueDate ?? "No due date"}</dd>
                 </div>
               </dl>
+              <section
+                className={styles.taskSection}
+                aria-labelledby="labels-title"
+              >
+                <div className={styles.sectionHeading}>
+                  <h2 id="labels-title">Labels</h2>
+                </div>
+                <form className={styles.taskForm} onSubmit={onLabelsSubmit}>
+                  <div className={styles.labelPicker}>
+                    {workspaceLabels.length ? (
+                      workspaceLabels.map((label) => (
+                        <label key={label.id}>
+                          <input
+                            defaultChecked={taskLabels.some(
+                              (taskLabel) => taskLabel.id === label.id,
+                            )}
+                            name="labelIds"
+                            type="checkbox"
+                            value={label.id}
+                          />
+                          <span style={{ backgroundColor: label.color }} />
+                          {label.name}
+                        </label>
+                      ))
+                    ) : (
+                      <p className={styles.emptyState}>
+                        Create labels for this workspace first.
+                      </p>
+                    )}
+                  </div>
+                  {editError ? (
+                    <p className={styles.formError} role="alert">
+                      {editError}
+                    </p>
+                  ) : null}
+                  <div className={styles.formActions}>
+                    <button
+                      className={styles.secondaryButton}
+                      disabled={isSavingLabels}
+                      type="submit"
+                    >
+                      {isSavingLabels ? "Saving" : "Save labels"}
+                    </button>
+                  </div>
+                </form>
+              </section>
             </>
           )}
 

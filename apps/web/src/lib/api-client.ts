@@ -411,6 +411,31 @@ export function getTask(
   );
 }
 
+export function getTaskLabels(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<LabelListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/labels`,
+    { method: "GET" },
+    labelListResponseSchema,
+  );
+}
+
+export function replaceTaskLabels(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  labelIds: string[],
+): Promise<LabelListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/labels`,
+    { body: JSON.stringify({ labelIds }), method: "PUT" },
+    labelListResponseSchema,
+  );
+}
+
 export function getTaskComments(
   workspaceId: string,
   projectId: string,
