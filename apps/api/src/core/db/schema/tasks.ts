@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  date,
   foreignKey,
   index,
   integer,
@@ -9,7 +10,7 @@ import {
   text,
   uniqueIndex,
   uuid,
-  varchar
+  varchar,
 } from "drizzle-orm/pg-core";
 
 import { softDeleteColumn, timestampColumns } from "./_common.js";
@@ -22,7 +23,7 @@ export const taskPriorityEnum = pgEnum("task_priority", [
   "low",
   "medium",
   "high",
-  "urgent"
+  "urgent",
 ]);
 
 export const tasks = pgTable(
@@ -37,56 +38,57 @@ export const tasks = pgTable(
     statusId: uuid("status_id").notNull(),
     title: varchar("title", { length: 200 }).notNull(),
     description: text("description"),
+    dueDate: date("due_date"),
     priority: taskPriorityEnum("priority").notNull().default("medium"),
     assigneeUserId: uuid("assignee_user_id").references(() => users.id, {
-      onDelete: "set null"
+      onDelete: "set null",
     }),
     reporterUserId: uuid("reporter_user_id").references(() => users.id, {
-      onDelete: "set null"
+      onDelete: "set null",
     }),
     version: integer("version").notNull().default(1),
     ...timestampColumns(),
-    ...softDeleteColumn()
+    ...softDeleteColumn(),
   },
   (table) => [
     foreignKey({
       columns: [table.workspaceId, table.projectId],
       foreignColumns: [projects.workspaceId, projects.id],
-      name: "tasks_project_fk"
+      name: "tasks_project_fk",
     }).onDelete("cascade"),
     foreignKey({
       columns: [table.workspaceId, table.projectId, table.statusId],
       foreignColumns: [
         projectStatuses.workspaceId,
         projectStatuses.projectId,
-        projectStatuses.id
+        projectStatuses.id,
       ],
-      name: "tasks_project_status_fk"
+      name: "tasks_project_status_fk",
     }).onDelete("restrict"),
     uniqueIndex("tasks_project_number_unique").on(
       table.workspaceId,
       table.projectId,
-      table.number
+      table.number,
     ),
     uniqueIndex("tasks_workspace_project_id_unique").on(
       table.workspaceId,
       table.projectId,
-      table.id
+      table.id,
     ),
     index("tasks_project_status_idx").on(
       table.workspaceId,
       table.projectId,
-      table.statusId
+      table.statusId,
     ),
     index("tasks_project_deleted_at_idx").on(
       table.workspaceId,
       table.projectId,
-      table.deletedAt
+      table.deletedAt,
     ),
     index("tasks_assignee_user_id_idx").on(table.assigneeUserId),
     index("tasks_reporter_user_id_idx").on(table.reporterUserId),
-    check("tasks_number_positive_check", sql`${table.number} > 0`)
-  ]
+    check("tasks_number_positive_check", sql`${table.number} > 0`),
+  ],
 );
 
 export type Task = typeof tasks.$inferSelect;

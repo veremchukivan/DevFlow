@@ -1,18 +1,14 @@
 import type {
   CreateTaskRequest,
   ListTasksQuery,
-  UpdateTaskRequest
+  UpdateTaskRequest,
 } from "@devflow/shared";
 
 import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
-import {
-  canCreateTask,
-  canDeleteTask,
-  canUpdateTask
-} from "./tasks.policy.js";
+import { canCreateTask, canDeleteTask, canUpdateTask } from "./tasks.policy.js";
 import {
   createTaskWithNextNumber,
   findActiveWorkspaceMember,
@@ -23,9 +19,8 @@ import {
   findTaskInProject,
   listTasksForProject,
   softDeleteTaskInProject,
-  updateTaskInProject
+  updateTaskInProject,
 } from "./tasks.repository.js";
-
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -39,7 +34,7 @@ export async function createTask(input: {
     throw new AppError(
       403,
       "TASK_CREATE_FORBIDDEN",
-      "You cannot create tasks in this workspace"
+      "You cannot create tasks in this workspace",
     );
   }
 
@@ -47,13 +42,13 @@ export async function createTask(input: {
   const status = await resolveTaskStatus({
     projectId: input.projectId,
     statusId: input.input.statusId,
-    workspaceId: input.workspaceId
+    workspaceId: input.workspaceId,
   });
 
   if (input.input.assigneeUserId) {
     await requireAssignableWorkspaceMember({
       userId: input.input.assigneeUserId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
   }
 
@@ -64,22 +59,23 @@ export async function createTask(input: {
   const task = await createTaskWithNextNumber({
     activity: {
       actorUserId: input.userId,
-      projectKey: project.key
+      projectKey: project.key,
     },
     assigneeUserId: input.input.assigneeUserId,
     description: input.input.description,
+    dueDate: input.input.dueDate,
     priority: input.input.priority,
     projectId: input.projectId,
     reporterUserId: input.userId,
     statusId: status.id,
     title: input.input.title,
-    workspaceId: input.workspaceId
+    workspaceId: input.workspaceId,
   });
 
   return {
     ...task,
     projectKey: project.key,
-    status
+    status,
   };
 }
 
@@ -95,16 +91,16 @@ export async function listTasks(input: {
   const result = await listTasksForProject({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
-    filters: input.filters
+    filters: input.filters,
   });
 
   return {
     pageInfo: buildPageInfo({
       limit: input.filters.limit,
       offset: input.filters.offset,
-      total: result.total
+      total: result.total,
     }),
-    tasks: result.tasks
+    tasks: result.tasks,
   };
 }
 
@@ -140,7 +136,7 @@ export async function updateTask(input: {
     throw new AppError(
       403,
       "TASK_UPDATE_FORBIDDEN",
-      "You cannot update tasks in this workspace"
+      "You cannot update tasks in this workspace",
     );
   }
 
@@ -151,14 +147,14 @@ export async function updateTask(input: {
     await resolveTaskStatus({
       projectId: input.projectId,
       statusId: input.input.statusId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
   }
 
   if (input.input.assigneeUserId) {
     await requireAssignableWorkspaceMember({
       userId: input.input.assigneeUserId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
   }
 
@@ -167,15 +163,16 @@ export async function updateTask(input: {
       {
         assigneeUserId: input.input.assigneeUserId,
         description: input.input.description,
+        dueDate: input.input.dueDate,
         priority: input.input.priority,
         projectId: input.projectId,
         statusId: input.input.statusId,
         taskId: input.taskId,
         title: input.input.title,
         version: input.expectedVersion,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
 
     if (!updatedTask) {
@@ -194,14 +191,14 @@ export async function updateTask(input: {
         data: {
           fields: updatedTaskFields(input.input),
           taskKey: `${existingTask.projectKey}-${existingTask.number}`,
-          title: updatedTaskWithRelations.title
+          title: updatedTaskWithRelations.title,
         },
         eventType: "task_updated",
         projectId: input.projectId,
         taskId: input.taskId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
 
     return updatedTaskWithRelations;
@@ -221,7 +218,7 @@ export async function deleteTask(input: {
     throw new AppError(
       403,
       "TASK_DELETE_FORBIDDEN",
-      "You cannot delete tasks in this workspace"
+      "You cannot delete tasks in this workspace",
     );
   }
 
@@ -232,9 +229,9 @@ export async function deleteTask(input: {
     const deletedTask = await softDeleteTaskInProject(
       {
         ...input,
-        version: input.expectedVersion
+        version: input.expectedVersion,
       },
-      tx
+      tx,
     );
 
     if (!deletedTask) {
@@ -246,14 +243,14 @@ export async function deleteTask(input: {
         actorUserId: input.userId,
         data: {
           taskKey: `${task.projectKey}-${task.number}`,
-          title: task.title
+          title: task.title,
         },
         eventType: "task_deleted",
         projectId: input.projectId,
         taskId: input.taskId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
   });
 }
@@ -262,7 +259,7 @@ function taskVersionConflictError() {
   return new AppError(
     409,
     "TASK_VERSION_CONFLICT",
-    "This task was changed by another user. Refresh it and try again."
+    "This task was changed by another user. Refresh it and try again.",
   );
 }
 
@@ -315,14 +312,14 @@ async function resolveTaskStatus(input: {
     const status = await findProjectStatusInProject({
       projectId: input.projectId,
       statusId: input.statusId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
 
     if (!status) {
       throw new AppError(
         400,
         "TASK_STATUS_INVALID",
-        "Task status must belong to this project"
+        "Task status must belong to this project",
       );
     }
 
@@ -335,7 +332,7 @@ async function resolveTaskStatus(input: {
     throw new AppError(
       409,
       "TASK_STATUS_REQUIRED",
-      "Project does not have a default task status"
+      "Project does not have a default task status",
     );
   }
 
@@ -352,7 +349,7 @@ async function requireAssignableWorkspaceMember(input: {
     throw new AppError(
       400,
       "TASK_ASSIGNEE_INVALID",
-      "Assignee must be an active workspace member"
+      "Assignee must be an active workspace member",
     );
   }
 }

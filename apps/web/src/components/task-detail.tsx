@@ -107,6 +107,7 @@ export function TaskDetail() {
         {
           assigneeUserId: assigneeUserId || null,
           description: description || null,
+          dueDate: String(form.get("dueDate") ?? "") || null,
           priority: form.get("priority") as TaskPriority,
           title: String(form.get("title") ?? ""),
         },
@@ -329,6 +330,14 @@ export function TaskDetail() {
                   ))}
                 </select>
               </label>
+              <label>
+                <span>Due date</span>
+                <input
+                  defaultValue={task.dueDate ?? ""}
+                  name="dueDate"
+                  type="date"
+                />
+              </label>
               {editError ? (
                 <p className={styles.formError} role="alert">
                   {editError}
@@ -372,6 +381,10 @@ export function TaskDetail() {
                 <div>
                   <dt>Assignee</dt>
                   <dd>{task.assignee?.displayName ?? "Unassigned"}</dd>
+                </div>
+                <div>
+                  <dt>Due date</dt>
+                  <dd>{task.dueDate ?? "No due date"}</dd>
                 </div>
               </dl>
             </>

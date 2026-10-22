@@ -7,7 +7,7 @@ import {
   ilike,
   isNotNull,
   isNull,
-  sql
+  sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -32,7 +32,7 @@ export async function findActiveWorkspaceMembership(input: {
   const [membership] = await db
     .select({
       role: workspaceMembers.role,
-      workspaceId: workspaceMembers.workspaceId
+      workspaceId: workspaceMembers.workspaceId,
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
@@ -41,8 +41,8 @@ export async function findActiveWorkspaceMembership(input: {
         eq(workspaceMembers.userId, input.userId),
         eq(workspaceMembers.workspaceId, input.workspaceId),
         eq(workspaceMembers.status, "active"),
-        isNull(workspaces.deletedAt)
-      )
+        isNull(workspaces.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -55,15 +55,15 @@ export async function findActiveWorkspaceMember(input: {
 }) {
   const [member] = await db
     .select({
-      userId: workspaceMembers.userId
+      userId: workspaceMembers.userId,
     })
     .from(workspaceMembers)
     .where(
       and(
         eq(workspaceMembers.userId, input.userId),
         eq(workspaceMembers.workspaceId, input.workspaceId),
-        eq(workspaceMembers.status, "active")
-      )
+        eq(workspaceMembers.status, "active"),
+      ),
     )
     .limit(1);
 
@@ -78,15 +78,15 @@ export async function findProjectInWorkspace(input: {
     .select({
       id: projects.id,
       key: projects.key,
-      workspaceId: projects.workspaceId
+      workspaceId: projects.workspaceId,
     })
     .from(projects)
     .where(
       and(
         eq(projects.id, input.projectId),
         eq(projects.workspaceId, input.workspaceId),
-        isNull(projects.deletedAt)
-      )
+        isNull(projects.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -105,8 +105,8 @@ export async function findProjectStatusInProject(input: {
       and(
         eq(projectStatuses.id, input.statusId),
         eq(projectStatuses.projectId, input.projectId),
-        eq(projectStatuses.workspaceId, input.workspaceId)
-      )
+        eq(projectStatuses.workspaceId, input.workspaceId),
+      ),
     )
     .limit(1);
 
@@ -125,8 +125,8 @@ export async function findDefaultProjectStatus(input: {
         eq(projectStatuses.projectId, input.projectId),
         eq(projectStatuses.workspaceId, input.workspaceId),
         eq(projectStatuses.category, "todo"),
-        eq(projectStatuses.isDefault, true)
-      )
+        eq(projectStatuses.isDefault, true),
+      ),
     )
     .orderBy(projectStatuses.position)
     .limit(1);
@@ -142,6 +142,7 @@ export async function createTaskWithNextNumber(input: {
   };
   assigneeUserId?: string;
   description?: string;
+  dueDate?: string;
   priority?: TaskPriority;
   projectId: string;
   reporterUserId: string;
@@ -158,22 +159,22 @@ export async function createTaskWithNextNumber(input: {
         and(
           eq(projects.id, input.projectId),
           eq(projects.workspaceId, input.workspaceId),
-          isNull(projects.deletedAt)
-        )
+          isNull(projects.deletedAt),
+        ),
       )
       .for("update");
 
     // 2. Fetch the next number safely without race condition
     const [nextNumber] = await tx
       .select({
-        value: sql<number>`coalesce(max(${tasks.number}), 0) + 1`
+        value: sql<number>`coalesce(max(${tasks.number}), 0) + 1`,
       })
       .from(tasks)
       .where(
         and(
           eq(tasks.workspaceId, input.workspaceId),
-          eq(tasks.projectId, input.projectId)
-        )
+          eq(tasks.projectId, input.projectId),
+        ),
       );
 
     const values = {
@@ -185,13 +186,11 @@ export async function createTaskWithNextNumber(input: {
       workspaceId: input.workspaceId,
       ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
       ...(input.description ? { description: input.description } : {}),
-      ...(input.priority ? { priority: input.priority } : {})
+      ...(input.dueDate ? { dueDate: input.dueDate } : {}),
+      ...(input.priority ? { priority: input.priority } : {}),
     };
 
-    const [task] = await tx
-      .insert(tasks)
-      .values(values)
-      .returning();
+    const [task] = await tx.insert(tasks).values(values).returning();
 
     if (!task) {
       throw new Error("Failed to create task");
@@ -205,14 +204,14 @@ export async function createTaskWithNextNumber(input: {
           data: {
             taskKey: `${input.activity.projectKey}-${task.number}`,
             title: task.title,
-            ...(input.activity.data ?? {})
+            ...(input.activity.data ?? {}),
           },
           eventType: "task_created",
           projectId: input.projectId,
           taskId: task.id,
-          workspaceId: input.workspaceId
+          workspaceId: input.workspaceId,
         },
-        tx
+        tx,
       );
     }
 
@@ -220,9 +219,9 @@ export async function createTaskWithNextNumber(input: {
       {
         projectId: input.projectId,
         taskId: task.id,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
 
     if (!createdTask) {
@@ -252,7 +251,7 @@ export async function listTasksForProject(input: {
   const conditions: SQL[] = [
     eq(tasks.workspaceId, input.workspaceId),
     eq(tasks.projectId, input.projectId),
-    isNull(projects.deletedAt)
+    isNull(projects.deletedAt),
   ];
 
   // archived: show only soft-deleted; default: show only active
@@ -288,15 +287,15 @@ export async function listTasksForProject(input: {
   const where = and(...conditions);
   const [totalRow] = await db
     .select({
-      total: sql<number>`count(*)::int`
+      total: sql<number>`count(*)::int`,
     })
     .from(tasks)
     .innerJoin(
       projects,
       and(
         eq(projects.id, tasks.projectId),
-        eq(projects.workspaceId, tasks.workspaceId)
-      )
+        eq(projects.workspaceId, tasks.workspaceId),
+      ),
     )
     .where(where);
 
@@ -308,11 +307,13 @@ export async function listTasksForProject(input: {
 
   return {
     tasks: rows,
-    total: totalRow?.total ?? 0
+    total: totalRow?.total ?? 0,
   };
 }
 
-function toSortColumn(field: "createdAt" | "updatedAt" | "priority" | "number") {
+function toSortColumn(
+  field: "createdAt" | "updatedAt" | "priority" | "number",
+) {
   switch (field) {
     case "updatedAt":
       return tasks.updatedAt;
@@ -332,14 +333,13 @@ function toSortColumn(field: "createdAt" | "updatedAt" | "priority" | "number") 
   }
 }
 
-
 export async function findTaskInProject(
   input: {
     projectId: string;
     taskId: string;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const [task] = await taskSelect(executor)
     .where(
@@ -348,8 +348,8 @@ export async function findTaskInProject(
         eq(tasks.workspaceId, input.workspaceId),
         eq(tasks.projectId, input.projectId),
         isNull(projects.deletedAt),
-        isNull(tasks.deletedAt)
-      )
+        isNull(tasks.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -360,6 +360,7 @@ export async function updateTaskInProject(
   input: {
     assigneeUserId?: string | null;
     description?: string | null;
+    dueDate?: string | null;
     priority?: TaskPriority;
     projectId: string;
     statusId?: string;
@@ -368,13 +369,13 @@ export async function updateTaskInProject(
     version: number;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const [task] = await executor
     .update(tasks)
     .set({
       ...toTaskUpdateValues(input),
-      version: sql`${tasks.version} + 1`
+      version: sql`${tasks.version} + 1`,
     })
     .where(
       and(
@@ -382,8 +383,8 @@ export async function updateTaskInProject(
         eq(tasks.workspaceId, input.workspaceId),
         eq(tasks.projectId, input.projectId),
         eq(tasks.version, input.version),
-        isNull(tasks.deletedAt)
-      )
+        isNull(tasks.deletedAt),
+      ),
     )
     .returning();
 
@@ -397,7 +398,7 @@ export async function softDeleteTaskInProject(
     version: number;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const now = new Date();
   const [task] = await executor
@@ -405,7 +406,7 @@ export async function softDeleteTaskInProject(
     .set({
       deletedAt: now,
       updatedAt: now,
-      version: sql`${tasks.version} + 1`
+      version: sql`${tasks.version} + 1`,
     })
     .where(
       and(
@@ -413,8 +414,8 @@ export async function softDeleteTaskInProject(
         eq(tasks.workspaceId, input.workspaceId),
         eq(tasks.projectId, input.projectId),
         eq(tasks.version, input.version),
-        isNull(tasks.deletedAt)
-      )
+        isNull(tasks.deletedAt),
+      ),
     )
     .returning();
 
@@ -434,6 +435,7 @@ function taskSelect(executor: DbExecutor = db) {
       assigneeUserId: tasks.assigneeUserId,
       createdAt: tasks.createdAt,
       description: tasks.description,
+      dueDate: tasks.dueDate,
       id: tasks.id,
       number: tasks.number,
       priority: tasks.priority,
@@ -451,48 +453,49 @@ function taskSelect(executor: DbExecutor = db) {
         name: projectStatuses.name,
         position: projectStatuses.position,
         projectId: projectStatuses.projectId,
-        workspaceId: projectStatuses.workspaceId
+        workspaceId: projectStatuses.workspaceId,
       },
       title: tasks.title,
       updatedAt: tasks.updatedAt,
       version: tasks.version,
-      workspaceId: tasks.workspaceId
+      workspaceId: tasks.workspaceId,
     })
     .from(tasks)
     .innerJoin(
       projects,
       and(
         eq(projects.id, tasks.projectId),
-        eq(projects.workspaceId, tasks.workspaceId)
-      )
+        eq(projects.workspaceId, tasks.workspaceId),
+      ),
     )
     .innerJoin(
       projectStatuses,
       and(
         eq(projectStatuses.id, tasks.statusId),
         eq(projectStatuses.projectId, tasks.projectId),
-        eq(projectStatuses.workspaceId, tasks.workspaceId)
-      )
+        eq(projectStatuses.workspaceId, tasks.workspaceId),
+      ),
     )
     .leftJoin(
       assigneeUsers,
       and(
         eq(assigneeUsers.id, tasks.assigneeUserId),
-        isNull(assigneeUsers.deletedAt)
-      )
+        isNull(assigneeUsers.deletedAt),
+      ),
     )
     .leftJoin(
       reporterUsers,
       and(
         eq(reporterUsers.id, tasks.reporterUserId),
-        isNull(reporterUsers.deletedAt)
-      )
+        isNull(reporterUsers.deletedAt),
+      ),
     );
 }
 
 function toTaskUpdateValues(input: {
   assigneeUserId?: string | null;
   description?: string | null;
+  dueDate?: string | null;
   priority?: TaskPriority;
   statusId?: string;
   title?: string;
@@ -500,12 +503,13 @@ function toTaskUpdateValues(input: {
   const values: {
     assigneeUserId?: string | null;
     description?: string | null;
+    dueDate?: string | null;
     priority?: TaskPriority;
     statusId?: string;
     title?: string;
     updatedAt: Date;
   } = {
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   if (input.assigneeUserId !== undefined) {
@@ -514,6 +518,10 @@ function toTaskUpdateValues(input: {
 
   if (input.description !== undefined) {
     values.description = input.description;
+  }
+
+  if (input.dueDate !== undefined) {
+    values.dueDate = input.dueDate;
   }
 
   // Use strict undefined check (not falsy) so that valid enum values such as
