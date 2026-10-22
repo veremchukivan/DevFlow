@@ -18,6 +18,7 @@ import {
   taskCommentResponseSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
+  workspaceMemberListResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
   type HealthResponse,
@@ -25,6 +26,7 @@ import {
   type RegisterRequest,
   type CreateWorkspaceRequest,
   type WorkspaceListResponse,
+  type WorkspaceMemberListResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateTaskRequest,
@@ -236,6 +238,16 @@ export function getWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
     `/api/v1/workspaces/${workspaceId}`,
     { method: "GET" },
     workspaceResponseSchema,
+  );
+}
+
+export function getWorkspaceMembers(
+  workspaceId: string,
+): Promise<WorkspaceMemberListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/members?limit=100&offset=0`,
+    { method: "GET" },
+    workspaceMemberListResponseSchema,
   );
 }
 

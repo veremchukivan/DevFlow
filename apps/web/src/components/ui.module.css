@@ -328,10 +328,9 @@
   align-items: center;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(250px, 1.8fr) minmax(150px, 1fr) minmax(
-      120px,
-      0.8fr
-    ) minmax(150px, 1fr);
+  grid-template-columns:
+    minmax(250px, 1.8fr) minmax(150px, 1fr) minmax(120px, 0.8fr)
+    minmax(150px, 1fr);
   min-width: 740px;
   padding: 14px 18px;
 }
@@ -445,6 +444,59 @@
 }
 .taskDetail {
   max-width: 760px;
+}
+.taskDetailHeading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+}
+.taskDetailHeading .eyebrow {
+  margin-bottom: 12px;
+}
+.iconButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+.iconButton:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.taskEditForm {
+  display: grid;
+  gap: 16px;
+}
+.taskEditForm label {
+  display: grid;
+  gap: 7px;
+}
+.taskEditForm label span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.taskEditForm input,
+.taskEditForm select,
+.taskEditForm textarea {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 11px;
+  width: 100%;
+}
+.taskEditForm textarea {
+  padding: 10px 11px;
+  resize: vertical;
+}
+.taskEditDescription {
+  grid-column: 1 / -1;
 }
 .taskFacts {
   display: grid;
