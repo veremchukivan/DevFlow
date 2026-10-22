@@ -3,12 +3,12 @@ import { z } from "zod";
 export const registerRequestSchema = z.object({
   displayName: z.string().trim().min(1).max(120),
   email: z.string().trim().email().max(320),
-  password: z.string().min(8).max(256)
+  password: z.string().min(8).max(256),
 });
 
 export const loginRequestSchema = z.object({
   email: z.string().trim().email().max(320),
-  password: z.string().min(1).max(256)
+  password: z.string().min(1).max(256),
 });
 
 export const authUserSchema = z.object({
@@ -17,27 +17,38 @@ export const authUserSchema = z.object({
   email: z.string().email(),
   id: z.uuid(),
   isEmailVerified: z.boolean(),
-  isPlatformAdmin: z.boolean()
+  isPlatformAdmin: z.boolean(),
 });
 
 export const emailVerificationTokenRequestSchema = z.object({
-  token: z.string().trim().min(1).max(512)
+  token: z.string().trim().min(1).max(512),
 });
 
 export const passwordResetRequestSchema = z.object({
-  email: z.string().trim().email().max(320)
+  email: z.string().trim().email().max(320),
 });
 
 export const passwordResetConfirmRequestSchema = z.object({
   password: z.string().min(8).max(256),
-  token: z.string().trim().min(1).max(512)
+  token: z.string().trim().min(1).max(512),
+});
+
+export const updateProfileRequestSchema = z.object({
+  displayName: z.string().trim().min(1).max(120),
+});
+
+export const changePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  newPassword: z.string().min(8).max(256),
 });
 
 export const authResponseSchema = z.object({
-  user: authUserSchema
+  user: authUserSchema,
 });
 
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type AuthUser = z.infer<typeof authUserSchema>;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
+export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;

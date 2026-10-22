@@ -11,7 +11,7 @@ import {
   cleanupDatabase,
   createTestApp,
   db,
-  request
+  request,
 } from "./helpers/test-app.js";
 
 const app = createTestApp();
@@ -22,20 +22,18 @@ describe("Auth Module Integration Tests", () => {
   });
 
   it("registers a new user and sets session cookie", async () => {
-    const res = await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        displayName: "Alice Developer",
-        email: "alice@devflow.io",
-        password: "Password123!"
-      });
+    const res = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Alice Developer",
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.user).toMatchObject({
       displayName: "Alice Developer",
       email: "alice@devflow.io",
       isEmailVerified: false,
-      isPlatformAdmin: false
+      isPlatformAdmin: false,
     });
     expect(res.body.user.id).toBeDefined();
     expect(res.body.token).toBeUndefined();
@@ -46,25 +44,21 @@ describe("Auth Module Integration Tests", () => {
   });
 
   it("rejects registration with duplicate email", async () => {
-    const res = await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        displayName: "Alice Clone",
-        email: "alice@devflow.io",
-        password: "AnotherPassword123!"
-      });
+    const res = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Alice Clone",
+      email: "alice@devflow.io",
+      password: "AnotherPassword123!",
+    });
 
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("EMAIL_ALREADY_REGISTERED");
   });
 
   it("authenticates an existing user via login", async () => {
-    const res = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "alice@devflow.io",
-        password: "Password123!"
-      });
+    const res = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe("alice@devflow.io");
@@ -72,24 +66,20 @@ describe("Auth Module Integration Tests", () => {
   });
 
   it("rejects login with invalid password", async () => {
-    const res = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "alice@devflow.io",
-        password: "WrongPassword999!"
-      });
+    const res = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "WrongPassword999!",
+    });
 
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("INVALID_CREDENTIALS");
   });
 
   it("returns the authenticated user profile with valid session cookie", async () => {
-    const loginRes = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "alice@devflow.io",
-        password: "Password123!"
-      });
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
 
     const cookie = loginRes.headers["set-cookie"][0];
 
@@ -101,6 +91,44 @@ describe("Auth Module Integration Tests", () => {
     expect(meRes.body.user.email).toBe("alice@devflow.io");
   });
 
+  it("updates the authenticated user's display name", async () => {
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "alice@devflow.io", password: "Password123!" });
+    const cookie = loginRes.headers["set-cookie"][0];
+
+    const updateRes = await request(app)
+      .patch("/api/v1/auth/profile")
+      .set("Cookie", cookie)
+      .send({ displayName: "Alice Product" });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.user.displayName).toBe("Alice Product");
+  });
+
+  it("rejects an incorrect current password without ending the session", async () => {
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "alice@devflow.io", password: "Password123!" });
+    const cookie = loginRes.headers["set-cookie"][0];
+
+    const changeRes = await request(app)
+      .post("/api/v1/auth/password/change")
+      .set("Cookie", cookie)
+      .send({
+        currentPassword: "NotThePassword",
+        newPassword: "NewPassword123!",
+      });
+
+    expect(changeRes.status).toBe(400);
+    expect(changeRes.body.error.code).toBe("INVALID_CURRENT_PASSWORD");
+
+    const meRes = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Cookie", cookie);
+    expect(meRes.status).toBe(200);
+  });
+
   it("rejects /api/v1/auth/me when unauthenticated", async () => {
     const res = await request(app).get("/api/v1/auth/me");
 
@@ -109,12 +137,10 @@ describe("Auth Module Integration Tests", () => {
   });
 
   it("terminates session upon logout", async () => {
-    const loginRes = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "alice@devflow.io",
-        password: "Password123!"
-      });
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
 
     const cookie = loginRes.headers["set-cookie"][0];
 
@@ -133,24 +159,20 @@ describe("Auth Module Integration Tests", () => {
   });
 
   it("rejects login with non-existent email with identical 401 response", async () => {
-    const res = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "nonexistent@devflow.io",
-        password: "WrongPassword999!"
-      });
+    const res = await request(app).post("/api/v1/auth/login").send({
+      email: "nonexistent@devflow.io",
+      password: "WrongPassword999!",
+    });
 
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe("INVALID_CREDENTIALS");
   });
 
   it("throttles session lastSeenAt update on rapid requests within 5 minutes", async () => {
-    const loginRes = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "alice@devflow.io",
-        password: "Password123!"
-      });
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
 
     const cookie = loginRes.headers["set-cookie"][0];
 
@@ -167,17 +189,15 @@ describe("Auth Module Integration Tests", () => {
     const [sessionAfter] = await db.select().from(sessions);
     // lastSeenAt should NOT be updated because 5 minutes have not elapsed
     expect(sessionAfter?.lastSeenAt.getTime()).toBe(
-      sessionBefore?.lastSeenAt.getTime()
+      sessionBefore?.lastSeenAt.getTime(),
     );
   });
 
   it("replaces an active verification token when a signed-in user requests another email", async () => {
-    const loginRes = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "alice@devflow.io",
-        password: "Password123!"
-      });
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
     const cookie = loginRes.headers["set-cookie"][0];
 
     const resendRes = await request(app)
@@ -192,8 +212,8 @@ describe("Auth Module Integration Tests", () => {
       .where(
         and(
           eq(authTokens.type, "email_verification"),
-          isNull(authTokens.consumedAt)
-        )
+          isNull(authTokens.consumedAt),
+        ),
       );
     expect(activeTokens).toHaveLength(1);
   });
@@ -213,7 +233,7 @@ describe("Auth Module Integration Tests", () => {
       .send({ token: firstToken });
     expect(staleTokenRes.status).toBe(400);
     expect(staleTokenRes.body.error.code).toBe(
-      "INVALID_EMAIL_VERIFICATION_TOKEN"
+      "INVALID_EMAIL_VERIFICATION_TOKEN",
     );
 
     const verificationRes = await request(app)
@@ -226,17 +246,17 @@ describe("Auth Module Integration Tests", () => {
       .send({ token: secondToken });
     expect(reusedTokenRes.status).toBe(400);
     expect(reusedTokenRes.body.error.code).toBe(
-      "INVALID_EMAIL_VERIFICATION_TOKEN"
+      "INVALID_EMAIL_VERIFICATION_TOKEN",
     );
 
-    const loginRes = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "alice@devflow.io",
-        password: "Password123!"
-      });
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
     const cookie = loginRes.headers["set-cookie"][0];
-    const meRes = await request(app).get("/api/v1/auth/me").set("Cookie", cookie);
+    const meRes = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Cookie", cookie);
 
     expect(meRes.status).toBe(200);
     expect(meRes.body.user.isEmailVerified).toBe(true);
@@ -252,9 +272,9 @@ describe("Auth Module Integration Tests", () => {
       message: {
         error: {
           code: "RATE_LIMIT_EXCEEDED",
-          message: "Too many authentication attempts, please try again later"
-        }
-      }
+          message: "Too many authentication attempts, please try again later",
+        },
+      },
     });
 
     miniApp.post("/test-limit", limiter, (_req, res) => {
@@ -271,8 +291,7 @@ describe("Auth Module Integration Tests", () => {
     expect(res3.status).toBe(429);
     expect(res3.body.error).toEqual({
       code: "RATE_LIMIT_EXCEEDED",
-      message: "Too many authentication attempts, please try again later"
+      message: "Too many authentication attempts, please try again later",
     });
   });
 });
-

@@ -1,37 +1,35 @@
 import {
   emailVerificationTokenRequestSchema,
+  changePasswordRequestSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
   registerRequestSchema,
-  type AuthResponse
+  updateProfileRequestSchema,
+  type AuthResponse,
 } from "@devflow/shared";
 import { Router, type Request } from "express";
 
 import { env } from "../../config/env.js";
 import {
   sendEmailVerificationEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
 } from "../../core/email/mailer.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { authRateLimiter } from "../../core/http/rate-limiter.js";
-import {
-  type AuthenticatedRequest,
-  requireAuth
-} from "./auth.middleware.js";
-import {
-  clearSessionCookie,
-  setSessionCookie
-} from "./auth.cookies.js";
+import { type AuthenticatedRequest, requireAuth } from "./auth.middleware.js";
+import { clearSessionCookie, setSessionCookie } from "./auth.cookies.js";
 import {
   getCurrentUser,
+  changePassword,
   issueEmailVerificationToken,
   login,
   logout,
   requestPasswordReset,
   register,
   resetPassword,
-  verifyEmail
+  updateProfile,
+  verifyEmail,
 } from "./auth.service.js";
 
 export const authRouter = Router();
@@ -64,6 +62,26 @@ authRouter.post("/logout", async (req, res) => {
   res.status(204).send();
 });
 
+authRouter.patch("/profile", requireAuth, async (req, res) => {
+  const input = updateProfileRequestSchema.parse(req.body);
+  const user = await updateProfile(getAuthenticatedUser(req).id, input);
+
+  res.json(toAuthResponse(user));
+});
+
+authRouter.post(
+  "/password/change",
+  requireAuth,
+  authRateLimiter,
+  async (req, res) => {
+    const input = changePasswordRequestSchema.parse(req.body);
+    await changePassword(getAuthenticatedUser(req).id, input);
+
+    clearSessionCookie(res);
+    res.status(204).send();
+  },
+);
+
 authRouter.post(
   "/email-verification/resend",
   requireAuth,
@@ -74,7 +92,7 @@ authRouter.post(
 
     await deliverEmailVerification(user, token);
     res.status(204).send();
-  }
+  },
 );
 
 authRouter.post(
@@ -85,7 +103,7 @@ authRouter.post(
     await verifyEmail(input.token);
 
     res.status(204).send();
-  }
+  },
 );
 
 authRouter.post(
@@ -100,7 +118,7 @@ authRouter.post(
     }
 
     res.status(204).send();
-  }
+  },
 );
 
 authRouter.post(
@@ -111,7 +129,7 @@ authRouter.post(
     await resetPassword(input);
 
     res.status(204).send();
-  }
+  },
 );
 
 authRouter.get("/me", async (req, res) => {
@@ -137,7 +155,7 @@ function getAuthenticatedUser(req: unknown) {
 function getRequestMeta(req: Request) {
   return {
     ipAddress: req.ip,
-    userAgent: req.get("user-agent")
+    userAgent: req.get("user-agent"),
   };
 }
 
@@ -156,8 +174,8 @@ function toAuthResponse(user: {
       email: user.email,
       id: user.id,
       isEmailVerified: Boolean(user.emailVerifiedAt),
-      isPlatformAdmin: user.isPlatformAdmin
-    }
+      isPlatformAdmin: user.isPlatformAdmin,
+    },
   };
 }
 
@@ -167,7 +185,7 @@ async function deliverEmailVerification(
     email: string;
     id: string;
   },
-  token: string | null | undefined
+  token: string | null | undefined,
 ) {
   if (!token) {
     return;
@@ -177,17 +195,17 @@ async function deliverEmailVerification(
     await sendEmailVerificationEmail({
       displayName: user.displayName,
       email: user.email,
-      token
+      token,
     });
   } catch (error) {
     console.error("Email verification delivery failed", {
       error,
-      userId: user.id
+      userId: user.id,
     });
     throw new AppError(
       502,
       "EMAIL_VERIFICATION_DELIVERY_FAILED",
-      "The account was created, but the verification email could not be delivered. Resend it after resolving the email configuration."
+      "The account was created, but the verification email could not be delivered. Resend it after resolving the email configuration.",
     );
   }
 }
@@ -198,18 +216,18 @@ async function deliverPasswordReset(
     email: string;
     id: string;
   },
-  token: string
+  token: string,
 ) {
   try {
     await sendPasswordResetEmail({
       displayName: user.displayName,
       email: user.email,
-      token
+      token,
     });
   } catch (error) {
     console.error("Password reset delivery failed", {
       error,
-      userId: user.id
+      userId: user.id,
     });
   }
 }

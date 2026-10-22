@@ -2,12 +2,14 @@ import {
   authResponseSchema,
   createTaskCommentRequestSchema,
   createWorkspaceInvitationRequestSchema,
+  changePasswordRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
   registerRequestSchema,
+  updateProfileRequestSchema,
   createWorkspaceRequestSchema,
   createProjectRequestSchema,
   createTaskRequestSchema,
@@ -26,6 +28,7 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type ChangePasswordRequest,
   type HealthResponse,
   type LoginRequest,
   type RegisterRequest,
@@ -50,6 +53,7 @@ import {
   type TaskPriority,
   type TaskResponse,
   type UpdateTaskRequest,
+  type UpdateProfileRequest,
   type UpdateWorkspaceMemberRequest,
 } from "@devflow/shared";
 import { z } from "zod";
@@ -221,6 +225,26 @@ export async function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
+}
+
+export function updateProfile(
+  input: UpdateProfileRequest,
+): Promise<AuthResponse> {
+  return request(
+    "/api/v1/auth/profile",
+    {
+      body: JSON.stringify(updateProfileRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    authResponseSchema,
+  );
+}
+
+export function changePassword(input: ChangePasswordRequest): Promise<void> {
+  return requestNoContent("/api/v1/auth/password/change", {
+    body: JSON.stringify(changePasswordRequestSchema.parse(input)),
+    method: "POST",
+  });
 }
 
 export function getWorkspaces(): Promise<WorkspaceListResponse> {

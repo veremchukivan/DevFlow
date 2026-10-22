@@ -1,6 +1,11 @@
 import argon2 from "argon2";
 import { createHash, randomBytes } from "node:crypto";
-import type { LoginRequest, RegisterRequest } from "@devflow/shared";
+import type {
+  ChangePasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  UpdateProfileRequest,
+} from "@devflow/shared";
 
 import { env } from "../../config/env.js";
 import type { User } from "../../core/db/schema/users.js";
@@ -11,12 +16,15 @@ import {
   consumeEmailVerificationToken,
   consumePasswordResetToken,
   deleteSessionByTokenHash,
+  findUserPasswordById,
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
   replaceEmailVerificationToken,
   replacePasswordResetToken,
   touchSession,
-  type SessionUser
+  updatePasswordAndDeleteSessions,
+  updateUserDisplayName,
+  type SessionUser,
 } from "./auth.repository.js";
 
 const sessionTokenBytes = 32;
@@ -27,7 +35,7 @@ let dummyHashPromise: Promise<string> | null = null;
 function getDummyHash(): Promise<string> {
   if (!dummyHashPromise) {
     dummyHashPromise = argon2.hash("devflow-dummy-timing-defense-password", {
-      type: argon2.argon2id
+      type: argon2.argon2id,
     });
   }
   return dummyHashPromise;
@@ -47,7 +55,7 @@ type AuthResult = {
 
 export async function register(
   input: RegisterRequest,
-  meta: RequestMeta
+  meta: RequestMeta,
 ): Promise<AuthResult> {
   const emailNormalized = normalizeEmail(input.email);
   const existingUser = await findUserByEmailNormalized(emailNormalized);
@@ -56,19 +64,19 @@ export async function register(
     throw new AppError(
       409,
       "EMAIL_ALREADY_REGISTERED",
-      "A user with this email already exists"
+      "A user with this email already exists",
     );
   }
 
   const passwordHash = await argon2.hash(input.password, {
-    type: argon2.argon2id
+    type: argon2.argon2id,
   });
 
   const user = await createRegisteredUser({
     displayName: input.displayName,
     email: input.email,
     emailNormalized,
-    passwordHash
+    passwordHash,
   });
 
   const result = await createAuthResult(user, meta);
@@ -76,13 +84,13 @@ export async function register(
   return {
     ...result,
     emailVerificationToken:
-      (await issueEmailVerificationToken(user)) ?? undefined
+      (await issueEmailVerificationToken(user)) ?? undefined,
   };
 }
 
 export async function login(
   input: LoginRequest,
-  meta: RequestMeta
+  meta: RequestMeta,
 ): Promise<AuthResult> {
   const user = await findUserByEmailNormalized(normalizeEmail(input.email));
   const dummyHash = await getDummyHash();
@@ -99,7 +107,7 @@ export async function login(
 
 export async function getCurrentUser(sessionToken: string) {
   const session = await findSessionUserByTokenHash(
-    hashSessionToken(sessionToken)
+    hashSessionToken(sessionToken),
   );
 
   if (!session) {
@@ -118,6 +126,49 @@ export async function logout(sessionToken: string) {
   await deleteSessionByTokenHash(hashSessionToken(sessionToken));
 }
 
+export async function updateProfile(
+  userId: string,
+  input: UpdateProfileRequest,
+) {
+  const user = await updateUserDisplayName(userId, input.displayName);
+
+  if (!user) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  return user;
+}
+
+export async function changePassword(
+  userId: string,
+  input: ChangePasswordRequest,
+) {
+  const user = await findUserPasswordById(userId);
+  const passwordMatches = user?.passwordHash
+    ? await argon2.verify(user.passwordHash, input.currentPassword)
+    : false;
+
+  if (!passwordMatches) {
+    throw new AppError(
+      400,
+      "INVALID_CURRENT_PASSWORD",
+      "Current password is incorrect",
+    );
+  }
+
+  const passwordHash = await argon2.hash(input.newPassword, {
+    type: argon2.argon2id,
+  });
+  const updatedUser = await updatePasswordAndDeleteSessions(
+    userId,
+    passwordHash,
+  );
+
+  if (!updatedUser) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+}
+
 export async function issueEmailVerificationToken(user: SessionUser) {
   if (user.emailVerifiedAt) {
     return null;
@@ -128,7 +179,7 @@ export async function issueEmailVerificationToken(user: SessionUser) {
   await replaceEmailVerificationToken({
     expiresAt: getEmailVerificationExpiresAt(),
     tokenHash: hashToken(token),
-    userId: user.id
+    userId: user.id,
   });
 
   return token;
@@ -141,7 +192,7 @@ export async function verifyEmail(token: string) {
     throw new AppError(
       400,
       "INVALID_EMAIL_VERIFICATION_TOKEN",
-      "This email verification link is invalid or has expired"
+      "This email verification link is invalid or has expired",
     );
   }
 
@@ -159,7 +210,7 @@ export async function requestPasswordReset(email: string) {
 
   return {
     token,
-    user
+    user,
   };
 }
 
@@ -169,7 +220,7 @@ export async function issuePasswordResetToken(user: Pick<User, "id">) {
   await replacePasswordResetToken({
     expiresAt: getPasswordResetExpiresAt(),
     tokenHash: hashToken(token),
-    userId: user.id
+    userId: user.id,
   });
 
   return token;
@@ -180,25 +231,25 @@ export async function resetPassword(input: {
   token: string;
 }) {
   const passwordHash = await argon2.hash(input.password, {
-    type: argon2.argon2id
+    type: argon2.argon2id,
   });
   const user = await consumePasswordResetToken({
     passwordHash,
-    tokenHash: hashToken(input.token)
+    tokenHash: hashToken(input.token),
   });
 
   if (!user) {
     throw new AppError(
       400,
       "INVALID_PASSWORD_RESET_TOKEN",
-      "This password reset link is invalid or has expired"
+      "This password reset link is invalid or has expired",
     );
   }
 }
 
 async function createAuthResult(
   user: SessionUser,
-  meta: RequestMeta
+  meta: RequestMeta,
 ): Promise<AuthResult> {
   const sessionToken = generateSessionToken();
   const sessionExpiresAt = getSessionExpiresAt();
@@ -208,13 +259,13 @@ async function createAuthResult(
     ipAddress: meta.ipAddress,
     tokenHash: hashSessionToken(sessionToken),
     userAgent: meta.userAgent,
-    userId: user.id
+    userId: user.id,
   });
 
   return {
     sessionExpiresAt,
     sessionToken,
-    user
+    user,
   };
 }
 
@@ -242,9 +293,7 @@ function getSessionExpiresAt() {
 
 function getEmailVerificationExpiresAt() {
   const expiresAt = new Date();
-  expiresAt.setHours(
-    expiresAt.getHours() + env.EMAIL_VERIFICATION_TTL_HOURS
-  );
+  expiresAt.setHours(expiresAt.getHours() + env.EMAIL_VERIFICATION_TTL_HOURS);
   return expiresAt;
 }
 
@@ -275,7 +324,7 @@ async function createRegisteredUser(input: {
       throw new AppError(
         409,
         "EMAIL_ALREADY_REGISTERED",
-        "A user with this email already exists"
+        "A user with this email already exists",
       );
     }
 

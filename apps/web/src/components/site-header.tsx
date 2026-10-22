@@ -39,9 +39,14 @@ export function SiteHeader({ user }: { user: AuthUser }) {
             <Plus aria-hidden="true" size={18} strokeWidth={2} />
             Create
           </Link>
-          <span aria-label={user.displayName} className={styles.userAvatar}>
+          <Link
+            aria-label="Profile settings"
+            className={styles.userAvatar}
+            href="/profile"
+            title="Profile settings"
+          >
             {user.displayName.slice(0, 2).toUpperCase()}
-          </span>
+          </Link>
           <button
             aria-label="Sign out"
             className={styles.signOut}
