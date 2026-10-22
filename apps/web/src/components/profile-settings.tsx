@@ -9,6 +9,7 @@ import {
   changePassword,
   getCurrentUser,
   logout,
+  resendEmailVerification,
   updateProfile,
 } from "@/lib/api-client";
 import { notifyUserChanged } from "@/lib/user-events";
@@ -25,6 +26,7 @@ export function ProfileSettings() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -107,6 +109,20 @@ export function ProfileSettings() {
     }
   }
 
+  async function onResendVerification() {
+    setError(undefined);
+    setMessage(undefined);
+    setIsResendingVerification(true);
+    try {
+      await resendEmailVerification();
+      setMessage("Verification email sent.");
+    } catch (caughtError) {
+      setError(toMessage(caughtError, "Unable to send verification email."));
+    } finally {
+      setIsResendingVerification(false);
+    }
+  }
+
   if (isLoading) return <main className={styles.loading}>Loading profile</main>;
 
   if (!user) {
@@ -174,6 +190,16 @@ export function ProfileSettings() {
             >
               {user.isEmailVerified ? "Email verified" : "Email not verified"}
             </p>
+            {!user.isEmailVerified ? (
+              <button
+                className={styles.secondaryButton}
+                disabled={isResendingVerification}
+                onClick={() => void onResendVerification()}
+                type="button"
+              >
+                {isResendingVerification ? "Sending" : "Resend verification"}
+              </button>
+            ) : null}
             <button
               className={styles.primaryButton}
               disabled={isSavingProfile}

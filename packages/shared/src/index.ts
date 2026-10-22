@@ -1,6 +1,7 @@
 export * from "./permissions.js";
 export * from "./schemas/auth.js";
 export * from "./schemas/health.js";
+export * from "./schemas/labels.js";
 export * from "./schemas/pagination.js";
 export * from "./schemas/projects.js";
 export * from "./schemas/task-activity.js";
@@ -9,4 +10,3 @@ export * from "./schemas/tasks.js";
 export * from "./schemas/workspace-invitations.js";
 export * from "./schemas/workspace-members.js";
 export * from "./schemas/workspaces.js";
-

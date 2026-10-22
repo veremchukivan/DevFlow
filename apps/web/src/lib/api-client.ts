@@ -1,5 +1,9 @@
 import {
   authResponseSchema,
+  labelListResponseSchema,
+  labelResponseSchema,
+  createLabelRequestSchema,
+  updateLabelRequestSchema,
   createTaskCommentRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
@@ -11,7 +15,9 @@ import {
   registerRequestSchema,
   updateProfileRequestSchema,
   createWorkspaceRequestSchema,
+  updateWorkspaceRequestSchema,
   createProjectRequestSchema,
+  updateProjectRequestSchema,
   createTaskRequestSchema,
   projectListResponseSchema,
   projectResponseSchema,
@@ -28,11 +34,16 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type LabelListResponse,
+  type LabelResponse,
+  type CreateLabelRequest,
+  type UpdateLabelRequest,
   type ChangePasswordRequest,
   type HealthResponse,
   type LoginRequest,
   type RegisterRequest,
   type CreateWorkspaceRequest,
+  type UpdateWorkspaceRequest,
   type WorkspaceListResponse,
   type WorkspaceInvitationListResponse,
   type WorkspaceInvitationResponse,
@@ -40,6 +51,7 @@ import {
   type WorkspaceMemberResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
+  type UpdateProjectRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
   type CreateWorkspaceInvitationRequest,
@@ -212,6 +224,12 @@ export function verifyEmail(
   });
 }
 
+export function resendEmailVerification(): Promise<void> {
+  return requestNoContent("/api/v1/auth/email-verification/resend", {
+    method: "POST",
+  });
+}
+
 export async function logout(): Promise<void> {
   const response = await fetch(`${getApiUrl()}/api/v1/auth/logout`, {
     credentials: "include",
@@ -273,6 +291,75 @@ export function getWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
     `/api/v1/workspaces/${workspaceId}`,
     { method: "GET" },
     workspaceResponseSchema,
+  );
+}
+
+export function updateWorkspace(
+  workspaceId: string,
+  input: UpdateWorkspaceRequest,
+): Promise<WorkspaceResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}`,
+    {
+      body: JSON.stringify(updateWorkspaceRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    workspaceResponseSchema,
+  );
+}
+
+export function deleteWorkspace(workspaceId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}`, {
+    method: "DELETE",
+  });
+}
+
+export function getWorkspaceLabels(
+  workspaceId: string,
+): Promise<LabelListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/labels`,
+    { method: "GET" },
+    labelListResponseSchema,
+  );
+}
+
+export function createWorkspaceLabel(
+  workspaceId: string,
+  input: CreateLabelRequest,
+): Promise<LabelResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/labels`,
+    {
+      body: JSON.stringify(createLabelRequestSchema.parse(input)),
+      method: "POST",
+    },
+    labelResponseSchema,
+  );
+}
+
+export function deleteWorkspaceLabel(
+  workspaceId: string,
+  labelId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/labels/${labelId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function updateWorkspaceLabel(
+  workspaceId: string,
+  labelId: string,
+  input: UpdateLabelRequest,
+): Promise<LabelResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/labels/${labelId}`,
+    {
+      body: JSON.stringify(updateLabelRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    labelResponseSchema,
   );
 }
 
@@ -355,7 +442,35 @@ export function getProject(
   );
 }
 
+export function updateProject(
+  workspaceId: string,
+  projectId: string,
+  input: UpdateProjectRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    {
+      body: JSON.stringify(updateProjectRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    projectResponseSchema,
+  );
+}
+
+export function deleteProject(
+  workspaceId: string,
+  projectId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    { method: "DELETE" },
+  );
+}
+
 type TaskListFilters = {
+  assigneeUserId?: string | "none";
+  due?: "overdue" | "today" | "week" | "none";
+  labelId?: string;
   priority?: TaskPriority;
   search?: string;
 };
@@ -375,6 +490,10 @@ export function getTasks(
   if (filters.priority) {
     query.set("priority", filters.priority);
   }
+  if (filters.labelId) query.set("labelId", filters.labelId);
+  if (filters.assigneeUserId)
+    query.set("assigneeUserId", filters.assigneeUserId);
+  if (filters.due) query.set("due", filters.due);
 
   if (filters.search) {
     query.set("search", filters.search);
@@ -396,6 +515,31 @@ export function getTask(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
     { method: "GET" },
     taskResponseSchema,
+  );
+}
+
+export function getTaskLabels(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<LabelListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/labels`,
+    { method: "GET" },
+    labelListResponseSchema,
+  );
+}
+
+export function replaceTaskLabels(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  labelIds: string[],
+): Promise<LabelListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/labels`,
+    { body: JSON.stringify({ labelIds }), method: "PUT" },
+    labelListResponseSchema,
   );
 }
 

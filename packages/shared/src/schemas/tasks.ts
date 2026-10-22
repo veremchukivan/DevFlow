@@ -49,6 +49,7 @@ export const taskSortFieldSchema = z.enum([
 ]);
 
 export const taskSortOrderSchema = z.enum(["asc", "desc"]);
+export const taskDueFilterSchema = z.enum(["overdue", "today", "week", "none"]);
 
 export const listTasksQuerySchema = paginationQuerySchema.extend({
   archived: z
@@ -56,6 +57,8 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
     .transform((v) => v === "true")
     .optional(),
   assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
+  labelId: z.uuid().optional(),
+  due: taskDueFilterSchema.optional(),
   priority: taskPrioritySchema.optional(),
   search: z.string().trim().min(1).max(200).optional(),
   sortBy: taskSortFieldSchema.default("createdAt"),
@@ -82,6 +85,11 @@ export const taskUserSchema = z.object({
   email: z.string().email(),
   id: z.uuid(),
 });
+export const taskLabelSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  color: z.string(),
+});
 
 export const taskSchema = z.object({
   assignee: taskUserSchema.nullable().optional(),
@@ -90,6 +98,7 @@ export const taskSchema = z.object({
   description: z.string().nullable(),
   dueDate: taskDueDateSchema.nullable(),
   id: z.uuid(),
+  labels: z.array(taskLabelSchema).default([]),
   key: z.string(),
   number: z.number(),
   priority: taskPrioritySchema,

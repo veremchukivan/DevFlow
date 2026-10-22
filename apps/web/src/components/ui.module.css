@@ -433,6 +433,10 @@
   min-width: 0;
   padding: 16px;
 }
+.taskColumnDropTarget {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 .taskColumnHeader {
   align-items: center;
   display: flex;
@@ -483,6 +487,49 @@
   border-radius: 8px;
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
   padding: 16px;
+}
+.taskCard[draggable="true"] {
+  cursor: grab;
+}
+.taskCard[draggable="true"]:active {
+  cursor: grabbing;
+}
+.taskDueDate {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
+}
+.taskLabels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.taskLabelsFieldset {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.taskLabelsFieldset legend {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.taskLabelsFieldset label {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 5px;
+}
+.taskLabels span {
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 6px;
 }
 .taskCard h3 {
   font-size: 15px;
@@ -575,6 +622,41 @@
   border-top: 1px solid var(--line);
   margin-top: 38px;
   padding-top: 24px;
+}
+
+.labelPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.labelPicker label {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+  padding: 7px 9px;
+}
+.labelPicker input {
+  accent-color: var(--brand);
+}
+.labelPicker span {
+  border-radius: 50%;
+  height: 9px;
+  width: 9px;
+}
+.inlineLabelForm {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.inlineLabelForm input {
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 7px;
+  width: 120px;
 }
 .commentList,
 .activityList {

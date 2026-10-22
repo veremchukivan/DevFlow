@@ -4,6 +4,7 @@ import {
   projectTasksParamsSchema,
   taskParamsSchema,
   updateTaskRequestSchema,
+  taskLabelsRequestSchema,
   type TaskListResponse,
   type TaskResponse,
 } from "@devflow/shared";
@@ -21,6 +22,10 @@ import {
   listTasks,
   updateTask,
 } from "./tasks.service.js";
+import {
+  listTaskLabels,
+  replaceTaskLabels,
+} from "../labels/labels.repository.js";
 
 export const tasksRouter = Router({ mergeParams: true });
 
@@ -98,6 +103,43 @@ tasksRouter.delete("/:taskId", async (req, res) => {
   res.status(204).send();
 });
 
+tasksRouter.get("/:taskId/labels", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  await getTask({ ...params, userId: getAuthenticatedUserId(req) });
+  const rows = await listTaskLabels(params.taskId);
+  res.json({
+    labels: rows.map(({ labels: label }) => ({
+      ...label,
+      createdAt: label.createdAt.toISOString(),
+      updatedAt: label.updatedAt.toISOString(),
+    })),
+  });
+});
+
+tasksRouter.put("/:taskId/labels", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  await getTask({ ...params, userId: getAuthenticatedUserId(req) });
+  const input = taskLabelsRequestSchema.parse(req.body);
+  const replaced = await replaceTaskLabels({
+    ...params,
+    labelIds: [...new Set(input.labelIds)],
+  });
+  if (!replaced)
+    throw new AppError(
+      400,
+      "TASK_LABEL_INVALID",
+      "Labels must belong to this workspace",
+    );
+  const rows = await listTaskLabels(params.taskId);
+  res.json({
+    labels: rows.map(({ labels: label }) => ({
+      ...label,
+      createdAt: label.createdAt.toISOString(),
+      updatedAt: label.updatedAt.toISOString(),
+    })),
+  });
+});
+
 function getAuthenticatedUserId(req: unknown) {
   return (req as AuthenticatedRequest).auth.user.id;
 }
@@ -144,6 +186,7 @@ function toTaskDto(task: {
   description: string | null;
   dueDate: string | null;
   id: string;
+  labels?: Array<{ id: string; name: string; color: string }>;
   number: number;
   priority: "low" | "medium" | "high" | "urgent";
   projectId: string;
@@ -181,6 +224,7 @@ function toTaskDto(task: {
     description: task.description,
     dueDate: task.dueDate,
     id: task.id,
+    labels: task.labels ?? [],
     key: `${task.projectKey}-${task.number}`,
     number: task.number,
     priority: task.priority,

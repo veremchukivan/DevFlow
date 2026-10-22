@@ -2,21 +2,38 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useState } from "react";
 import { LayoutGrid, List } from "lucide-react";
 
 import {
   ApiClientError,
   createTask,
+  deleteProject,
   getProject,
   getTasks,
+  getWorkspaceLabels,
+  getWorkspaceMembers,
+  getWorkspace,
+  replaceTaskLabels,
   updateTask,
+  updateProject,
 } from "@/lib/api-client";
-import type { Project, Task, TaskPriority } from "@devflow/shared";
+import type {
+  Label,
+  Project,
+  Task,
+  TaskPriority,
+  WorkspaceMember,
+  WorkspaceRole,
+} from "@devflow/shared";
+import { can } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
 type BoardFilters = {
   priority?: TaskPriority;
+  labelId?: string;
+  assigneeUserId?: string | "none";
+  due?: "overdue" | "today" | "week" | "none";
   search?: string;
 };
 
@@ -39,13 +56,30 @@ export function ProjectBoard() {
   const [filters, setFilters] = useState<BoardFilters>({});
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<"" | TaskPriority>("");
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [labelId, setLabelId] = useState("");
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [role, setRole] = useState<WorkspaceRole>();
+  const [assigneeUserId, setAssigneeUserId] = useState("");
+  const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
+    "",
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [updatingTaskId, setUpdatingTaskId] = useState<string>();
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [draftStatusId, setDraftStatusId] = useState<string>();
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [isSavingProject, setIsSavingProject] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
+  const [draggedTaskId, setDraggedTaskId] = useState<string>();
+  const [dropStatusId, setDropStatusId] = useState<string>();
+  const canCreateTasks = role ? can(role, "task:create") : false;
+  const canUpdateTasks = role ? can(role, "task:update") : false;
+  const canUpdateProject = role ? can(role, "project:update") : false;
+  const canDeleteProject = role ? can(role, "project:delete") : false;
 
   useEffect(() => {
     let active = true;
@@ -53,12 +87,30 @@ export function ProjectBoard() {
     void Promise.all([
       getProject(workspaceId, projectId),
       getTasks(workspaceId, projectId),
+      getWorkspaceLabels(workspaceId),
+      getWorkspaceMembers(workspaceId),
+      getWorkspace(workspaceId),
     ])
-      .then(([projectResponse, taskResponse]) => {
-        if (!active) return;
-        setProject(projectResponse.project);
-        setTasks(taskResponse.tasks);
-      })
+      .then(
+        ([
+          projectResponse,
+          taskResponse,
+          labelsResponse,
+          membersResponse,
+          workspaceResponse,
+        ]) => {
+          if (!active) return;
+          setProject(projectResponse.project);
+          setTasks(taskResponse.tasks);
+          setLabels(labelsResponse.labels);
+          setMembers(
+            membersResponse.members.filter(
+              (member) => member.status === "active",
+            ),
+          );
+          setRole(workspaceResponse.workspace.role);
+        },
+      )
       .catch((caughtError: unknown) => {
         if (
           caughtError instanceof ApiClientError &&
@@ -103,9 +155,24 @@ export function ProjectBoard() {
     const nextFilters = {
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(priority ? { priority } : {}),
+      ...(labelId ? { labelId } : {}),
+      ...(assigneeUserId
+        ? { assigneeUserId: assigneeUserId as string | "none" }
+        : {}),
+      ...(due ? { due } : {}),
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
+  }
+
+  async function onClearFilters() {
+    setSearch("");
+    setPriority("");
+    setLabelId("");
+    setAssigneeUserId("");
+    setDue("");
+    setFilters({});
+    await loadTasks({});
   }
 
   async function onCreateTask(event: FormEvent<HTMLFormElement>) {
@@ -116,14 +183,26 @@ export function ProjectBoard() {
     const description = String(form.get("description") ?? "").trim();
 
     try {
-      await createTask(workspaceId, projectId, {
+      const response = await createTask(workspaceId, projectId, {
         title: String(form.get("title") ?? ""),
         statusId: String(form.get("statusId")),
         priority: form.get("priority") as TaskPriority,
+        assigneeUserId: String(form.get("assigneeUserId") ?? "") || undefined,
+        dueDate: String(form.get("dueDate") ?? "") || undefined,
         ...(description ? { description } : {}),
       });
+      const labelIds = form.getAll("labelIds").map(String);
+      if (labelIds.length) {
+        await replaceTaskLabels(
+          workspaceId,
+          projectId,
+          response.task.id,
+          labelIds,
+        );
+      }
       event.currentTarget.reset();
       setShowTaskForm(false);
+      setDraftStatusId(undefined);
       await loadTasks(filters);
     } catch (caughtError) {
       setError(
@@ -133,6 +212,52 @@ export function ProjectBoard() {
       );
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function onProjectSettingsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!project) return;
+    setError(undefined);
+    setIsSavingProject(true);
+    const form = new FormData(event.currentTarget);
+    const description = String(form.get("description") ?? "").trim();
+    try {
+      const response = await updateProject(workspaceId, projectId, {
+        name: String(form.get("name") ?? ""),
+        key: String(form.get("key") ?? ""),
+        description: description || null,
+      });
+      setProject(response.project);
+      setShowProjectSettings(false);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update project.",
+      );
+    } finally {
+      setIsSavingProject(false);
+    }
+  }
+
+  async function onProjectDelete() {
+    if (
+      !window.confirm(
+        "Delete this project and its tasks? This cannot be undone.",
+      )
+    )
+      return;
+    try {
+      await deleteProject(workspaceId, projectId);
+      router.replace(`/workspaces/${workspaceId}`);
+      router.refresh();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete project.",
+      );
     }
   }
 
@@ -184,6 +309,16 @@ export function ProjectBoard() {
     }
   }
 
+  async function onDropTask(event: DragEvent<HTMLElement>, statusId: string) {
+    event.preventDefault();
+    const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
+    setDropStatusId(undefined);
+    setDraggedTaskId(undefined);
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task || task.statusId === statusId) return;
+    await onUpdateTask(task, { statusId });
+  }
+
   if (isLoading) return <main className={styles.loading}>Loading project</main>;
 
   if (!project) {
@@ -208,14 +343,81 @@ export function ProjectBoard() {
           <h1>{project.name}</h1>
           {project.description ? <p>{project.description}</p> : null}
         </div>
-        <button
-          className={styles.primaryButton}
-          onClick={() => setShowTaskForm((current) => !current)}
-          type="button"
-        >
-          New task
-        </button>
+        <div className={styles.formActions}>
+          <button
+            className={styles.secondaryButton}
+            disabled={!canUpdateProject}
+            onClick={() => setShowProjectSettings((current) => !current)}
+            type="button"
+          >
+            Settings
+          </button>
+          <button
+            className={styles.textButton}
+            disabled={!canDeleteProject}
+            onClick={() => void onProjectDelete()}
+            type="button"
+          >
+            Delete
+          </button>
+          <button
+            className={styles.primaryButton}
+            disabled={!canCreateTasks}
+            onClick={() => setShowTaskForm((current) => !current)}
+            type="button"
+          >
+            New task
+          </button>
+        </div>
       </header>
+      {showProjectSettings ? (
+        <form className={styles.taskForm} onSubmit={onProjectSettingsSubmit}>
+          <label>
+            <span>Project name</span>
+            <input
+              defaultValue={project.name}
+              maxLength={160}
+              minLength={2}
+              name="name"
+              required
+            />
+          </label>
+          <label>
+            <span>Key</span>
+            <input
+              defaultValue={project.key}
+              maxLength={12}
+              name="key"
+              required
+            />
+          </label>
+          <label className={styles.taskDescriptionField}>
+            <span>Description</span>
+            <textarea
+              defaultValue={project.description ?? ""}
+              maxLength={2000}
+              name="description"
+              rows={3}
+            />
+          </label>
+          <div className={styles.formActions}>
+            <button
+              className={styles.primaryButton}
+              disabled={isSavingProject}
+              type="submit"
+            >
+              {isSavingProject ? "Saving" : "Save settings"}
+            </button>
+            <button
+              className={styles.textButton}
+              onClick={() => setShowProjectSettings(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <div
         className={styles.projectViews}
@@ -254,6 +456,7 @@ export function ProjectBoard() {
             <span>Status</span>
             <select
               defaultValue={
+                draftStatusId ??
                 project.statuses.find((status) => status.isDefault)?.id
               }
               name="statusId"
@@ -276,6 +479,32 @@ export function ProjectBoard() {
               ))}
             </select>
           </label>
+          <label>
+            <span>Assignee</span>
+            <select defaultValue="" name="assigneeUserId">
+              <option value="">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.user.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Due date</span>
+            <input name="dueDate" type="date" />
+          </label>
+          {labels.length ? (
+            <fieldset className={styles.taskLabelsFieldset}>
+              <legend>Labels</legend>
+              {labels.map((label) => (
+                <label key={label.id}>
+                  <input name="labelIds" type="checkbox" value={label.id} />
+                  {label.name}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
           <label className={styles.taskDescriptionField}>
             <span>Description</span>
             <textarea maxLength={10000} name="description" rows={3} />
@@ -290,7 +519,10 @@ export function ProjectBoard() {
             </button>
             <button
               className={styles.textButton}
-              onClick={() => setShowTaskForm(false)}
+              onClick={() => {
+                setShowTaskForm(false);
+                setDraftStatusId(undefined);
+              }}
               type="button"
             >
               Cancel
@@ -325,12 +557,62 @@ export function ProjectBoard() {
             ))}
           </select>
         </label>
+        <label>
+          <span>Label</span>
+          <select
+            onChange={(event) => setLabelId(event.target.value)}
+            value={labelId}
+          >
+            <option value="">All labels</option>
+            {labels.map((label) => (
+              <option key={label.id} value={label.id}>
+                {label.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Assignee</span>
+          <select
+            onChange={(event) => setAssigneeUserId(event.target.value)}
+            value={assigneeUserId}
+          >
+            <option value="">All assignees</option>
+            <option value="none">Unassigned</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.user.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Due date</span>
+          <select
+            onChange={(event) => setDue(event.target.value as typeof due)}
+            value={due}
+          >
+            <option value="">Any date</option>
+            <option value="overdue">Overdue</option>
+            <option value="today">Today</option>
+            <option value="week">This week</option>
+            <option value="none">No due date</option>
+          </select>
+        </label>
         <button
           className={styles.secondaryButton}
           disabled={isRefreshing}
           type="submit"
         >
           {isRefreshing ? "Loading" : "Apply"}
+        </button>
+        <button
+          className={styles.textButton}
+          disabled={isRefreshing}
+          onClick={() => void onClearFilters()}
+          type="button"
+        >
+          Clear
         </button>
       </form>
 
@@ -347,7 +629,14 @@ export function ProjectBoard() {
               (task) => task.statusId === status.id,
             );
             return (
-              <section className={styles.taskColumn} key={status.id}>
+              <section
+                className={`${styles.taskColumn} ${dropStatusId === status.id ? styles.taskColumnDropTarget : ""}`}
+                key={status.id}
+                onDragEnter={() => setDropStatusId(status.id)}
+                onDragLeave={() => setDropStatusId(undefined)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => void onDropTask(event, status.id)}
+              >
                 <header className={styles.taskColumnHeader}>
                   <div>
                     <span
@@ -358,10 +647,36 @@ export function ProjectBoard() {
                     <h2>{status.name}</h2>
                   </div>
                   <span>{statusTasks.length}</span>
+                  <button
+                    aria-label={`Create task in ${status.name}`}
+                    className={styles.iconButton}
+                    disabled={!canCreateTasks}
+                    onClick={() => {
+                      setDraftStatusId(status.id);
+                      setShowTaskForm(true);
+                    }}
+                    title="Create task"
+                    type="button"
+                  >
+                    +
+                  </button>
                 </header>
                 <div className={styles.taskList}>
                   {statusTasks.map((task) => (
-                    <article className={styles.taskCard} key={task.id}>
+                    <article
+                      className={styles.taskCard}
+                      draggable={canUpdateTasks}
+                      onDragEnd={() => {
+                        setDraggedTaskId(undefined);
+                        setDropStatusId(undefined);
+                      }}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", task.id);
+                        setDraggedTaskId(task.id);
+                      }}
+                      key={task.id}
+                    >
                       <div className={styles.taskCardMeta}>
                         <span>{task.key}</span>
                         <span
@@ -379,12 +694,28 @@ export function ProjectBoard() {
                         </Link>
                       </h3>
                       {task.description ? <p>{task.description}</p> : null}
+                      {task.labels.length ? (
+                        <div className={styles.taskLabels}>
+                          {task.labels.map((label) => (
+                            <span
+                              key={label.id}
+                              style={{ backgroundColor: label.color }}
+                            >
+                              {label.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {task.dueDate ? (
+                        <p className={styles.taskDueDate}>Due {task.dueDate}</p>
+                      ) : null}
                       <TaskControls
                         onUpdateTask={onUpdateTask}
                         priorities={priorities}
                         project={project}
                         task={task}
                         updatingTaskId={updatingTaskId}
+                        canUpdate={canUpdateTasks}
                       />
                     </article>
                   ))}
@@ -417,7 +748,7 @@ export function ProjectBoard() {
               <label>
                 <span className={styles.srOnly}>Status for {task.key}</span>
                 <select
-                  disabled={updatingTaskId === task.id}
+                  disabled={!canUpdateTasks || updatingTaskId === task.id}
                   onChange={(event) =>
                     void onUpdateTask(task, { statusId: event.target.value })
                   }
@@ -433,7 +764,7 @@ export function ProjectBoard() {
               <label>
                 <span className={styles.srOnly}>Priority for {task.key}</span>
                 <select
-                  disabled={updatingTaskId === task.id}
+                  disabled={!canUpdateTasks || updatingTaskId === task.id}
                   onChange={(event) =>
                     void onUpdateTask(task, {
                       priority: event.target.value as TaskPriority,
@@ -466,6 +797,7 @@ function TaskControls({
   project,
   task,
   updatingTaskId,
+  canUpdate,
 }: {
   onUpdateTask: (
     task: Task,
@@ -475,6 +807,7 @@ function TaskControls({
   project: Project;
   task: Task;
   updatingTaskId?: string;
+  canUpdate: boolean;
 }) {
   return (
     <div className={styles.taskCardControls}>
@@ -482,7 +815,7 @@ function TaskControls({
         <span className={styles.srOnly}>Status</span>
         <select
           aria-label={`Status for ${task.key}`}
-          disabled={updatingTaskId === task.id}
+          disabled={!canUpdate || updatingTaskId === task.id}
           onChange={(event) =>
             void onUpdateTask(task, { statusId: event.target.value })
           }
@@ -499,7 +832,7 @@ function TaskControls({
         <span className={styles.srOnly}>Priority</span>
         <select
           aria-label={`Priority for ${task.key}`}
-          disabled={updatingTaskId === task.id}
+          disabled={!canUpdate || updatingTaskId === task.id}
           onChange={(event) =>
             void onUpdateTask(task, {
               priority: event.target.value as TaskPriority,
