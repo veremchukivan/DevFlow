@@ -14,6 +14,7 @@ import {
   registerRequestSchema,
   updateProfileRequestSchema,
   createWorkspaceRequestSchema,
+  updateWorkspaceRequestSchema,
   createProjectRequestSchema,
   createTaskRequestSchema,
   projectListResponseSchema,
@@ -39,6 +40,7 @@ import {
   type LoginRequest,
   type RegisterRequest,
   type CreateWorkspaceRequest,
+  type UpdateWorkspaceRequest,
   type WorkspaceListResponse,
   type WorkspaceInvitationListResponse,
   type WorkspaceInvitationResponse,
@@ -286,6 +288,26 @@ export function getWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
     { method: "GET" },
     workspaceResponseSchema,
   );
+}
+
+export function updateWorkspace(
+  workspaceId: string,
+  input: UpdateWorkspaceRequest,
+): Promise<WorkspaceResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}`,
+    {
+      body: JSON.stringify(updateWorkspaceRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    workspaceResponseSchema,
+  );
+}
+
+export function deleteWorkspace(workspaceId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}`, {
+    method: "DELETE",
+  });
 }
 
 export function getWorkspaceLabels(
