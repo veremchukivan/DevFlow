@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type DragEvent, type FormEvent, useEffect, useState } from "react";
 import { LayoutGrid, List } from "lucide-react";
 
 import {
@@ -54,6 +54,8 @@ export function ProjectBoard() {
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
+  const [draggedTaskId, setDraggedTaskId] = useState<string>();
+  const [dropStatusId, setDropStatusId] = useState<string>();
 
   useEffect(() => {
     let active = true;
@@ -239,6 +241,16 @@ export function ProjectBoard() {
     } finally {
       setUpdatingTaskId(undefined);
     }
+  }
+
+  async function onDropTask(event: DragEvent<HTMLElement>, statusId: string) {
+    event.preventDefault();
+    const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
+    setDropStatusId(undefined);
+    setDraggedTaskId(undefined);
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task || task.statusId === statusId) return;
+    await onUpdateTask(task, { statusId });
   }
 
   if (isLoading) return <main className={styles.loading}>Loading project</main>;
@@ -482,7 +494,14 @@ export function ProjectBoard() {
               (task) => task.statusId === status.id,
             );
             return (
-              <section className={styles.taskColumn} key={status.id}>
+              <section
+                className={`${styles.taskColumn} ${dropStatusId === status.id ? styles.taskColumnDropTarget : ""}`}
+                key={status.id}
+                onDragEnter={() => setDropStatusId(status.id)}
+                onDragLeave={() => setDropStatusId(undefined)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => void onDropTask(event, status.id)}
+              >
                 <header className={styles.taskColumnHeader}>
                   <div>
                     <span
@@ -496,7 +515,20 @@ export function ProjectBoard() {
                 </header>
                 <div className={styles.taskList}>
                   {statusTasks.map((task) => (
-                    <article className={styles.taskCard} key={task.id}>
+                    <article
+                      className={styles.taskCard}
+                      draggable
+                      onDragEnd={() => {
+                        setDraggedTaskId(undefined);
+                        setDropStatusId(undefined);
+                      }}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", task.id);
+                        setDraggedTaskId(task.id);
+                      }}
+                      key={task.id}
+                    >
                       <div className={styles.taskCardMeta}>
                         <span>{task.key}</span>
                         <span
@@ -514,6 +546,9 @@ export function ProjectBoard() {
                         </Link>
                       </h3>
                       {task.description ? <p>{task.description}</p> : null}
+                      {task.dueDate ? (
+                        <p className={styles.taskDueDate}>Due {task.dueDate}</p>
+                      ) : null}
                       <TaskControls
                         onUpdateTask={onUpdateTask}
                         priorities={priorities}

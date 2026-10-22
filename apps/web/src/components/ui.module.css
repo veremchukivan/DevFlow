@@ -433,6 +433,10 @@
   min-width: 0;
   padding: 16px;
 }
+.taskColumnDropTarget {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 .taskColumnHeader {
   align-items: center;
   display: flex;
@@ -483,6 +487,17 @@
   border-radius: 8px;
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
   padding: 16px;
+}
+.taskCard[draggable="true"] {
+  cursor: grab;
+}
+.taskCard[draggable="true"]:active {
+  cursor: grabbing;
+}
+.taskDueDate {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
 }
 .taskCard h3 {
   font-size: 15px;
