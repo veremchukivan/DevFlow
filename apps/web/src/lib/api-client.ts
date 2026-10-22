@@ -1,6 +1,7 @@
 import {
   authResponseSchema,
   createTaskCommentRequestSchema,
+  createWorkspaceInvitationRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
@@ -19,7 +20,10 @@ import {
   updateTaskCommentRequestSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
+  workspaceInvitationListResponseSchema,
+  workspaceInvitationResponseSchema,
   workspaceMemberListResponseSchema,
+  workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
   type HealthResponse,
@@ -27,11 +31,15 @@ import {
   type RegisterRequest,
   type CreateWorkspaceRequest,
   type WorkspaceListResponse,
+  type WorkspaceInvitationListResponse,
+  type WorkspaceInvitationResponse,
   type WorkspaceMemberListResponse,
+  type WorkspaceMemberResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
+  type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
   type ProjectResponse,
   type TaskListResponse,
@@ -42,6 +50,7 @@ import {
   type TaskPriority,
   type TaskResponse,
   type UpdateTaskRequest,
+  type UpdateWorkspaceMemberRequest,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -250,6 +259,42 @@ export function getWorkspaceMembers(
     `/api/v1/workspaces/${workspaceId}/members?limit=100&offset=0`,
     { method: "GET" },
     workspaceMemberListResponseSchema,
+  );
+}
+
+export function updateWorkspaceMember(
+  workspaceId: string,
+  userId: string,
+  input: UpdateWorkspaceMemberRequest,
+): Promise<WorkspaceMemberResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/members/${userId}`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    workspaceMemberResponseSchema,
+  );
+}
+
+export function getWorkspaceInvitations(
+  workspaceId: string,
+): Promise<WorkspaceInvitationListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/invitations?limit=100&offset=0`,
+    { method: "GET" },
+    workspaceInvitationListResponseSchema,
+  );
+}
+
+export function createWorkspaceInvitation(
+  workspaceId: string,
+  input: CreateWorkspaceInvitationRequest,
+): Promise<WorkspaceInvitationResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/invitations`,
+    {
+      body: JSON.stringify(createWorkspaceInvitationRequestSchema.parse(input)),
+      method: "POST",
+    },
+    workspaceInvitationResponseSchema,
   );
 }
 

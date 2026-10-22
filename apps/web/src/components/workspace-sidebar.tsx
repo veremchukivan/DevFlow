@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderKanban, LayoutDashboard, Plus } from "lucide-react";
+import { FolderKanban, LayoutDashboard, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -51,18 +51,32 @@ export function WorkspaceSidebar() {
           Workspaces
         </Link>
         {activeWorkspace ? (
-          <Link
-            aria-current={
-              pathname.startsWith(`/workspaces/${activeWorkspace.id}`)
-                ? "page"
-                : undefined
-            }
-            className={styles.navigationLink}
-            href={`/workspaces/${activeWorkspace.id}`}
-          >
-            <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
-            Projects
-          </Link>
+          <>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}`}
+            >
+              <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
+              Projects
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/members`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/members`}
+            >
+              <Users aria-hidden="true" size={19} strokeWidth={1.8} />
+              Team
+            </Link>
+          </>
         ) : null}
       </nav>
 

@@ -233,6 +233,61 @@
   margin: 22px 0;
   padding-bottom: 22px;
 }
+.memberInviteForm {
+  align-items: end;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  margin-top: 22px;
+}
+.memberInviteForm label {
+  display: grid;
+  gap: 7px;
+}
+.memberInviteForm label span {
+  font-size: 14px;
+  font-weight: 700;
+}
+.memberInviteForm input,
+.memberInviteForm select,
+.memberRow select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 11px;
+  width: 100%;
+}
+.memberList {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.memberRow {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.memberRow div {
+  display: grid;
+  gap: 4px;
+}
+.memberRow strong {
+  font-size: 14px;
+}
+.memberRow div span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.memberRow select {
+  max-width: 150px;
+}
 .projectDescription {
   grid-column: span 2;
 }
