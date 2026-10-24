@@ -1,4 +1,4 @@
-import { WorkspaceHome } from "@/components/workspace-home";
+import { WorkspaceHome } from "@/features/workspaces/components/workspace-home";
 
 export default function WorkspacesPage() {
   return <WorkspaceHome />;

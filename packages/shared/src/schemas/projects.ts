@@ -52,6 +52,30 @@ export const projectStatusSchema = z.object({
   workspaceId: z.uuid()
 });
 
+export const createProjectStatusRequestSchema = z.object({
+  category: projectStatusCategorySchema,
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  name: z.string().trim().min(1).max(80)
+});
+
+export const updateProjectStatusRequestSchema = z
+  .object({
+    category: projectStatusCategorySchema.optional(),
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+    name: z.string().trim().min(1).max(80).optional()
+  })
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "At least one status field is required"
+  });
+
+export const reorderProjectStatusesRequestSchema = z.object({
+  statusIds: z.array(z.uuid()).min(1)
+});
+
+export const projectStatusParamsSchema = projectParamsSchema.extend({
+  statusId: z.uuid()
+});
+
 export const projectSchema = z.object({
   createdAt: z.string().datetime(),
   description: z.string().nullable(),
@@ -80,6 +104,16 @@ export const projectListResponseSchema = z.object({
 export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
 export type UpdateProjectRequest = z.infer<typeof updateProjectRequestSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type ProjectStatus = z.infer<typeof projectStatusSchema>;
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
 export type ProjectListResponse = z.infer<typeof projectListResponseSchema>;
+export type CreateProjectStatusRequest = z.infer<
+  typeof createProjectStatusRequestSchema
+>;
+export type UpdateProjectStatusRequest = z.infer<
+  typeof updateProjectStatusRequestSchema
+>;
+export type ReorderProjectStatusesRequest = z.infer<
+  typeof reorderProjectStatusesRequestSchema
+>;

@@ -1,4 +1,4 @@
-import { AuthRecovery } from "@/components/auth-recovery";
+import { AuthRecovery } from "@/features/auth/components/auth-recovery";
 
 export default async function ResetPasswordPage({
   params,

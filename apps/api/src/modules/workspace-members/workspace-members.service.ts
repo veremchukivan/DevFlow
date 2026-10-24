@@ -14,6 +14,7 @@ import {
   findUserByEmailNormalized,
   findWorkspaceMember,
   listWorkspaceMembers,
+  transferWorkspaceOwnership,
   updateWorkspaceMember
 } from "./workspace-members.repository.js";
 
@@ -263,6 +264,14 @@ export async function leaveWorkspace(input: {
       "Workspace member not found"
     );
   }
+}
+
+export async function transferOwnership(input: { targetUserId: string; userId: string; workspaceId: string }) {
+  const membership = await requireWorkspaceMembership(input);
+  if (membership.role !== "owner") throw new AppError(403, "WORKSPACE_OWNERSHIP_TRANSFER_FORBIDDEN", "Only workspace owners can transfer ownership");
+  if (input.targetUserId === input.userId) throw new AppError(400, "WORKSPACE_OWNERSHIP_TRANSFER_SELF_FORBIDDEN", "Choose another active workspace member");
+  const transferred = await transferWorkspaceOwnership({ fromUserId: input.userId, toUserId: input.targetUserId, workspaceId: input.workspaceId });
+  if (!transferred) throw new AppError(400, "WORKSPACE_OWNERSHIP_TRANSFER_TARGET_INVALID", "Ownership can only be transferred to an active workspace member");
 }
 
 async function requireWorkspaceMembership(input: {

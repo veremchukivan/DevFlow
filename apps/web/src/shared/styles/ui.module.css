@@ -274,19 +274,33 @@
   justify-content: space-between;
   padding: 14px 16px;
 }
-.memberRow div {
+.memberRow > div:first-child {
   display: grid;
   gap: 4px;
 }
 .memberRow strong {
   font-size: 14px;
 }
-.memberRow div span {
+.memberRow > div:first-child span {
   color: var(--muted);
   font-size: 13px;
 }
 .memberRow select {
   max-width: 150px;
+}
+.memberActions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+.memberActions select {
+  max-width: 150px;
+}
+.memberBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
 }
 .projectDescription {
   grid-column: span 2;
@@ -408,6 +422,18 @@
   min-height: 34px;
   padding: 0 8px;
   width: 100%;
+}
+.pagination {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 14px;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+.pagination > div {
+  display: flex;
+  gap: 8px;
 }
 .taskTableTitle {
   display: grid;
@@ -552,6 +578,10 @@
   display: flex;
   justify-content: space-between;
 }
+.taskDetailActions {
+  display: flex;
+  gap: 8px;
+}
 .taskDetailHeading .eyebrow {
   margin-bottom: 12px;
 }
@@ -569,6 +599,20 @@
 .iconButton:hover {
   border-color: var(--brand);
   color: var(--brand);
+}
+.iconButtonDanger {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--danger);
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+.iconButtonDanger:hover {
+  border-color: var(--danger);
 }
 .taskEditForm {
   display: grid;
@@ -642,6 +686,25 @@
   accent-color: var(--brand);
 }
 .labelPicker span {
+  border-radius: 50%;
+  height: 9px;
+  width: 9px;
+}
+.readOnlyLabels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.readOnlyLabels div {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+  padding: 7px 9px;
+}
+.readOnlyLabels span {
   border-radius: 50%;
   height: 9px;
   width: 9px;
@@ -831,5 +894,10 @@
   .taskBoard {
     grid-auto-columns: minmax(270px, 84vw);
     grid-template-columns: repeat(4, minmax(270px, 84vw));
+  }
+  .pagination {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 }

@@ -1,4 +1,4 @@
-import { TaskDetail } from "@/components/task-detail";
+import { TaskDetail } from "@/features/tasks/components/task-detail";
 
 export default function TaskPage() {
   return <TaskDetail />;

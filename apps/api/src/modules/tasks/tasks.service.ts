@@ -20,6 +20,7 @@ import {
   listTasksForProject,
   listLabelsForTaskIds,
   softDeleteTaskInProject,
+  restoreTaskInProject,
   updateTaskInProject,
 } from "./tasks.repository.js";
 
@@ -270,6 +271,50 @@ export async function deleteTask(input: {
       },
       tx,
     );
+  });
+}
+
+export async function restoreTask(input: {
+  expectedVersion: number;
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+
+  if (!canDeleteTask(membership.role)) {
+    throw new AppError(
+      403,
+      "TASK_RESTORE_FORBIDDEN",
+      "You cannot restore tasks in this workspace",
+    );
+  }
+
+  await requireProject(input);
+
+  return db.transaction(async (tx) => {
+    const restored = await restoreTaskInProject(
+      { ...input, version: input.expectedVersion },
+      tx,
+    );
+
+    if (!restored) {
+      throw taskVersionConflictError();
+    }
+
+    await recordTaskActivity(
+      {
+        actorUserId: input.userId,
+        eventType: "task_restored",
+        projectId: input.projectId,
+        taskId: input.taskId,
+        workspaceId: input.workspaceId,
+      },
+      tx,
+    );
+
+    return restored;
   });
 }
 

@@ -1,5 +1,6 @@
 import {
   authResponseSchema,
+  acceptInvitationResponseSchema,
   labelListResponseSchema,
   labelResponseSchema,
   createLabelRequestSchema,
@@ -17,9 +18,13 @@ import {
   createWorkspaceRequestSchema,
   updateWorkspaceRequestSchema,
   createProjectRequestSchema,
+  createProjectStatusRequestSchema,
+  reorderProjectStatusesRequestSchema,
   updateProjectRequestSchema,
+  updateProjectStatusRequestSchema,
   createTaskRequestSchema,
   projectListResponseSchema,
+  publicWorkspaceInvitationResponseSchema,
   projectResponseSchema,
   taskListResponseSchema,
   taskActivityEventListResponseSchema,
@@ -34,6 +39,7 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type AcceptInvitationResponse,
   type LabelListResponse,
   type LabelResponse,
   type CreateLabelRequest,
@@ -51,11 +57,15 @@ import {
   type WorkspaceMemberResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
+  type CreateProjectStatusRequest,
+  type ReorderProjectStatusesRequest,
   type UpdateProjectRequest,
+  type UpdateProjectStatusRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
   type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
+  type PublicWorkspaceInvitationResponse,
   type ProjectResponse,
   type TaskListResponse,
   type TaskActivityEventListResponse,
@@ -63,6 +73,8 @@ import {
   type TaskCommentResponse,
   type UpdateTaskCommentRequest,
   type TaskPriority,
+  type TaskSortField,
+  type TaskSortOrder,
   type TaskResponse,
   type UpdateTaskRequest,
   type UpdateProfileRequest,
@@ -265,9 +277,11 @@ export function changePassword(input: ChangePasswordRequest): Promise<void> {
   });
 }
 
-export function getWorkspaces(): Promise<WorkspaceListResponse> {
+export function getWorkspaces(
+  pagination: { limit?: number; offset?: number } = {},
+): Promise<WorkspaceListResponse> {
   return request(
-    "/api/v1/workspaces?limit=100&offset=0",
+    `/api/v1/workspaces?limit=${pagination.limit ?? 25}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     workspaceListResponseSchema,
   );
@@ -385,6 +399,25 @@ export function updateWorkspaceMember(
   );
 }
 
+export function removeWorkspaceMember(
+  workspaceId: string,
+  userId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/members/${userId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function leaveWorkspace(workspaceId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/members/leave`, {
+    method: "POST",
+  });
+}
+export function transferWorkspaceOwnership(workspaceId: string, userId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/members/transfer-ownership`, { body: JSON.stringify({ userId }), method: "POST" });
+}
+
 export function getWorkspaceInvitations(
   workspaceId: string,
 ): Promise<WorkspaceInvitationListResponse> {
@@ -406,6 +439,54 @@ export function createWorkspaceInvitation(
       method: "POST",
     },
     workspaceInvitationResponseSchema,
+  );
+}
+
+export function cancelWorkspaceInvitation(
+  workspaceId: string,
+  invitationId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/invitations/${invitationId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function resendWorkspaceInvitation(
+  workspaceId: string,
+  invitationId: string,
+): Promise<WorkspaceInvitationResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/invitations/${invitationId}/resend`,
+    { method: "POST" },
+    workspaceInvitationResponseSchema,
+  );
+}
+
+export function getPublicWorkspaceInvitation(
+  token: string,
+): Promise<PublicWorkspaceInvitationResponse> {
+  return request(
+    `/api/v1/invitations/${encodeURIComponent(token)}`,
+    { method: "GET" },
+    publicWorkspaceInvitationResponseSchema,
+  );
+}
+
+export function acceptWorkspaceInvitation(
+  token: string,
+): Promise<AcceptInvitationResponse> {
+  return request(
+    `/api/v1/invitations/${encodeURIComponent(token)}/accept`,
+    { method: "POST" },
+    acceptInvitationResponseSchema,
+  );
+}
+
+export function declineWorkspaceInvitation(token: string): Promise<void> {
+  return requestNoContent(
+    `/api/v1/invitations/${encodeURIComponent(token)}/decline`,
+    { method: "POST" },
   );
 }
 
@@ -467,12 +548,44 @@ export function deleteProject(
   );
 }
 
+export function createProjectStatus(workspaceId: string, projectId: string, input: CreateProjectStatusRequest): Promise<ProjectResponse> {
+  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses`, { body: JSON.stringify(createProjectStatusRequestSchema.parse(input)), method: "POST" }, projectResponseSchema);
+}
+
+export function updateProjectStatus(workspaceId: string, projectId: string, statusId: string, input: UpdateProjectStatusRequest): Promise<ProjectResponse> {
+  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`, { body: JSON.stringify(updateProjectStatusRequestSchema.parse(input)), method: "PATCH" }, projectResponseSchema);
+}
+
+export function reorderProjectStatuses(
+  workspaceId: string,
+  projectId: string,
+  input: ReorderProjectStatusesRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/order`,
+    {
+      body: JSON.stringify(reorderProjectStatusesRequestSchema.parse(input)),
+      method: "PUT",
+    },
+    projectResponseSchema,
+  );
+}
+
+export function deleteProjectStatus(workspaceId: string, projectId: string, statusId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`, { method: "DELETE" });
+}
+
 type TaskListFilters = {
+  archived?: boolean;
   assigneeUserId?: string | "none";
   due?: "overdue" | "today" | "week" | "none";
   labelId?: string;
+  limit?: number;
+  offset?: number;
   priority?: TaskPriority;
   search?: string;
+  sortBy?: TaskSortField;
+  sortOrder?: TaskSortOrder;
 };
 
 export function getTasks(
@@ -481,10 +594,10 @@ export function getTasks(
   filters: TaskListFilters = {},
 ): Promise<TaskListResponse> {
   const query = new URLSearchParams({
-    limit: "100",
-    offset: "0",
-    sortBy: "number",
-    sortOrder: "asc",
+    limit: String(filters.limit ?? 50),
+    offset: String(filters.offset ?? 0),
+    sortBy: filters.sortBy ?? "number",
+    sortOrder: filters.sortOrder ?? "asc",
   });
 
   if (filters.priority) {
@@ -494,6 +607,7 @@ export function getTasks(
   if (filters.assigneeUserId)
     query.set("assigneeUserId", filters.assigneeUserId);
   if (filters.due) query.set("due", filters.due);
+  if (filters.archived) query.set("archived", "true");
 
   if (filters.search) {
     query.set("search", filters.search);
@@ -547,9 +661,10 @@ export function getTaskComments(
   workspaceId: string,
   projectId: string,
   taskId: string,
+  pagination: { limit?: number; offset?: number } = {},
 ): Promise<TaskCommentListResponse> {
   return request(
-    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments?limit=100&offset=0`,
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments?limit=${pagination.limit ?? 25}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     taskCommentListResponseSchema,
   );
@@ -604,9 +719,10 @@ export function getTaskActivity(
   workspaceId: string,
   projectId: string,
   taskId: string,
+  pagination: { limit?: number; offset?: number } = {},
 ): Promise<TaskActivityEventListResponse> {
   return request(
-    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/activity?limit=100&offset=0`,
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/activity?limit=${pagination.limit ?? 25}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     taskActivityEventListResponseSchema,
   );
@@ -643,6 +759,25 @@ export function updateTask(
     },
     taskResponseSchema,
   );
+}
+
+export function deleteTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  version: number,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
+    {
+      headers: { "If-Match": `"${version}"` },
+      method: "DELETE",
+    },
+  );
+}
+
+export function restoreTask(workspaceId: string, projectId: string, taskId: string, version: number): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/restore`, { headers: { "If-Match": `"${version}"` }, method: "POST" });
 }
 
 export async function getApiHealth(): Promise<HealthResponse> {

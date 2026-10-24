@@ -15,9 +15,10 @@ import {
   getWorkspaceLabels,
   updateWorkspace,
   updateWorkspaceLabel,
-} from "@/lib/api-client";
-import type { Label, ProjectSummary, Workspace } from "@devflow/shared";
-import styles from "@/components/ui.module.css";
+} from "@/shared/lib/api-client";
+import { notifyWorkspacesChanged } from "@/shared/lib/workspace-events";
+import { can, type Label, type ProjectSummary, type Workspace } from "@devflow/shared";
+import styles from "@/shared/styles/ui.module.css";
 
 export function WorkspaceDetail() {
   const router = useRouter();
@@ -203,6 +204,7 @@ export function WorkspaceDetail() {
       return;
     try {
       await deleteWorkspace(workspaceId);
+      notifyWorkspacesChanged();
       router.replace("/workspaces");
       router.refresh();
     } catch (caughtError) {
@@ -229,6 +231,11 @@ export function WorkspaceDetail() {
     );
   }
 
+  const canUpdateWorkspace = can(workspace.role, "workspace:update");
+  const canDeleteWorkspace = can(workspace.role, "workspace:delete");
+  const canCreateProjects = can(workspace.role, "project:create");
+  const canManageLabels = can(workspace.role, "task:create");
+
   return (
     <main className={styles.workspaceHome}>
       <Link className={styles.backLink} href="/workspaces">
@@ -240,22 +247,26 @@ export function WorkspaceDetail() {
           <h1>{workspace.name}</h1>
           <p>Projects are where tasks, status, and activity live.</p>
         </div>
-        {workspace.role === "owner" || workspace.role === "admin" ? (
+        {canUpdateWorkspace || canDeleteWorkspace ? (
           <div className={styles.formActions}>
-            <button
-              className={styles.secondaryButton}
-              onClick={() => setIsEditingWorkspace((current) => !current)}
-              type="button"
-            >
-              Settings
-            </button>
-            <button
-              className={styles.textButton}
-              onClick={() => void onWorkspaceDelete()}
-              type="button"
-            >
-              Delete
-            </button>
+            {canUpdateWorkspace ? (
+              <button
+                className={styles.secondaryButton}
+                onClick={() => setIsEditingWorkspace((current) => !current)}
+                type="button"
+              >
+                Settings
+              </button>
+            ) : null}
+            {canDeleteWorkspace ? (
+              <button
+                className={styles.textButton}
+                onClick={() => void onWorkspaceDelete()}
+                type="button"
+              >
+                Delete
+              </button>
+            ) : null}
           </div>
         ) : null}
       </header>
@@ -308,16 +319,18 @@ export function WorkspaceDetail() {
             <h2 id="projects-title">Projects</h2>
             <p>{projects.length} available</p>
           </div>
-          <button
-            className={styles.primaryButton}
-            onClick={() => setShowProjectForm((current) => !current)}
-            type="button"
-          >
-            New project
-          </button>
+          {canCreateProjects ? (
+            <button
+              className={styles.primaryButton}
+              onClick={() => setShowProjectForm((current) => !current)}
+              type="button"
+            >
+              New project
+            </button>
+          ) : null}
         </div>
 
-        {showProjectForm ? (
+        {showProjectForm && canCreateProjects ? (
           <form className={styles.projectForm} onSubmit={onCreateProject}>
             <label>
               <span>Project name</span>
@@ -387,34 +400,36 @@ export function WorkspaceDetail() {
             <p>Reusable labels for tasks in this workspace.</p>
           </div>
         </div>
-        <form className={styles.projectForm} onSubmit={onCreateLabel}>
-          <label>
-            <span>Name</span>
-            <input maxLength={80} minLength={1} name="name" required />
-          </label>
-          <label>
-            <span>Color</span>
-            <input
-              defaultValue="#2764ee"
-              name="color"
-              pattern="#[0-9A-Fa-f]{6}"
-              required
-            />
-          </label>
-          <div className={styles.formActions}>
-            <button
-              className={styles.primaryButton}
-              disabled={isCreatingLabel}
-              type="submit"
-            >
-              {isCreatingLabel ? "Creating" : "Add label"}
-            </button>
-          </div>
-        </form>
+        {canManageLabels ? (
+          <form className={styles.projectForm} onSubmit={onCreateLabel}>
+            <label>
+              <span>Name</span>
+              <input maxLength={80} minLength={1} name="name" required />
+            </label>
+            <label>
+              <span>Color</span>
+              <input
+                defaultValue="#2764ee"
+                name="color"
+                pattern="#[0-9A-Fa-f]{6}"
+                required
+              />
+            </label>
+            <div className={styles.formActions}>
+              <button
+                className={styles.primaryButton}
+                disabled={isCreatingLabel}
+                type="submit"
+              >
+                {isCreatingLabel ? "Creating" : "Add label"}
+              </button>
+            </div>
+          </form>
+        ) : null}
         <div className={styles.labelPicker}>
           {labels.map((label) => (
             <div key={label.id}>
-              {editingLabelId === label.id ? (
+              {editingLabelId === label.id && canManageLabels ? (
                 <form
                   className={styles.inlineLabelForm}
                   onSubmit={(event) => void onUpdateLabel(event, label.id)}
@@ -450,20 +465,24 @@ export function WorkspaceDetail() {
                 <>
                   <span style={{ backgroundColor: label.color }} />
                   {label.name}
-                  <button
-                    className={styles.textButton}
-                    onClick={() => setEditingLabelId(label.id)}
-                    type="button"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className={styles.textButton}
-                    onClick={() => void onDeleteLabel(label.id)}
-                    type="button"
-                  >
-                    Remove
-                  </button>
+                  {canManageLabels ? (
+                    <>
+                      <button
+                        className={styles.textButton}
+                        onClick={() => setEditingLabelId(label.id)}
+                        type="button"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className={styles.textButton}
+                        onClick={() => void onDeleteLabel(label.id)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : null}
                 </>
               )}
             </div>

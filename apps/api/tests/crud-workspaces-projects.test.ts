@@ -260,5 +260,21 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
       expect(res.body.workspace.slug).toBe("temp-ws");
     });
   });
+
+  it("transfers workspace ownership only to an active member", async () => {
+    const transferOwner = await createTestUser(app, { email: "transfer-owner@devflow.io" });
+    const target = await createTestUser(app, { email: "transfer-target@devflow.io" });
+    const transferWorkspace = await createTestWorkspace(app, transferOwner.cookie, { name: "Transfer Workspace", slug: "transfer-workspace" });
+    await request(app).post(`/api/v1/workspaces/${transferWorkspace.id}/members`).set("Cookie", transferOwner.cookie).send({ email: target.email, role: "member" });
+    const transferred = await request(app).post(`/api/v1/workspaces/${transferWorkspace.id}/members/transfer-ownership`).set("Cookie", transferOwner.cookie).send({ userId: target.user.id });
+    expect(transferred.status).toBe(204);
+    const workspaceResponse = await request(app).get(`/api/v1/workspaces/${transferWorkspace.id}`).set("Cookie", target.cookie);
+    expect(workspaceResponse.body.workspace.ownerUserId).toBe(target.user.id);
+    expect(workspaceResponse.body.workspace.role).toBe("owner");
+    const formerOwner = await request(app).get(`/api/v1/workspaces/${transferWorkspace.id}`).set("Cookie", transferOwner.cookie);
+    expect(formerOwner.body.workspace.role).toBe("admin");
+    const repeatedTransfer = await request(app).post(`/api/v1/workspaces/${transferWorkspace.id}/members/transfer-ownership`).set("Cookie", transferOwner.cookie).send({ userId: target.user.id });
+    expect(repeatedTransfer.status).toBe(403);
+  });
 });
 

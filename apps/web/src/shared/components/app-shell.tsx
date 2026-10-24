@@ -3,11 +3,11 @@
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { ApiClientError, getCurrentUser } from "@/lib/api-client";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
-import { WorkspaceSidebar } from "@/components/workspace-sidebar";
-import { subscribeToUserChanges } from "@/lib/user-events";
+import { ApiClientError, getCurrentUser } from "@/shared/lib/api-client";
+import { SiteFooter } from "@/shared/components/site-footer";
+import { SiteHeader } from "@/shared/components/site-header";
+import { WorkspaceSidebar } from "@/shared/components/workspace-sidebar";
+import { subscribeToUserChanges } from "@/shared/lib/user-events";
 import type { AuthUser } from "@devflow/shared";
 
 import styles from "./app-shell.module.css";
@@ -18,6 +18,7 @@ const publicPaths = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  "/invitations",
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -49,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           error instanceof ApiClientError &&
           error.code === "UNAUTHENTICATED"
         ) {
-          router.replace("/login");
+          router.replace(`/login?next=${encodeURIComponent(pathname)}`);
           return;
         }
 
@@ -62,7 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [isPublicPage, router]);
+  }, [isPublicPage, pathname, router]);
 
   useEffect(() => subscribeToUserChanges(setUser), []);
 

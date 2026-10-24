@@ -4,6 +4,7 @@ import {
   authResponseSchema,
   changePasswordRequestSchema,
   createProjectRequestSchema,
+  createProjectStatusRequestSchema,
   createTaskCommentRequestSchema,
   createTaskRequestSchema,
   createWorkspaceInvitationRequestSchema,
@@ -15,6 +16,7 @@ import {
   passwordResetRequestSchema,
   projectListResponseSchema,
   projectResponseSchema,
+  reorderProjectStatusesRequestSchema,
   publicWorkspaceInvitationResponseSchema,
   registerRequestSchema,
   taskCommentListResponseSchema,
@@ -24,9 +26,11 @@ import {
   updateProfileRequestSchema,
   taskActivityEventListResponseSchema,
   updateProjectRequestSchema,
+  updateProjectStatusRequestSchema,
   updateTaskCommentRequestSchema,
   updateTaskRequestSchema,
   updateWorkspaceMemberRequestSchema,
+  transferWorkspaceOwnershipRequestSchema,
   updateWorkspaceRequestSchema,
   workspaceInvitationListResponseSchema,
   workspaceInvitationResponseSchema,
@@ -43,6 +47,7 @@ const schemas = {
   AuthResponse: authResponseSchema,
   ChangePasswordRequest: changePasswordRequestSchema,
   CreateProjectRequest: createProjectRequestSchema,
+  CreateProjectStatusRequest: createProjectStatusRequestSchema,
   CreateTaskCommentRequest: createTaskCommentRequestSchema,
   CreateTaskRequest: createTaskRequestSchema,
   CreateWorkspaceInvitationRequest: createWorkspaceInvitationRequestSchema,
@@ -54,6 +59,7 @@ const schemas = {
   PasswordResetRequest: passwordResetRequestSchema,
   ProjectListResponse: projectListResponseSchema,
   ProjectResponse: projectResponseSchema,
+  ReorderProjectStatusesRequest: reorderProjectStatusesRequestSchema,
   PublicWorkspaceInvitationResponse: publicWorkspaceInvitationResponseSchema,
   RegisterRequest: registerRequestSchema,
   TaskActivityEventListResponse: taskActivityEventListResponseSchema,
@@ -62,10 +68,12 @@ const schemas = {
   TaskListResponse: taskListResponseSchema,
   TaskResponse: taskResponseSchema,
   UpdateProjectRequest: updateProjectRequestSchema,
+  UpdateProjectStatusRequest: updateProjectStatusRequestSchema,
   UpdateProfileRequest: updateProfileRequestSchema,
   UpdateTaskCommentRequest: updateTaskCommentRequestSchema,
   UpdateTaskRequest: updateTaskRequestSchema,
   UpdateWorkspaceMemberRequest: updateWorkspaceMemberRequestSchema,
+  TransferWorkspaceOwnershipRequest: transferWorkspaceOwnershipRequestSchema,
   UpdateWorkspaceRequest: updateWorkspaceRequestSchema,
   WorkspaceInvitationListResponse: workspaceInvitationListResponseSchema,
   WorkspaceInvitationResponse: workspaceInvitationResponseSchema,
@@ -419,6 +427,14 @@ export const openApiDocument = {
         responses: { "204": response("Workspace left"), ...commonErrors },
       },
     },
+    "/api/v1/workspaces/{workspaceId}/members/transfer-ownership": {
+      post: {
+        tags: ["Members"], operationId: "transferWorkspaceOwnership", security: authenticated,
+        parameters: [uuidPath("workspaceId")],
+        requestBody: requestBody("TransferWorkspaceOwnershipRequest"),
+        responses: { "204": response("Ownership transferred"), ...commonErrors },
+      },
+    },
     "/api/v1/workspaces/{workspaceId}/invitations": {
       get: {
         tags: ["Invitations"],
@@ -494,7 +510,7 @@ export const openApiDocument = {
         operationId: "declineInvitation",
         parameters: [tokenPath],
         responses: {
-          "204": response("Invitation declined"),
+          "200": response("Invitation declined"),
           "404": errorResponse("Invitation not found"),
         },
       },
@@ -550,6 +566,35 @@ export const openApiDocument = {
         security: authenticated,
         parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
         responses: { "204": response("Project deleted"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses": {
+      post: {
+        tags: ["Projects"], operationId: "createProjectStatus", security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: requestBody("CreateProjectStatusRequest"),
+        responses: { "201": response("Status created", "ProjectResponse"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/order": {
+      put: {
+        tags: ["Projects"], operationId: "reorderProjectStatuses", security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: requestBody("ReorderProjectStatusesRequest"),
+        responses: { "200": response("Statuses reordered", "ProjectResponse"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/{statusId}": {
+      patch: {
+        tags: ["Projects"], operationId: "updateProjectStatus", security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("statusId")],
+        requestBody: requestBody("UpdateProjectStatusRequest"),
+        responses: { "200": response("Status updated", "ProjectResponse"), ...commonErrors },
+      },
+      delete: {
+        tags: ["Projects"], operationId: "deleteProjectStatus", security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("statusId")],
+        responses: { "204": response("Status deleted"), ...commonErrors },
       },
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks": {
@@ -684,6 +729,13 @@ export const openApiDocument = {
           "428": errorResponse("Task version is required"),
           ...commonErrors,
         },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/restore": {
+      post: {
+        tags: ["Tasks"], operationId: "restoreTask", security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("taskId"), { name: "If-Match", in: "header", required: true, schema: { type: "string", pattern: '^"[1-9]\\d*"$' } }],
+        responses: { "204": response("Task restored"), "409": errorResponse("Task version conflict"), "428": errorResponse("Task version is required"), ...commonErrors },
       },
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/comments":

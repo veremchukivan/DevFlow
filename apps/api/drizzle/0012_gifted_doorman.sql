@@ -1,0 +1,1 @@
+ALTER TYPE "public"."task_activity_event_type" ADD VALUE 'task_restored' BEFORE 'task_comment_created';

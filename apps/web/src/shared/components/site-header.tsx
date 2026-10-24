@@ -5,7 +5,7 @@ import { useState } from "react";
 import { LogOut, Plus } from "lucide-react";
 import Link from "next/link";
 
-import { logout } from "@/lib/api-client";
+import { logout } from "@/shared/lib/api-client";
 import type { AuthUser } from "@devflow/shared";
 
 import styles from "./site-header.module.css";

@@ -16,6 +16,7 @@ export const taskActivityEventTypeEnum = pgEnum("task_activity_event_type", [
   "task_created",
   "task_updated",
   "task_deleted",
+  "task_restored",
   "task_comment_created",
   "task_comment_updated",
   "task_comment_deleted"

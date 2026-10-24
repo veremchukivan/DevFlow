@@ -2,20 +2,24 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
   ApiClientError,
   createWorkspace,
   getWorkspaces,
-} from "@/lib/api-client";
-import { notifyWorkspacesChanged } from "@/lib/workspace-events";
-import type { Workspace } from "@devflow/shared";
+} from "@/shared/lib/api-client";
+import { notifyWorkspacesChanged } from "@/shared/lib/workspace-events";
+import type { PageInfo, Workspace } from "@devflow/shared";
 
-import styles from "./ui.module.css";
+import styles from "@/shared/styles/ui.module.css";
+
+const workspacePageSize = 25;
 
 export function WorkspaceHome() {
   const [isLoading, setIsLoading] = useState(true);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [showWorkspaceForm, setShowWorkspaceForm] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string>();
@@ -23,9 +27,12 @@ export function WorkspaceHome() {
   useEffect(() => {
     let active = true;
 
-    void getWorkspaces()
+    void getWorkspaces({ limit: workspacePageSize })
       .then((response) => {
-        if (active) setWorkspaces(response.workspaces);
+        if (active) {
+          setWorkspaces(response.workspaces);
+          setPageInfo(response.pageInfo);
+        }
       })
       .catch((error: unknown) => {
         if (active) {
@@ -45,6 +52,16 @@ export function WorkspaceHome() {
     };
   }, []);
 
+  async function loadWorkspaces(offset = 0) {
+    try {
+      const response = await getWorkspaces({ limit: workspacePageSize, offset });
+      setWorkspaces(response.workspaces);
+      setPageInfo(response.pageInfo);
+    } catch (error) {
+      setWorkspaceError(error instanceof ApiClientError ? error.message : "Unable to load workspaces. Try again.");
+    }
+  }
+
   async function onCreateWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setWorkspaceError(undefined);
@@ -54,11 +71,11 @@ export function WorkspaceHome() {
     const slug = String(form.get("slug") ?? "").trim();
 
     try {
-      const response = await createWorkspace({
+      await createWorkspace({
         name: String(form.get("name") ?? ""),
         ...(slug ? { slug } : {}),
       });
-      setWorkspaces((current) => [response.workspace, ...current]);
+      await loadWorkspaces(0);
       notifyWorkspacesChanged();
       setShowWorkspaceForm(false);
       event.currentTarget.reset();
@@ -92,7 +109,7 @@ export function WorkspaceHome() {
         <div className={styles.sectionHeading}>
           <div>
             <h2 id="workspaces-title">Your workspaces</h2>
-            <p>{workspaces.length} available</p>
+            <p>{pageInfo?.total ?? workspaces.length} available</p>
           </div>
           <button
             className={styles.primaryButton}
@@ -161,6 +178,15 @@ export function WorkspaceHome() {
             ))}
           </div>
         )}
+        {pageInfo ? (
+          <nav aria-label="Workspace pagination" className={styles.pagination}>
+            <span>{pageInfo.total === 0 ? "No workspaces" : `${pageInfo.offset + 1}-${Math.min(pageInfo.offset + workspaces.length, pageInfo.total)} of ${pageInfo.total}`}</span>
+            <div>
+              <button aria-label="Previous workspaces" className={styles.iconButton} disabled={pageInfo.offset === 0} onClick={() => void loadWorkspaces(Math.max(0, pageInfo.offset - pageInfo.limit))} title="Previous page" type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
+              <button aria-label="Next workspaces" className={styles.iconButton} disabled={!pageInfo.hasNextPage} onClick={() => void loadWorkspaces(pageInfo.offset + pageInfo.limit)} title="Next page" type="button"><ChevronRight aria-hidden="true" size={16} /></button>
+            </div>
+          </nav>
+        ) : null}
       </section>
     </main>
   );

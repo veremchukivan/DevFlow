@@ -2,6 +2,7 @@ import {
   addWorkspaceMemberRequestSchema,
   paginationQuerySchema,
   updateWorkspaceMemberRequestSchema,
+  transferWorkspaceOwnershipRequestSchema,
   workspaceMemberParamsSchema,
   workspaceMembersParamsSchema,
   type WorkspaceMemberListResponse,
@@ -19,6 +20,7 @@ import {
   listMembers,
   removeMember,
   updateMember
+  ,transferOwnership
 } from "./workspace-members.service.js";
 
 export const workspaceMembersRouter = Router({ mergeParams: true });
@@ -83,6 +85,13 @@ workspaceMembersRouter.post("/leave", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
+  res.status(204).send();
+});
+
+workspaceMembersRouter.post("/transfer-ownership", async (req, res) => {
+  const params = workspaceMembersParamsSchema.parse(req.params);
+  const input = transferWorkspaceOwnershipRequestSchema.parse(req.body);
+  await transferOwnership({ targetUserId: input.userId, userId: getAuthenticatedUserId(req), workspaceId: params.workspaceId });
   res.status(204).send();
 });
 

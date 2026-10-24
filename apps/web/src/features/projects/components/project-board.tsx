@@ -3,43 +3,55 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type DragEvent, type FormEvent, useEffect, useState } from "react";
-import { LayoutGrid, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
 
 import {
   ApiClientError,
   createTask,
+  restoreTask,
+  createProjectStatus,
   deleteProject,
+  deleteProjectStatus,
   getProject,
   getTasks,
   getWorkspaceLabels,
   getWorkspaceMembers,
   getWorkspace,
   replaceTaskLabels,
+  reorderProjectStatuses,
   updateTask,
   updateProject,
-} from "@/lib/api-client";
+  updateProjectStatus,
+} from "@/shared/lib/api-client";
 import type {
   Label,
+  PageInfo,
   Project,
   Task,
   TaskPriority,
+  TaskSortField,
+  TaskSortOrder,
   WorkspaceMember,
   WorkspaceRole,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
-import styles from "@/components/ui.module.css";
+import styles from "@/shared/styles/ui.module.css";
 
 type BoardFilters = {
+  archived?: boolean;
   priority?: TaskPriority;
   labelId?: string;
   assigneeUserId?: string | "none";
   due?: "overdue" | "today" | "week" | "none";
   search?: string;
+  sortBy?: TaskSortField;
+  sortOrder?: TaskSortOrder;
 };
 
 type ProjectView = "board" | "list";
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
+const taskPageSize = 50;
 const priorityStyles: Record<TaskPriority, string> = {
   high: styles.priorityHigh!,
   low: styles.priorityLow!,
@@ -53,6 +65,7 @@ export function ProjectBoard() {
   const { projectId, workspaceId } = params;
   const [project, setProject] = useState<Project>();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [filters, setFilters] = useState<BoardFilters>({});
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<"" | TaskPriority>("");
@@ -64,6 +77,8 @@ export function ProjectBoard() {
   const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
     "",
   );
+  const [sortBy, setSortBy] = useState<TaskSortField>("number");
+  const [sortOrder, setSortOrder] = useState<TaskSortOrder>("asc");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -72,12 +87,16 @@ export function ProjectBoard() {
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [isReorderingStatuses, setIsReorderingStatuses] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
   const [draggedTaskId, setDraggedTaskId] = useState<string>();
   const [dropStatusId, setDropStatusId] = useState<string>();
+  const [showArchived, setShowArchived] = useState(false);
   const canCreateTasks = role ? can(role, "task:create") : false;
   const canUpdateTasks = role ? can(role, "task:update") : false;
+  const canDeleteTasks = role ? can(role, "task:delete") : false;
   const canUpdateProject = role ? can(role, "project:update") : false;
   const canDeleteProject = role ? can(role, "project:delete") : false;
 
@@ -86,7 +105,7 @@ export function ProjectBoard() {
 
     void Promise.all([
       getProject(workspaceId, projectId),
-      getTasks(workspaceId, projectId),
+      getTasks(workspaceId, projectId, { limit: taskPageSize }),
       getWorkspaceLabels(workspaceId),
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
@@ -102,6 +121,7 @@ export function ProjectBoard() {
           if (!active) return;
           setProject(projectResponse.project);
           setTasks(taskResponse.tasks);
+          setPageInfo(taskResponse.pageInfo);
           setLabels(labelsResponse.labels);
           setMembers(
             membersResponse.members.filter(
@@ -130,12 +150,35 @@ export function ProjectBoard() {
     };
   }, [projectId, router, workspaceId]);
 
-  async function loadTasks(nextFilters: BoardFilters) {
+  async function loadTasks(nextFilters: BoardFilters, offset = 0) {
     setError(undefined);
     setIsRefreshing(true);
     try {
-      const response = await getTasks(workspaceId, projectId, nextFilters);
+      const requestFilters = {
+        ...nextFilters,
+        limit: taskPageSize,
+        offset,
+      };
+      let response = await getTasks(workspaceId, projectId, requestFilters);
+
+      if (
+        response.tasks.length === 0 &&
+        response.pageInfo.total > 0 &&
+        response.pageInfo.offset > 0
+      ) {
+        const lastPageOffset =
+          Math.floor(
+            (response.pageInfo.total - 1) / response.pageInfo.limit,
+          ) * response.pageInfo.limit;
+
+        response = await getTasks(workspaceId, projectId, {
+          ...requestFilters,
+          offset: lastPageOffset,
+        });
+      }
+
       setTasks(response.tasks);
+      setPageInfo(response.pageInfo);
     } catch (caughtError) {
       if (
         caughtError instanceof ApiClientError &&
@@ -160,6 +203,9 @@ export function ProjectBoard() {
         ? { assigneeUserId: assigneeUserId as string | "none" }
         : {}),
       ...(due ? { due } : {}),
+      ...(showArchived ? { archived: true } : {}),
+      sortBy,
+      sortOrder,
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
@@ -171,8 +217,78 @@ export function ProjectBoard() {
     setLabelId("");
     setAssigneeUserId("");
     setDue("");
-    setFilters({});
-    await loadTasks({});
+    setSortBy("number");
+    setSortOrder("asc");
+    setShowArchived(false);
+    const nextFilters = { sortBy: "number" as const, sortOrder: "asc" as const };
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
+  }
+
+  async function onToggleArchived() {
+    const nextArchived = !showArchived;
+    const nextFilters = { ...filters };
+
+    if (nextArchived) {
+      nextFilters.archived = true;
+    } else {
+      delete nextFilters.archived;
+    }
+
+    setShowArchived(nextArchived);
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
+  }
+
+  async function onRestoreTask(task: Task) {
+    try {
+      await restoreTask(workspaceId, projectId, task.id, task.version);
+      const nextFilters = { ...filters, archived: true };
+      setFilters(nextFilters);
+      await loadTasks(nextFilters, pageInfo?.offset);
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to restore task.");
+    }
+  }
+
+  async function onChangeTaskPage(offset: number) {
+    await loadTasks(filters, offset);
+  }
+
+  async function onMoveStatus(statusId: string, direction: -1 | 1) {
+    if (!project) return;
+
+    const currentIndex = project.statuses.findIndex(
+      (status) => status.id === statusId,
+    );
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= project.statuses.length) {
+      return;
+    }
+
+    const statuses = [...project.statuses];
+    [statuses[currentIndex], statuses[targetIndex]] = [
+      statuses[targetIndex]!,
+      statuses[currentIndex]!,
+    ];
+
+    setError(undefined);
+    setIsReorderingStatuses(true);
+    try {
+      const response = await reorderProjectStatuses(workspaceId, projectId, {
+        statusIds: statuses.map((status) => status.id),
+      });
+      setProject(response.project);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to reorder board statuses.",
+      );
+    } finally {
+      setIsReorderingStatuses(false);
+    }
   }
 
   async function onCreateTask(event: FormEvent<HTMLFormElement>) {
@@ -203,7 +319,7 @@ export function ProjectBoard() {
       event.currentTarget.reset();
       setShowTaskForm(false);
       setDraftStatusId(undefined);
-      await loadTasks(filters);
+      await loadTasks(filters, pageInfo?.offset);
     } catch (caughtError) {
       setError(
         caughtError instanceof ApiClientError
@@ -261,6 +377,59 @@ export function ProjectBoard() {
     }
   }
 
+  async function onCreateStatus(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingStatus(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await createProjectStatus(workspaceId, projectId, {
+        category: form.get("category") as "todo" | "in_progress" | "done",
+        color: String(form.get("color") ?? "#64748b"),
+        name: String(form.get("name") ?? ""),
+      });
+      setProject(response.project);
+      event.currentTarget.reset();
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to add status.");
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }
+
+  async function onUpdateStatus(event: FormEvent<HTMLFormElement>, statusId: string) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingStatus(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await updateProjectStatus(workspaceId, projectId, statusId, {
+        category: form.get("category") as "todo" | "in_progress" | "done",
+        color: String(form.get("color") ?? "#64748b"),
+        name: String(form.get("name") ?? ""),
+      });
+      setProject(response.project);
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to update status.");
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }
+
+  async function onDeleteStatus(statusId: string) {
+    if (!window.confirm("Delete this status? Empty it first if it contains tasks.")) return;
+    setError(undefined);
+    setIsSavingStatus(true);
+    try {
+      await deleteProjectStatus(workspaceId, projectId, statusId);
+      setProject((current) => current ? { ...current, statuses: current.statuses.filter((status) => status.id !== statusId) } : current);
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to delete status.");
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }
+
   async function onUpdateTask(
     task: Task,
     input: { priority?: TaskPriority; statusId?: string },
@@ -286,7 +455,7 @@ export function ProjectBoard() {
         caughtError instanceof ApiClientError &&
         caughtError.code === "TASK_VERSION_CONFLICT"
       ) {
-        await loadTasks(filters);
+        await loadTasks(filters, pageInfo?.offset);
         setError("This task changed elsewhere. The latest version is shown.");
         return;
       }
@@ -417,6 +586,29 @@ export function ProjectBoard() {
             </button>
           </div>
         </form>
+      ) : null}
+
+      {showProjectSettings ? (
+        <section className={styles.workspaceSection} aria-labelledby="statuses-title">
+          <div className={styles.sectionHeading}><h2 id="statuses-title">Board statuses</h2></div>
+          {project.statuses.map((status, index) => (
+            <form className={styles.memberInviteForm} key={status.id} onSubmit={(event) => void onUpdateStatus(event, status.id)}>
+              <label><span>Name</span><input defaultValue={status.name} maxLength={80} name="name" required /></label>
+              <label><span>Category</span><select defaultValue={status.category} name="category"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label>
+              <label><span>Color</span><input defaultValue={status.color} name="color" pattern="#[0-9A-Fa-f]{6}" required /></label>
+              <button className={styles.secondaryButton} disabled={isSavingStatus} type="submit">Save</button>
+              <button className={styles.textButton} disabled={isSavingStatus} onClick={() => void onDeleteStatus(status.id)} type="button">Remove</button>
+              <button aria-label={`Move ${status.name} left`} className={styles.iconButton} disabled={isSavingStatus || isReorderingStatuses || index === 0} onClick={() => void onMoveStatus(status.id, -1)} title="Move left" type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
+              <button aria-label={`Move ${status.name} right`} className={styles.iconButton} disabled={isSavingStatus || isReorderingStatuses || index === project.statuses.length - 1} onClick={() => void onMoveStatus(status.id, 1)} title="Move right" type="button"><ChevronRight aria-hidden="true" size={16} /></button>
+            </form>
+          ))}
+          <form className={styles.memberInviteForm} onSubmit={onCreateStatus}>
+            <label><span>Name</span><input maxLength={80} name="name" required /></label>
+            <label><span>Category</span><select defaultValue="todo" name="category"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label>
+            <label><span>Color</span><input defaultValue="#64748b" name="color" pattern="#[0-9A-Fa-f]{6}" required /></label>
+            <button className={styles.primaryButton} disabled={isSavingStatus} type="submit">Add status</button>
+          </form>
+        </section>
       ) : null}
 
       <div
@@ -599,6 +791,32 @@ export function ProjectBoard() {
             <option value="none">No due date</option>
           </select>
         </label>
+        <label>
+          <span>Sort by</span>
+          <select
+            onChange={(event) =>
+              setSortBy(event.target.value as TaskSortField)
+            }
+            value={sortBy}
+          >
+            <option value="number">Task number</option>
+            <option value="createdAt">Created date</option>
+            <option value="updatedAt">Updated date</option>
+            <option value="priority">Priority</option>
+          </select>
+        </label>
+        <label>
+          <span>Order</span>
+          <select
+            onChange={(event) =>
+              setSortOrder(event.target.value as TaskSortOrder)
+            }
+            value={sortOrder}
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </label>
         <button
           className={styles.secondaryButton}
           disabled={isRefreshing}
@@ -615,6 +833,9 @@ export function ProjectBoard() {
           Clear
         </button>
       </form>
+      <button className={styles.secondaryButton} disabled={isRefreshing} onClick={() => void onToggleArchived()} type="button">
+        {showArchived ? "Show active tasks" : "Show archived tasks"}
+      </button>
 
       {error ? (
         <p className={styles.formError} role="alert">
@@ -716,6 +937,7 @@ export function ProjectBoard() {
                         task={task}
                         updatingTaskId={updatingTaskId}
                         canUpdate={canUpdateTasks}
+                        onRestore={showArchived && canDeleteTasks ? onRestoreTask : undefined}
                       />
                     </article>
                   ))}
@@ -787,6 +1009,44 @@ export function ProjectBoard() {
           ) : null}
         </section>
       )}
+
+      {pageInfo ? (
+        <nav aria-label="Task pagination" className={styles.pagination}>
+          <span>
+            {pageInfo.total === 0
+              ? "No tasks"
+              : `${pageInfo.offset + 1}-${Math.min(pageInfo.offset + tasks.length, pageInfo.total)} of ${pageInfo.total}`}
+          </span>
+          <div>
+            <button
+              aria-label="Previous tasks"
+              className={styles.iconButton}
+              disabled={isRefreshing || pageInfo.offset === 0}
+              onClick={() =>
+                void onChangeTaskPage(
+                  Math.max(0, pageInfo.offset - pageInfo.limit),
+                )
+              }
+              title="Previous page"
+              type="button"
+            >
+              <ChevronLeft aria-hidden="true" size={16} />
+            </button>
+            <button
+              aria-label="Next tasks"
+              className={styles.iconButton}
+              disabled={isRefreshing || !pageInfo.hasNextPage}
+              onClick={() =>
+                void onChangeTaskPage(pageInfo.offset + pageInfo.limit)
+              }
+              title="Next page"
+              type="button"
+            >
+              <ChevronRight aria-hidden="true" size={16} />
+            </button>
+          </div>
+        </nav>
+      ) : null}
     </main>
   );
 }
@@ -798,6 +1058,7 @@ function TaskControls({
   task,
   updatingTaskId,
   canUpdate,
+  onRestore,
 }: {
   onUpdateTask: (
     task: Task,
@@ -808,6 +1069,7 @@ function TaskControls({
   task: Task;
   updatingTaskId?: string;
   canUpdate: boolean;
+  onRestore?: (task: Task) => Promise<void>;
 }) {
   return (
     <div className={styles.taskCardControls}>
@@ -847,6 +1109,7 @@ function TaskControls({
           ))}
         </select>
       </label>
+      {onRestore ? <button className={styles.textButton} onClick={() => void onRestore(task)} type="button">Restore</button> : null}
     </div>
   );
 }

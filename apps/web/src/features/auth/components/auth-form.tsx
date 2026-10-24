@@ -4,16 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-import { ApiClientError, login, register } from "@/lib/api-client";
-import styles from "@/components/ui.module.css";
+import { ApiClientError, login, register } from "@/shared/lib/api-client";
+import styles from "@/shared/styles/ui.module.css";
 
 type AuthMode = "login" | "register";
 
-export function AuthForm({ mode }: { mode: AuthMode }) {
+export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isRegister = mode === "register";
+  const nextQuery = next ? `?next=${encodeURIComponent(next)}` : "";
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +36,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         await login({ email, password });
       }
 
-      router.replace("/workspaces");
+      router.replace(getPostAuthPath(next));
       router.refresh();
     } catch (caughtError) {
       if (caughtError instanceof ApiClientError) {
@@ -119,7 +120,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
         <p className={styles.authSwitch}>
           {isRegister ? "Already have an account?" : "New to DevFlow?"}{" "}
-          <Link href={isRegister ? "/login" : "/register"}>
+          <Link href={`${isRegister ? "/login" : "/register"}${nextQuery}`}>
             {isRegister ? "Sign in" : "Create an account"}
           </Link>
         </p>
@@ -131,4 +132,10 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       </section>
     </main>
   );
+}
+
+function getPostAuthPath(next: string | null | undefined) {
+  return next?.startsWith("/") && !next.startsWith("//")
+    ? next
+    : "/workspaces";
 }
