@@ -34,6 +34,7 @@ const assignableRoles: WorkspaceMemberAssignableRole[] = [
   "member",
   "viewer",
 ];
+const manageableStatuses = ["active", "suspended"] as const;
 
 export function WorkspaceMembers() {
   const params = useParams<{ workspaceId: string }>();
@@ -140,6 +141,34 @@ export function WorkspaceMembers() {
         caughtError instanceof ApiClientError
           ? caughtError.message
           : "Unable to update the member role.",
+      );
+    } finally {
+      setUpdatingMemberId(undefined);
+    }
+  }
+
+  async function onStatusChange(
+    member: WorkspaceMember,
+    status: (typeof manageableStatuses)[number],
+  ) {
+    setError(undefined);
+    setUpdatingMemberId(member.userId);
+    try {
+      const response = await updateWorkspaceMember(
+        params.workspaceId,
+        member.userId,
+        { status },
+      );
+      setMembers((current) =>
+        current.map((item) =>
+          item.userId === member.userId ? response.member : item,
+        ),
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the member status.",
       );
     } finally {
       setUpdatingMemberId(undefined);
@@ -312,7 +341,9 @@ export function WorkspaceMembers() {
       >
         <div className={styles.sectionHeading}>
           <h2 id="members-title">Members</h2>
-          <p>{members.length} active</p>
+          <p>
+            {members.filter((member) => member.status === "active").length} active
+          </p>
         </div>
         <div className={styles.memberList}>
           {members.map((member) => (
@@ -342,6 +373,22 @@ export function WorkspaceMembers() {
                       </option>
                     ))}
                   </select>
+                  <select
+                    disabled={updatingMemberId === member.userId}
+                    onChange={(event) =>
+                      void onStatusChange(
+                        member,
+                        event.target.value as (typeof manageableStatuses)[number],
+                      )
+                    }
+                    value={member.status}
+                  >
+                    {manageableStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     className={styles.textButton}
                     disabled={removingMemberId === member.userId}
@@ -352,7 +399,12 @@ export function WorkspaceMembers() {
                   </button>
                 </div>
               ) : (
-                <span className={styles.roleBadge}>{member.role}</span>
+                <div className={styles.memberBadges}>
+                  <span className={styles.roleBadge}>{member.role}</span>
+                  {member.status !== "active" ? (
+                    <span className={styles.roleBadge}>{member.status}</span>
+                  ) : null}
+                </div>
               )}
             </div>
           ))}

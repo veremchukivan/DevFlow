@@ -296,6 +296,12 @@
 .memberActions select {
   max-width: 150px;
 }
+.memberBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
 .projectDescription {
   grid-column: span 2;
 }
