@@ -443,10 +443,45 @@
   margin-top: 34px;
 }
 .sprintToolbar {
-  align-items: end;
+  align-items: flex-end;
   display: flex;
   gap: 8px;
-  margin-top: 24px;
+  margin-top: 18px;
+}
+.activeSprintPanel {
+  align-items: flex-start;
+  background: #eef8f6;
+  border: 1px solid #b7ded7;
+  border-left: 4px solid var(--brand);
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-top: 28px;
+  min-height: 132px;
+  padding: 22px 24px;
+}
+.activeSprintPanel h2 {
+  font-size: 22px;
+  margin: 4px 0 0;
+}
+.activeSprintPanel p:not(.eyebrow) {
+  color: var(--muted);
+  margin: 7px 0 0;
+}
+.activeSprintPanel .activeSprintGoal {
+  color: var(--ink);
+  max-width: 760px;
+}
+.boardSettingsSection {
+  display: grid;
+  gap: 14px;
+}
+.boardSettingsSection .sectionHeading {
+  margin-bottom: 4px;
+}
+.boardSettingsSection .sectionHeading p {
+  color: var(--muted);
+  margin: 6px 0 0;
 }
 .sprintToolbar label,
 .modalForm label {
@@ -1242,6 +1277,9 @@
   }
   .workspaceHomeHeader,
   .projectBoardHeader {
+    flex-direction: column;
+  }
+  .activeSprintPanel {
     flex-direction: column;
   }
   .workspaceForm,

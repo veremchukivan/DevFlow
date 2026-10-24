@@ -115,6 +115,7 @@ export function ProjectBoard() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showBoardSettings, setShowBoardSettings] = useState(false);
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
@@ -134,7 +135,16 @@ export function ProjectBoard() {
   const canDeleteTasks = role ? can(role, "task:delete") : false;
   const canUpdateProject = role ? can(role, "project:update") : false;
   const canDeleteProject = role ? can(role, "project:delete") : false;
-  const selectedSprint = sprints.find((sprint) => sprint.id === selectedSprintId);
+  const selectedSprint = sprints.find(
+    (sprint) => sprint.id === selectedSprintId,
+  );
+  const activeSprint = sprints.find((sprint) => sprint.status === "active");
+  const completedSprints = sprints.filter(
+    (sprint) => sprint.status === "completed",
+  );
+  const plannedSprints = sprints.filter(
+    (sprint) => sprint.status === "planning",
+  );
   const activeFilterCount = [
     priority,
     labelId,
@@ -155,13 +165,14 @@ export function ProjectBoard() {
       getWorkspace(workspaceId),
       getProjectSprints(workspaceId, projectId),
     ])
-      .then(async ([
+      .then(
+        async ([
           projectResponse,
           labelsResponse,
           membersResponse,
           workspaceResponse,
           sprintsResponse,
-      ]) => {
+        ]) => {
           if (!active) return;
           const activeSprint = sprintsResponse.sprints.find(
             (sprint) => sprint.status === "active",
@@ -185,7 +196,8 @@ export function ProjectBoard() {
             ),
           );
           setRole(workspaceResponse.workspace.role);
-      })
+        },
+      )
       .catch((caughtError: unknown) => {
         if (
           caughtError instanceof ApiClientError &&
@@ -456,7 +468,9 @@ export function ProjectBoard() {
   async function onDeleteSprint() {
     if (
       !selectedSprint ||
-      !window.confirm("Delete this sprint? Tasks must be moved to the backlog first.")
+      !window.confirm(
+        "Delete this sprint? Tasks must be moved to the backlog first.",
+      )
     ) {
       return;
     }
@@ -654,10 +668,7 @@ export function ProjectBoard() {
     }
   }
 
-  async function onUpdateTask(
-    task: Task,
-    input: UpdateTaskRequest,
-  ) {
+  async function onUpdateTask(task: Task, input: UpdateTaskRequest) {
     setError(undefined);
     setUpdatingTaskId(task.id);
 
@@ -732,7 +743,12 @@ export function ProjectBoard() {
         selectedTask.version,
       );
       const labelIds = form.getAll("labelIds").map(String);
-      await replaceTaskLabels(workspaceId, projectId, selectedTask.id, labelIds);
+      await replaceTaskLabels(
+        workspaceId,
+        projectId,
+        selectedTask.id,
+        labelIds,
+      );
       setTasks((current) =>
         current.map((task) =>
           task.id === response.task.id ? response.task : task,
@@ -830,6 +846,18 @@ export function ProjectBoard() {
                   <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
                   Project settings
                 </button>
+                <button
+                  disabled={!canUpdateProject}
+                  onClick={() => {
+                    setShowProjectMenu(false);
+                    setShowBoardSettings(true);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <LayoutGrid aria-hidden="true" size={17} strokeWidth={1.8} />
+                  Board settings
+                </button>
               </div>
             ) : null}
           </div>
@@ -843,20 +871,86 @@ export function ProjectBoard() {
           </button>
         </div>
       </header>
+      <section
+        className={styles.activeSprintPanel}
+        aria-labelledby="active-sprint-title"
+      >
+        <div>
+          <p className={styles.eyebrow}>Active sprint</p>
+          <h2 id="active-sprint-title">
+            {activeSprint ? activeSprint.name : "No active sprint"}
+          </h2>
+          <p>
+            {activeSprint
+              ? formatSprintPeriod(activeSprint.startDate, activeSprint.endDate)
+              : "Start a sprint when the team is ready to focus on a new goal."}
+          </p>
+          {activeSprint?.goal ? (
+            <p className={styles.activeSprintGoal}>{activeSprint.goal}</p>
+          ) : null}
+        </div>
+        {activeSprint ? (
+          <button
+            aria-label="Active sprint settings"
+            className={styles.secondaryButton}
+            disabled={!canUpdateProject}
+            onClick={() => {
+              if (selectedSprintId !== activeSprint.id) {
+                void onSelectSprint(activeSprint.id).then(() =>
+                  setShowSprintSettings(true),
+                );
+                return;
+              }
+              setShowSprintSettings(true);
+            }}
+            type="button"
+          >
+            <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+            Manage sprint
+          </button>
+        ) : (
+          <button
+            className={styles.primaryButton}
+            disabled={!canUpdateProject}
+            onClick={() => setShowSprintForm(true)}
+            type="button"
+          >
+            Start sprint
+          </button>
+        )}
+      </section>
       <div className={styles.sprintToolbar}>
         <label>
-          <span>Board</span>
+          <span>View tasks</span>
           <select
             disabled={isRefreshing}
             onChange={(event) => void onSelectSprint(event.target.value)}
             value={selectedSprintId}
           >
-            <option value="backlog">Backlog</option>
-            {sprints.map((sprint) => (
-              <option key={sprint.id} value={sprint.id}>
-                {sprint.name} ({sprint.status})
+            {activeSprint ? (
+              <option value={activeSprint.id}>
+                Active sprint: {activeSprint.name}
               </option>
-            ))}
+            ) : null}
+            <option value="backlog">Backlog</option>
+            {plannedSprints.length ? (
+              <optgroup label="Planned sprints">
+                {plannedSprints.map((sprint) => (
+                  <option key={sprint.id} value={sprint.id}>
+                    {sprint.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {completedSprints.length ? (
+              <optgroup label="Past sprints">
+                {completedSprints.map((sprint) => (
+                  <option key={sprint.id} value={sprint.id}>
+                    {sprint.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         </label>
         <button
@@ -1004,7 +1098,10 @@ export function ProjectBoard() {
           <section className={styles.projectIconSettings}>
             <span className={styles.projectIcon}>
               {project.iconUrl ? (
-                <img alt="" src={getApiAssetUrl(project.iconUrl) ?? undefined} />
+                <img
+                  alt=""
+                  src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                />
               ) : (
                 project.key.slice(0, 1)
               )}
@@ -1032,162 +1129,51 @@ export function ProjectBoard() {
             </div>
           </section>
           <form className={styles.taskForm} onSubmit={onProjectSettingsSubmit}>
-          <label>
-            <span>Project name</span>
-            <input
-              defaultValue={project.name}
-              maxLength={160}
-              minLength={2}
-              name="name"
-              required
-            />
-          </label>
-          <label>
-            <span>Key</span>
-            <input
-              defaultValue={project.key}
-              maxLength={12}
-              name="key"
-              required
-            />
-          </label>
-          <label className={styles.taskDescriptionField}>
-            <span>Description</span>
-            <textarea
-              defaultValue={project.description ?? ""}
-              maxLength={2000}
-              name="description"
-              rows={3}
-            />
-          </label>
-          <div className={styles.formActions}>
-            <button
-              className={styles.primaryButton}
-              disabled={isSavingProject}
-              type="submit"
-            >
-              {isSavingProject ? "Saving" : "Save settings"}
-            </button>
-            <button
-              className={styles.textButton}
-              onClick={() => setShowProjectSettings(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-          </div>
-          </form>
-          <section
-          className={styles.workspaceSection}
-          aria-labelledby="statuses-title"
-        >
-          <div className={styles.sectionHeading}>
-            <h2 id="statuses-title">Board statuses</h2>
-          </div>
-          {project.statuses.map((status, index) => (
-            <form
-              className={styles.memberInviteForm}
-              key={status.id}
-              onSubmit={(event) => void onUpdateStatus(event, status.id)}
-            >
-              <label>
-                <span>Name</span>
-                <input
-                  defaultValue={status.name}
-                  maxLength={80}
-                  name="name"
-                  required
-                />
-              </label>
-              <label>
-                <span>Category</span>
-                <select defaultValue={status.category} name="category">
-                  <option value="todo">To do</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="done">Done</option>
-                </select>
-              </label>
-              <label>
-                <span>Color</span>
-                <input
-                  defaultValue={status.color}
-                  name="color"
-                  pattern="#[0-9A-Fa-f]{6}"
-                  required
-                />
-              </label>
-              <button
-                className={styles.secondaryButton}
-                disabled={isSavingStatus}
-                type="submit"
-              >
-                Save
-              </button>
-              <button
-                className={styles.textButton}
-                disabled={isSavingStatus}
-                onClick={() => void onDeleteStatus(status.id)}
-                type="button"
-              >
-                Remove
-              </button>
-              <button
-                aria-label={`Move ${status.name} left`}
-                className={styles.iconButton}
-                disabled={isSavingStatus || isReorderingStatuses || index === 0}
-                onClick={() => void onMoveStatus(status.id, -1)}
-                title="Move left"
-                type="button"
-              >
-                <ChevronLeft aria-hidden="true" size={16} />
-              </button>
-              <button
-                aria-label={`Move ${status.name} right`}
-                className={styles.iconButton}
-                disabled={
-                  isSavingStatus ||
-                  isReorderingStatuses ||
-                  index === project.statuses.length - 1
-                }
-                onClick={() => void onMoveStatus(status.id, 1)}
-                title="Move right"
-                type="button"
-              >
-                <ChevronRight aria-hidden="true" size={16} />
-              </button>
-            </form>
-          ))}
-          <form className={styles.memberInviteForm} onSubmit={onCreateStatus}>
             <label>
-              <span>Name</span>
-              <input maxLength={80} name="name" required />
-            </label>
-            <label>
-              <span>Category</span>
-              <select defaultValue="todo" name="category">
-                <option value="todo">To do</option>
-                <option value="in_progress">In progress</option>
-                <option value="done">Done</option>
-              </select>
-            </label>
-            <label>
-              <span>Color</span>
+              <span>Project name</span>
               <input
-                defaultValue="#64748b"
-                name="color"
-                pattern="#[0-9A-Fa-f]{6}"
+                defaultValue={project.name}
+                maxLength={160}
+                minLength={2}
+                name="name"
                 required
               />
             </label>
-            <button
-              className={styles.primaryButton}
-              disabled={isSavingStatus}
-              type="submit"
-            >
-              Add status
-            </button>
+            <label>
+              <span>Key</span>
+              <input
+                defaultValue={project.key}
+                maxLength={12}
+                name="key"
+                required
+              />
+            </label>
+            <label className={styles.taskDescriptionField}>
+              <span>Description</span>
+              <textarea
+                defaultValue={project.description ?? ""}
+                maxLength={2000}
+                name="description"
+                rows={3}
+              />
+            </label>
+            <div className={styles.formActions}>
+              <button
+                className={styles.primaryButton}
+                disabled={isSavingProject}
+                type="submit"
+              >
+                {isSavingProject ? "Saving" : "Save settings"}
+              </button>
+              <button
+                className={styles.textButton}
+                onClick={() => setShowProjectSettings(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
-          </section>
           <section className={styles.workspaceSection}>
             <div className={styles.sectionHeading}>
               <div>
@@ -1203,6 +1189,131 @@ export function ProjectBoard() {
                 Delete project
               </button>
             </div>
+          </section>
+        </Modal>
+      ) : null}
+      {showBoardSettings ? (
+        <Modal
+          isOpen={showBoardSettings}
+          onClose={() => setShowBoardSettings(false)}
+          title="Board settings"
+          width="wide"
+        >
+          <section
+            className={styles.boardSettingsSection}
+            aria-labelledby="statuses-title"
+          >
+            <div className={styles.sectionHeading}>
+              <div>
+                <h2 id="statuses-title">Columns</h2>
+                <p>Columns are shared by every sprint in this project.</p>
+              </div>
+            </div>
+            {project.statuses.map((status, index) => (
+              <form
+                className={styles.memberInviteForm}
+                key={status.id}
+                onSubmit={(event) => void onUpdateStatus(event, status.id)}
+              >
+                <label>
+                  <span>Name</span>
+                  <input
+                    defaultValue={status.name}
+                    maxLength={80}
+                    name="name"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>Category</span>
+                  <select defaultValue={status.category} name="category">
+                    <option value="todo">To do</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="done">Done</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Color</span>
+                  <input
+                    defaultValue={status.color}
+                    name="color"
+                    pattern="#[0-9A-Fa-f]{6}"
+                    required
+                  />
+                </label>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={isSavingStatus}
+                  type="submit"
+                >
+                  Save
+                </button>
+                <button
+                  className={styles.textButton}
+                  disabled={isSavingStatus}
+                  onClick={() => void onDeleteStatus(status.id)}
+                  type="button"
+                >
+                  Remove
+                </button>
+                <button
+                  aria-label={`Move ${status.name} left`}
+                  className={styles.iconButton}
+                  disabled={
+                    isSavingStatus || isReorderingStatuses || index === 0
+                  }
+                  onClick={() => void onMoveStatus(status.id, -1)}
+                  title="Move left"
+                  type="button"
+                >
+                  <ChevronLeft aria-hidden="true" size={16} />
+                </button>
+                <button
+                  aria-label={`Move ${status.name} right`}
+                  className={styles.iconButton}
+                  disabled={
+                    isSavingStatus ||
+                    isReorderingStatuses ||
+                    index === project.statuses.length - 1
+                  }
+                  onClick={() => void onMoveStatus(status.id, 1)}
+                  title="Move right"
+                  type="button"
+                >
+                  <ChevronRight aria-hidden="true" size={16} />
+                </button>
+              </form>
+            ))}
+            <form className={styles.memberInviteForm} onSubmit={onCreateStatus}>
+              <label>
+                <span>Name</span>
+                <input maxLength={80} name="name" required />
+              </label>
+              <label>
+                <span>Category</span>
+                <select defaultValue="todo" name="category">
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+              <label>
+                <span>Color</span>
+                <input
+                  defaultValue="#64748b"
+                  name="color"
+                  pattern="#[0-9A-Fa-f]{6}"
+                  required
+                />
+              </label>
+              <button
+                className={styles.primaryButton}
+                disabled={isSavingStatus}
+                type="submit"
+              >
+                Add column
+              </button>
+            </form>
           </section>
         </Modal>
       ) : null}
@@ -1328,7 +1439,9 @@ export function ProjectBoard() {
             <label>
               <span>Task state</span>
               <select
-                onChange={(event) => setShowArchived(event.target.value === "archived")}
+                onChange={(event) =>
+                  setShowArchived(event.target.value === "archived")
+                }
                 value={showArchived ? "archived" : "active"}
               >
                 <option value="active">Active tasks</option>
@@ -1362,7 +1475,11 @@ export function ProjectBoard() {
               </select>
             </label>
             <div className={styles.formActions}>
-              <button className={styles.primaryButton} disabled={isRefreshing} type="submit">
+              <button
+                className={styles.primaryButton}
+                disabled={isRefreshing}
+                type="submit"
+              >
                 Apply filters
               </button>
               <button
@@ -1429,7 +1546,8 @@ export function ProjectBoard() {
                     >
                       <div className={styles.taskCardMeta}>
                         <span>
-                          {task.key} <span className={styles.taskType}>{task.type}</span>
+                          {task.key}{" "}
+                          <span className={styles.taskType}>{task.type}</span>
                         </span>
                         <span
                           className={`${styles.priority} ${priorityStyles[task.priority]}`}
@@ -1612,6 +1730,13 @@ export function ProjectBoard() {
   );
 }
 
+function formatSprintPeriod(startDate: string | null, endDate: string | null) {
+  if (startDate && endDate) return `${startDate} to ${endDate}`;
+  if (startDate) return `Started ${startDate}`;
+  if (endDate) return `Ends ${endDate}`;
+  return "Dates have not been set";
+}
+
 function TaskEditorModal({
   isSaving,
   labels,
@@ -1633,7 +1758,10 @@ function TaskEditorModal({
 }) {
   return (
     <Modal isOpen onClose={onClose} title={`${task.key} details`} width="wide">
-      <form className={styles.taskEditorForm} onSubmit={(event) => void onSubmit(event)}>
+      <form
+        className={styles.taskEditorForm}
+        onSubmit={(event) => void onSubmit(event)}
+      >
         <section className={styles.taskEditorMain}>
           <label>
             <span>Title</span>
@@ -1710,7 +1838,10 @@ function TaskEditorModal({
           </label>
           <label>
             <span>Assignee</span>
-            <select defaultValue={task.assigneeUserId ?? ""} name="assigneeUserId">
+            <select
+              defaultValue={task.assigneeUserId ?? ""}
+              name="assigneeUserId"
+            >
               <option value="">Unassigned</option>
               {members.map((member) => (
                 <option key={member.userId} value={member.userId}>
@@ -1732,14 +1863,27 @@ function TaskEditorModal({
           </label>
           <label>
             <span>Due date</span>
-            <input defaultValue={task.dueDate ?? ""} name="dueDate" type="date" />
+            <input
+              defaultValue={task.dueDate ?? ""}
+              name="dueDate"
+              type="date"
+            />
           </label>
         </aside>
         <div className={styles.formActions}>
-          <button className={styles.primaryButton} disabled={isSaving} type="submit">
+          <button
+            className={styles.primaryButton}
+            disabled={isSaving}
+            type="submit"
+          >
             {isSaving ? "Saving" : "Save changes"}
           </button>
-          <button className={styles.textButton} disabled={isSaving} onClick={onClose} type="button">
+          <button
+            className={styles.textButton}
+            disabled={isSaving}
+            onClick={onClose}
+            type="button"
+          >
             Cancel
           </button>
         </div>
@@ -1757,10 +1901,7 @@ function TaskControls({
   canUpdate,
   onRestore,
 }: {
-  onUpdateTask: (
-    task: Task,
-    input: UpdateTaskRequest,
-  ) => Promise<void>;
+  onUpdateTask: (task: Task, input: UpdateTaskRequest) => Promise<void>;
   priorities: TaskPriority[];
   project: Project;
   task: Task;
@@ -1836,7 +1977,10 @@ function QuickTaskForm({
   statusId: string;
 }) {
   return (
-    <form className={styles.quickTaskForm} onSubmit={(event) => void onSubmit(event)}>
+    <form
+      className={styles.quickTaskForm}
+      onSubmit={(event) => void onSubmit(event)}
+    >
       <input name="statusId" type="hidden" value={statusId} />
       <label className={styles.srOnly} htmlFor={`task-title-${statusId}`}>
         Task title
