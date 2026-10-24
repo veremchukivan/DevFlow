@@ -10,6 +10,7 @@ import {
   CornerDownLeft,
   LayoutGrid,
   List,
+  Settings,
   UserRound,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ import {
   ApiClientError,
   createTask,
   createProjectSprint,
+  deleteProjectSprint,
   restoreTask,
   createProjectStatus,
   deleteProject,
@@ -27,9 +29,11 @@ import {
   getWorkspaceLabels,
   getWorkspaceMembers,
   getWorkspace,
+  replaceTaskLabels,
   reorderProjectStatuses,
   updateTask,
   updateProject,
+  updateProjectSprint,
   updateProjectStatus,
 } from "@/shared/lib/api-client";
 import type {
@@ -38,6 +42,7 @@ import type {
   Project,
   Task,
   TaskType,
+  UpdateTaskRequest,
   TaskPriority,
   TaskSortField,
   TaskSortOrder,
@@ -83,6 +88,7 @@ export function ProjectBoard() {
     "backlog",
   );
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task>();
   const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [filters, setFilters] = useState<BoardFilters>({});
   const [search, setSearch] = useState("");
@@ -105,6 +111,7 @@ export function ProjectBoard() {
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
+  const [showSprintSettings, setShowSprintSettings] = useState(false);
   const [isSavingSprint, setIsSavingSprint] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
@@ -119,6 +126,7 @@ export function ProjectBoard() {
   const canDeleteTasks = role ? can(role, "task:delete") : false;
   const canUpdateProject = role ? can(role, "project:update") : false;
   const canDeleteProject = role ? can(role, "project:delete") : false;
+  const selectedSprint = sprints.find((sprint) => sprint.id === selectedSprintId);
 
   useEffect(() => {
     let active = true;
@@ -404,6 +412,74 @@ export function ProjectBoard() {
     await loadTasks(nextFilters);
   }
 
+  async function onSprintSettingsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedSprint) return;
+
+    setError(undefined);
+    setIsSavingSprint(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await updateProjectSprint(
+        workspaceId,
+        projectId,
+        selectedSprint.id,
+        {
+          endDate: String(form.get("endDate") ?? "") || null,
+          goal: String(form.get("goal") ?? "").trim() || null,
+          name: String(form.get("name") ?? ""),
+          startDate: String(form.get("startDate") ?? "") || null,
+          status: form.get("status") as ProjectSprint["status"],
+        },
+      );
+      setSprints((current) =>
+        current.map((sprint) =>
+          sprint.id === response.sprint.id ? response.sprint : sprint,
+        ),
+      );
+      setShowSprintSettings(false);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update sprint.",
+      );
+    } finally {
+      setIsSavingSprint(false);
+    }
+  }
+
+  async function onDeleteSprint() {
+    if (
+      !selectedSprint ||
+      !window.confirm("Delete this sprint? Tasks must be moved to the backlog first.")
+    ) {
+      return;
+    }
+
+    setError(undefined);
+    setIsSavingSprint(true);
+    try {
+      await deleteProjectSprint(workspaceId, projectId, selectedSprint.id);
+      const nextFilters = { ...filters, sprintId: "backlog" as const };
+      setSprints((current) =>
+        current.filter((sprint) => sprint.id !== selectedSprint.id),
+      );
+      setSelectedSprintId("backlog");
+      setFilters(nextFilters);
+      setShowSprintSettings(false);
+      await loadTasks(nextFilters);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete sprint.",
+      );
+    } finally {
+      setIsSavingSprint(false);
+    }
+  }
+
   async function onProjectSettingsSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!project) return;
@@ -539,7 +615,7 @@ export function ProjectBoard() {
 
   async function onUpdateTask(
     task: Task,
-    input: { priority?: TaskPriority; statusId?: string },
+    input: UpdateTaskRequest,
   ) {
     setError(undefined);
     setUpdatingTaskId(task.id);
@@ -579,6 +655,64 @@ export function ProjectBoard() {
         caughtError instanceof ApiClientError
           ? caughtError.message
           : "Unable to update the task. Try again.",
+      );
+    } finally {
+      setUpdatingTaskId(undefined);
+    }
+  }
+
+  async function onTaskEditorSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedTask) return;
+
+    setError(undefined);
+    setUpdatingTaskId(selectedTask.id);
+    const form = new FormData(event.currentTarget);
+    const assigneeUserId = String(form.get("assigneeUserId") ?? "");
+    const dueDate = String(form.get("dueDate") ?? "");
+    const sprintId = String(form.get("sprintId") ?? "");
+    const description = String(form.get("description") ?? "").trim();
+
+    try {
+      const response = await updateTask(
+        workspaceId,
+        projectId,
+        selectedTask.id,
+        {
+          assigneeUserId: assigneeUserId || null,
+          description: description || null,
+          dueDate: dueDate || null,
+          priority: form.get("priority") as TaskPriority,
+          sprintId: sprintId || null,
+          statusId: String(form.get("statusId")),
+          title: String(form.get("title") ?? ""),
+          type: form.get("type") as TaskType,
+        },
+        selectedTask.version,
+      );
+      const labelIds = form.getAll("labelIds").map(String);
+      await replaceTaskLabels(workspaceId, projectId, selectedTask.id, labelIds);
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === response.task.id ? response.task : task,
+        ),
+      );
+      setSelectedTask(undefined);
+      await loadTasks(filters, pageInfo?.offset);
+    } catch (caughtError) {
+      if (
+        caughtError instanceof ApiClientError &&
+        caughtError.code === "TASK_VERSION_CONFLICT"
+      ) {
+        await loadTasks(filters, pageInfo?.offset);
+        setSelectedTask(undefined);
+        setError("This task changed elsewhere. The latest version is shown.");
+        return;
+      }
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the task.",
       );
     } finally {
       setUpdatingTaskId(undefined);
@@ -654,6 +788,16 @@ export function ProjectBoard() {
             ))}
           </select>
         </label>
+        <button
+          aria-label="Sprint settings"
+          className={styles.iconButton}
+          disabled={!canUpdateProject || !selectedSprint}
+          onClick={() => setShowSprintSettings(true)}
+          title="Sprint settings"
+          type="button"
+        >
+          <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+        </button>
       </div>
       {showSprintForm ? (
         <Modal
@@ -697,6 +841,87 @@ export function ProjectBoard() {
             </div>
           </form>
         </Modal>
+      ) : null}
+      {showSprintSettings && selectedSprint ? (
+        <Modal
+          isOpen={showSprintSettings}
+          onClose={() => setShowSprintSettings(false)}
+          title="Sprint settings"
+        >
+          <form className={styles.modalForm} onSubmit={onSprintSettingsSubmit}>
+            <label>
+              <span>Sprint name</span>
+              <input
+                defaultValue={selectedSprint.name}
+                maxLength={120}
+                name="name"
+                required
+              />
+            </label>
+            <label>
+              <span>Goal</span>
+              <textarea
+                defaultValue={selectedSprint.goal ?? ""}
+                maxLength={2000}
+                name="goal"
+                rows={3}
+              />
+            </label>
+            <label>
+              <span>Status</span>
+              <select defaultValue={selectedSprint.status} name="status">
+                <option value="planning">Planning</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+              </select>
+            </label>
+            <label>
+              <span>Start date</span>
+              <input
+                defaultValue={selectedSprint.startDate ?? ""}
+                name="startDate"
+                type="date"
+              />
+            </label>
+            <label>
+              <span>End date</span>
+              <input
+                defaultValue={selectedSprint.endDate ?? ""}
+                name="endDate"
+                type="date"
+              />
+            </label>
+            <div className={styles.formActions}>
+              <button
+                className={styles.primaryButton}
+                disabled={isSavingSprint}
+                type="submit"
+              >
+                {isSavingSprint ? "Saving" : "Save sprint"}
+              </button>
+              <button
+                className={styles.textButton}
+                disabled={isSavingSprint}
+                onClick={() => void onDeleteSprint()}
+                type="button"
+              >
+                Delete sprint
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+      {selectedTask ? (
+        <TaskEditorModal
+          isSaving={updatingTaskId === selectedTask.id}
+          labels={labels}
+          members={members}
+          onClose={() => setSelectedTask(undefined)}
+          onSubmit={onTaskEditorSubmit}
+          project={project}
+          sprints={sprints}
+          task={selectedTask}
+        />
       ) : null}
       {showProjectSettings ? (
         <Modal
@@ -1062,6 +1287,7 @@ export function ProjectBoard() {
                     <article
                       className={styles.taskCard}
                       draggable={canUpdateTasks}
+                      onClick={() => setSelectedTask(task)}
                       onDragEnd={() => {
                         setDraggedTaskId(undefined);
                         setDropStatusId(undefined);
@@ -1074,7 +1300,9 @@ export function ProjectBoard() {
                       key={task.id}
                     >
                       <div className={styles.taskCardMeta}>
-                        <span>{task.key}</span>
+                        <span>
+                          {task.key} <span className={styles.taskType}>{task.type}</span>
+                        </span>
                         <span
                           className={`${styles.priority} ${priorityStyles[task.priority]}`}
                         >
@@ -1082,12 +1310,12 @@ export function ProjectBoard() {
                         </span>
                       </div>
                       <h3>
-                        <Link
-                          className={styles.taskLink}
-                          href={`/workspaces/${workspaceId}/projects/${projectId}/tasks/${task.id}`}
+                        <button
+                          className={styles.taskTitleButton}
+                          type="button"
                         >
                           {task.title}
-                        </Link>
+                        </button>
                       </h3>
                       {task.description ? <p>{task.description}</p> : null}
                       {task.labels.length ? (
@@ -1256,6 +1484,142 @@ export function ProjectBoard() {
   );
 }
 
+function TaskEditorModal({
+  isSaving,
+  labels,
+  members,
+  onClose,
+  onSubmit,
+  project,
+  sprints,
+  task,
+}: {
+  isSaving: boolean;
+  labels: Label[];
+  members: WorkspaceMember[];
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  project: Project;
+  sprints: ProjectSprint[];
+  task: Task;
+}) {
+  return (
+    <Modal isOpen onClose={onClose} title={`${task.key} details`} width="wide">
+      <form className={styles.taskEditorForm} onSubmit={(event) => void onSubmit(event)}>
+        <section className={styles.taskEditorMain}>
+          <label>
+            <span>Title</span>
+            <input
+              autoFocus
+              defaultValue={task.title}
+              maxLength={200}
+              minLength={2}
+              name="title"
+              required
+            />
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea
+              defaultValue={task.description ?? ""}
+              maxLength={10000}
+              name="description"
+              rows={9}
+            />
+          </label>
+          <fieldset className={styles.taskLabelsFieldset}>
+            <legend>Labels</legend>
+            {labels.length ? (
+              labels.map((label) => (
+                <label key={label.id}>
+                  <input
+                    defaultChecked={task.labels.some(
+                      (taskLabel) => taskLabel.id === label.id,
+                    )}
+                    name="labelIds"
+                    type="checkbox"
+                    value={label.id}
+                  />
+                  <span style={{ backgroundColor: label.color }} />
+                  {label.name}
+                </label>
+              ))
+            ) : (
+              <p className={styles.emptyState}>No workspace labels yet.</p>
+            )}
+          </fieldset>
+        </section>
+        <aside className={styles.taskEditorDetails}>
+          <label>
+            <span>Status</span>
+            <select defaultValue={task.statusId} name="statusId">
+              {project.statuses.map((status) => (
+                <option key={status.id} value={status.id}>
+                  {status.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Type</span>
+            <select defaultValue={task.type} name="type">
+              {taskTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type[0]!.toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Priority</span>
+            <select defaultValue={task.priority} name="priority">
+              {priorities.map((priority) => (
+                <option key={priority} value={priority}>
+                  {priority[0]!.toUpperCase() + priority.slice(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Assignee</span>
+            <select defaultValue={task.assigneeUserId ?? ""} name="assigneeUserId">
+              <option value="">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.user.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Sprint</span>
+            <select defaultValue={task.sprintId ?? ""} name="sprintId">
+              <option value="">Backlog</option>
+              {sprints.map((sprint) => (
+                <option key={sprint.id} value={sprint.id}>
+                  {sprint.name} ({sprint.status})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Due date</span>
+            <input defaultValue={task.dueDate ?? ""} name="dueDate" type="date" />
+          </label>
+        </aside>
+        <div className={styles.formActions}>
+          <button className={styles.primaryButton} disabled={isSaving} type="submit">
+            {isSaving ? "Saving" : "Save changes"}
+          </button>
+          <button className={styles.textButton} disabled={isSaving} onClick={onClose} type="button">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function TaskControls({
   onUpdateTask,
   priorities,
@@ -1267,7 +1631,7 @@ function TaskControls({
 }: {
   onUpdateTask: (
     task: Task,
-    input: { priority?: TaskPriority; statusId?: string },
+    input: UpdateTaskRequest,
   ) => Promise<void>;
   priorities: TaskPriority[];
   project: Project;
@@ -1277,7 +1641,10 @@ function TaskControls({
   onRestore?: (task: Task) => Promise<void>;
 }) {
   return (
-    <div className={styles.taskCardControls}>
+    <div
+      className={styles.taskCardControls}
+      onClick={(event) => event.stopPropagation()}
+    >
       <label>
         <span className={styles.srOnly}>Status</span>
         <select

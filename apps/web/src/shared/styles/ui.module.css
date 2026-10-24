@@ -339,6 +339,7 @@
 .sprintToolbar {
   align-items: end;
   display: flex;
+  gap: 8px;
   margin-top: 24px;
 }
 .sprintToolbar label,
@@ -550,6 +551,10 @@
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
   padding: 16px;
 }
+.taskCard:not([draggable="true"]),
+.taskCard[draggable="true"] {
+  cursor: pointer;
+}
 .taskQuickAdd {
   align-items: center;
   background: transparent;
@@ -676,6 +681,69 @@
 .taskLink:hover {
   color: var(--brand);
   text-decoration: underline;
+}
+.taskTitleButton {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+.taskTitleButton:hover {
+  color: var(--brand);
+}
+.taskEditorForm {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+}
+.taskEditorMain,
+.taskEditorDetails {
+  align-content: start;
+  display: grid;
+  gap: 16px;
+}
+.taskEditorMain > label,
+.taskEditorDetails > label {
+  display: grid;
+  gap: 7px;
+}
+.taskEditorMain > label > span,
+.taskEditorDetails > label > span {
+  font-size: 13px;
+  font-weight: 700;
+}
+.taskEditorMain input,
+.taskEditorMain textarea,
+.taskEditorDetails input,
+.taskEditorDetails select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+  width: 100%;
+}
+.taskEditorMain textarea {
+  padding: 10px;
+  resize: vertical;
+}
+.taskEditorForm > .formActions {
+  grid-column: 1 / -1;
+}
+.taskEditorMain .taskLabelsFieldset {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.taskEditorMain .taskLabelsFieldset label span {
+  border-radius: 50%;
+  height: 9px;
+  width: 9px;
 }
 .taskDetail {
   max-width: 760px;
@@ -971,6 +1039,14 @@
   font-weight: 700;
   justify-content: space-between;
 }
+.taskType {
+  color: #64748b;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+  text-transform: uppercase;
+}
 .taskCardControls {
   display: grid;
   gap: 8px;
@@ -1059,5 +1135,8 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+  .taskEditorForm {
+    grid-template-columns: 1fr;
   }
 }
