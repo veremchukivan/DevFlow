@@ -1,0 +1,49 @@
+.page {
+  align-content: center;
+  display: grid;
+  justify-items: start;
+  margin: 0 auto;
+  max-width: 640px;
+  min-height: 60vh;
+  padding: 48px 32px;
+}
+.code {
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.page h1 {
+  font-size: 32px;
+  margin: 0;
+}
+.page p:not(.code) {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 14px 0 26px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.primaryLink,
+.secondaryButton {
+  align-items: center;
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 0 14px;
+  text-decoration: none;
+}
+.primaryLink {
+  background: var(--brand);
+  color: #fff;
+}
+.secondaryButton {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
