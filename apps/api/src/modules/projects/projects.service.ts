@@ -1,8 +1,10 @@
 import { randomBytes } from "node:crypto";
 import type {
   CreateProjectRequest,
+  CreateProjectStatusRequest,
   PaginationQuery,
-  UpdateProjectRequest
+  UpdateProjectRequest,
+  UpdateProjectStatusRequest
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
@@ -14,13 +16,18 @@ import {
 } from "./projects.policy.js";
 import {
   createProjectWithDefaultStatuses,
+  createProjectStatusInDb,
+  countProjectStatuses,
+  countTasksForProjectStatus,
+  deleteProjectStatusInDb,
   findActiveWorkspaceMembership,
   findProjectByKey,
   findProjectInWorkspace,
   listProjectsForWorkspace,
   listProjectStatuses,
   softDeleteProjectInDb,
-  updateProjectInDb
+  updateProjectInDb,
+  updateProjectStatusInDb
 } from "./projects.repository.js";
 
 const maxProjectKeyAttempts = 10;
@@ -204,6 +211,62 @@ export async function deleteProject(input: {
   const deleted = await softDeleteProjectInDb(input);
 
   if (!deleted) {
+    throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  }
+}
+
+export async function createProjectStatus(input: {
+  input: CreateProjectStatusRequest;
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  await createProjectStatusInDb(input);
+  return getProject(input);
+}
+
+export async function updateProjectStatus(input: {
+  input: UpdateProjectStatusRequest;
+  projectId: string;
+  statusId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  const status = await updateProjectStatusInDb(input);
+  if (!status) throw new AppError(404, "PROJECT_STATUS_NOT_FOUND", "Project status not found");
+  return getProject(input);
+}
+
+export async function deleteProjectStatus(input: {
+  projectId: string;
+  statusId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  if ((await countProjectStatuses(input)) <= 1) {
+    throw new AppError(400, "PROJECT_STATUS_LAST_FORBIDDEN", "A project must have at least one status");
+  }
+  if ((await countTasksForProjectStatus(input)) > 0) {
+    throw new AppError(409, "PROJECT_STATUS_TASKS_EXIST", "Move tasks out of this status before deleting it");
+  }
+  const status = await deleteProjectStatusInDb(input);
+  if (!status) throw new AppError(404, "PROJECT_STATUS_NOT_FOUND", "Project status not found");
+  return getProject(input);
+}
+
+async function requireProjectUpdatePermission(input: {
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateProject(membership.role)) {
+    throw new AppError(403, "PROJECT_UPDATE_FORBIDDEN", "You cannot update projects in this workspace");
+  }
+  if (!(await findProjectInWorkspace(input))) {
     throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
   }
 }

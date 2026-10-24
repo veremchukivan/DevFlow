@@ -1,8 +1,11 @@
 import {
   createProjectRequestSchema,
+  createProjectStatusRequestSchema,
   paginationQuerySchema,
   projectParamsSchema,
+  projectStatusParamsSchema,
   updateProjectRequestSchema,
+  updateProjectStatusRequestSchema,
   workspaceProjectsParamsSchema,
   type ProjectListResponse,
   type ProjectResponse
@@ -15,10 +18,13 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createProject,
+  createProjectStatus,
+  deleteProjectStatus,
   deleteProject,
   getProject,
   listProjects,
-  updateProject
+  updateProject,
+  updateProjectStatus
 } from "./projects.service.js";
 
 export const projectsRouter = Router({ mergeParams: true });
@@ -84,6 +90,33 @@ projectsRouter.delete("/:projectId", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
+  res.status(204).send();
+});
+
+projectsRouter.post("/:projectId/statuses", async (req, res) => {
+  const params = projectParamsSchema.parse(req.params);
+  const project = await createProjectStatus({
+    input: createProjectStatusRequestSchema.parse(req.body),
+    projectId: params.projectId,
+    userId: getAuthenticatedUserId(req),
+    workspaceId: params.workspaceId
+  });
+  res.status(201).json(toProjectResponse(project));
+});
+
+projectsRouter.patch("/:projectId/statuses/:statusId", async (req, res) => {
+  const params = projectStatusParamsSchema.parse(req.params);
+  const project = await updateProjectStatus({
+    input: updateProjectStatusRequestSchema.parse(req.body),
+    ...params,
+    userId: getAuthenticatedUserId(req)
+  });
+  res.json(toProjectResponse(project));
+});
+
+projectsRouter.delete("/:projectId/statuses/:statusId", async (req, res) => {
+  const params = projectStatusParamsSchema.parse(req.params);
+  await deleteProjectStatus({ ...params, userId: getAuthenticatedUserId(req) });
   res.status(204).send();
 });
 

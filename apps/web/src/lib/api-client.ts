@@ -18,7 +18,9 @@ import {
   createWorkspaceRequestSchema,
   updateWorkspaceRequestSchema,
   createProjectRequestSchema,
+  createProjectStatusRequestSchema,
   updateProjectRequestSchema,
+  updateProjectStatusRequestSchema,
   createTaskRequestSchema,
   projectListResponseSchema,
   publicWorkspaceInvitationResponseSchema,
@@ -54,7 +56,9 @@ import {
   type WorkspaceMemberResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
+  type CreateProjectStatusRequest,
   type UpdateProjectRequest,
+  type UpdateProjectStatusRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
   type CreateWorkspaceInvitationRequest,
@@ -533,6 +537,18 @@ export function deleteProject(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
     { method: "DELETE" },
   );
+}
+
+export function createProjectStatus(workspaceId: string, projectId: string, input: CreateProjectStatusRequest): Promise<ProjectResponse> {
+  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses`, { body: JSON.stringify(createProjectStatusRequestSchema.parse(input)), method: "POST" }, projectResponseSchema);
+}
+
+export function updateProjectStatus(workspaceId: string, projectId: string, statusId: string, input: UpdateProjectStatusRequest): Promise<ProjectResponse> {
+  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`, { body: JSON.stringify(updateProjectStatusRequestSchema.parse(input)), method: "PATCH" }, projectResponseSchema);
+}
+
+export function deleteProjectStatus(workspaceId: string, projectId: string, statusId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`, { method: "DELETE" });
 }
 
 type TaskListFilters = {

@@ -1,9 +1,14 @@
-import type { PaginationQuery } from "@devflow/shared";
+import type {
+  CreateProjectStatusRequest,
+  PaginationQuery,
+  UpdateProjectStatusRequest
+} from "@devflow/shared";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projects } from "../../core/db/schema/projects.js";
+import { tasks } from "../../core/db/schema/tasks.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
 
@@ -178,6 +183,112 @@ export async function listProjectStatuses(input: {
       )
     )
     .orderBy(asc(projectStatuses.position));
+}
+
+export async function createProjectStatusInDb(input: {
+  input: CreateProjectStatusRequest;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [positionRow] = await db
+    .select({ position: sql<number>`coalesce(max(${projectStatuses.position}), 0)` })
+    .from(projectStatuses)
+    .where(
+      and(
+        eq(projectStatuses.workspaceId, input.workspaceId),
+        eq(projectStatuses.projectId, input.projectId)
+      )
+    );
+
+  const [status] = await db
+    .insert(projectStatuses)
+    .values({
+      ...input.input,
+      isDefault: false,
+      position: (positionRow?.position ?? 0) + 1000,
+      projectId: input.projectId,
+      workspaceId: input.workspaceId
+    })
+    .returning();
+
+  return status;
+}
+
+export async function updateProjectStatusInDb(input: {
+  input: UpdateProjectStatusRequest;
+  projectId: string;
+  statusId: string;
+  workspaceId: string;
+}) {
+  const [status] = await db
+    .update(projectStatuses)
+    .set({ ...input.input, updatedAt: new Date() })
+    .where(
+      and(
+        eq(projectStatuses.id, input.statusId),
+        eq(projectStatuses.workspaceId, input.workspaceId),
+        eq(projectStatuses.projectId, input.projectId)
+      )
+    )
+    .returning();
+
+  return status;
+}
+
+export async function countProjectStatuses(input: {
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(projectStatuses)
+    .where(
+      and(
+        eq(projectStatuses.workspaceId, input.workspaceId),
+        eq(projectStatuses.projectId, input.projectId)
+      )
+    );
+
+  return row?.count ?? 0;
+}
+
+export async function countTasksForProjectStatus(input: {
+  projectId: string;
+  statusId: string;
+  workspaceId: string;
+}) {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.workspaceId, input.workspaceId),
+        eq(tasks.projectId, input.projectId),
+        eq(tasks.statusId, input.statusId),
+        isNull(tasks.deletedAt)
+      )
+    );
+
+  return row?.count ?? 0;
+}
+
+export async function deleteProjectStatusInDb(input: {
+  projectId: string;
+  statusId: string;
+  workspaceId: string;
+}) {
+  const [status] = await db
+    .delete(projectStatuses)
+    .where(
+      and(
+        eq(projectStatuses.id, input.statusId),
+        eq(projectStatuses.workspaceId, input.workspaceId),
+        eq(projectStatuses.projectId, input.projectId)
+      )
+    )
+    .returning();
+
+  return status;
 }
 
 export async function updateProjectInDb(input: {

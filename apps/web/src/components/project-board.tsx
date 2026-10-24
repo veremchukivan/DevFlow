@@ -8,7 +8,9 @@ import { LayoutGrid, List } from "lucide-react";
 import {
   ApiClientError,
   createTask,
+  createProjectStatus,
   deleteProject,
+  deleteProjectStatus,
   getProject,
   getTasks,
   getWorkspaceLabels,
@@ -17,6 +19,7 @@ import {
   replaceTaskLabels,
   updateTask,
   updateProject,
+  updateProjectStatus,
 } from "@/lib/api-client";
 import type {
   Label,
@@ -72,6 +75,7 @@ export function ProjectBoard() {
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
   const [draggedTaskId, setDraggedTaskId] = useState<string>();
@@ -261,6 +265,59 @@ export function ProjectBoard() {
     }
   }
 
+  async function onCreateStatus(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingStatus(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await createProjectStatus(workspaceId, projectId, {
+        category: form.get("category") as "todo" | "in_progress" | "done",
+        color: String(form.get("color") ?? "#64748b"),
+        name: String(form.get("name") ?? ""),
+      });
+      setProject(response.project);
+      event.currentTarget.reset();
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to add status.");
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }
+
+  async function onUpdateStatus(event: FormEvent<HTMLFormElement>, statusId: string) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingStatus(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await updateProjectStatus(workspaceId, projectId, statusId, {
+        category: form.get("category") as "todo" | "in_progress" | "done",
+        color: String(form.get("color") ?? "#64748b"),
+        name: String(form.get("name") ?? ""),
+      });
+      setProject(response.project);
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to update status.");
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }
+
+  async function onDeleteStatus(statusId: string) {
+    if (!window.confirm("Delete this status? Empty it first if it contains tasks.")) return;
+    setError(undefined);
+    setIsSavingStatus(true);
+    try {
+      await deleteProjectStatus(workspaceId, projectId, statusId);
+      setProject((current) => current ? { ...current, statuses: current.statuses.filter((status) => status.id !== statusId) } : current);
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to delete status.");
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }
+
   async function onUpdateTask(
     task: Task,
     input: { priority?: TaskPriority; statusId?: string },
@@ -417,6 +474,27 @@ export function ProjectBoard() {
             </button>
           </div>
         </form>
+      ) : null}
+
+      {showProjectSettings ? (
+        <section className={styles.workspaceSection} aria-labelledby="statuses-title">
+          <div className={styles.sectionHeading}><h2 id="statuses-title">Board statuses</h2></div>
+          {project.statuses.map((status) => (
+            <form className={styles.memberInviteForm} key={status.id} onSubmit={(event) => void onUpdateStatus(event, status.id)}>
+              <label><span>Name</span><input defaultValue={status.name} maxLength={80} name="name" required /></label>
+              <label><span>Category</span><select defaultValue={status.category} name="category"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label>
+              <label><span>Color</span><input defaultValue={status.color} name="color" pattern="#[0-9A-Fa-f]{6}" required /></label>
+              <button className={styles.secondaryButton} disabled={isSavingStatus} type="submit">Save</button>
+              <button className={styles.textButton} disabled={isSavingStatus} onClick={() => void onDeleteStatus(status.id)} type="button">Remove</button>
+            </form>
+          ))}
+          <form className={styles.memberInviteForm} onSubmit={onCreateStatus}>
+            <label><span>Name</span><input maxLength={80} name="name" required /></label>
+            <label><span>Category</span><select defaultValue="todo" name="category"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label>
+            <label><span>Color</span><input defaultValue="#64748b" name="color" pattern="#[0-9A-Fa-f]{6}" required /></label>
+            <button className={styles.primaryButton} disabled={isSavingStatus} type="submit">Add status</button>
+          </form>
+        </section>
       ) : null}
 
       <div
