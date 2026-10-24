@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   List,
   Settings,
+  SlidersHorizontal,
   UserRound,
 } from "lucide-react";
 
@@ -112,6 +113,7 @@ export function ProjectBoard() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [isSavingSprint, setIsSavingSprint] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
@@ -127,6 +129,15 @@ export function ProjectBoard() {
   const canUpdateProject = role ? can(role, "project:update") : false;
   const canDeleteProject = role ? can(role, "project:delete") : false;
   const selectedSprint = sprints.find((sprint) => sprint.id === selectedSprintId);
+  const activeFilterCount = [
+    priority,
+    labelId,
+    assigneeUserId,
+    due,
+    showArchived,
+    sortBy !== "number",
+    sortOrder !== "asc",
+  ].filter(Boolean).length;
 
   useEffect(() => {
     let active = true;
@@ -247,6 +258,7 @@ export function ProjectBoard() {
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
+    setShowFilters(false);
   }
 
   async function onClearFilters() {
@@ -265,21 +277,7 @@ export function ProjectBoard() {
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
-  }
-
-  async function onToggleArchived() {
-    const nextArchived = !showArchived;
-    const nextFilters = { ...filters };
-
-    if (nextArchived) {
-      nextFilters.archived = true;
-    } else {
-      delete nextFilters.archived;
-    }
-
-    setShowArchived(nextArchived);
-    setFilters(nextFilters);
-    await loadTasks(nextFilters);
+    setShowFilters(false);
   }
 
   async function onRestoreTask(task: Task) {
@@ -1133,9 +1131,9 @@ export function ProjectBoard() {
         </button>
       </div>
 
-      <form className={styles.taskFilters} onSubmit={onFilter}>
+      <form className={styles.boardToolbar} onSubmit={onFilter}>
         <label>
-          <span>Search</span>
+          <span className={styles.srOnly}>Search tasks</span>
           <input
             maxLength={200}
             onChange={(event) => setSearch(event.target.value)}
@@ -1143,112 +1141,139 @@ export function ProjectBoard() {
             value={search}
           />
         </label>
-        <label>
-          <span>Priority</span>
-          <select
-            onChange={(event) =>
-              setPriority(event.target.value as "" | TaskPriority)
-            }
-            value={priority}
-          >
-            <option value="">All priorities</option>
-            {priorities.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Label</span>
-          <select
-            onChange={(event) => setLabelId(event.target.value)}
-            value={labelId}
-          >
-            <option value="">All labels</option>
-            {labels.map((label) => (
-              <option key={label.id} value={label.id}>
-                {label.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Assignee</span>
-          <select
-            onChange={(event) => setAssigneeUserId(event.target.value)}
-            value={assigneeUserId}
-          >
-            <option value="">All assignees</option>
-            <option value="none">Unassigned</option>
-            {members.map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.user.displayName}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Due date</span>
-          <select
-            onChange={(event) => setDue(event.target.value as typeof due)}
-            value={due}
-          >
-            <option value="">Any date</option>
-            <option value="overdue">Overdue</option>
-            <option value="today">Today</option>
-            <option value="week">This week</option>
-            <option value="none">No due date</option>
-          </select>
-        </label>
-        <label>
-          <span>Sort by</span>
-          <select
-            onChange={(event) => setSortBy(event.target.value as TaskSortField)}
-            value={sortBy}
-          >
-            <option value="number">Task number</option>
-            <option value="createdAt">Created date</option>
-            <option value="updatedAt">Updated date</option>
-            <option value="priority">Priority</option>
-          </select>
-        </label>
-        <label>
-          <span>Order</span>
-          <select
-            onChange={(event) =>
-              setSortOrder(event.target.value as TaskSortOrder)
-            }
-            value={sortOrder}
-          >
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
-        </label>
         <button
           className={styles.secondaryButton}
           disabled={isRefreshing}
           type="submit"
         >
-          {isRefreshing ? "Loading" : "Apply"}
+          {isRefreshing ? "Loading" : "Search"}
         </button>
         <button
-          className={styles.textButton}
-          disabled={isRefreshing}
-          onClick={() => void onClearFilters()}
+          className={styles.secondaryButton}
+          onClick={() => setShowFilters(true)}
           type="button"
         >
-          Clear
+          <SlidersHorizontal aria-hidden="true" size={16} strokeWidth={1.8} />
+          Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
         </button>
       </form>
-      <button
-        className={styles.secondaryButton}
-        disabled={isRefreshing}
-        onClick={() => void onToggleArchived()}
-        type="button"
-      >
-        {showArchived ? "Show active tasks" : "Show archived tasks"}
-      </button>
+      {showFilters ? (
+        <Modal
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+          title="Filter tasks"
+        >
+          <form className={styles.modalForm} onSubmit={onFilter}>
+            <label>
+              <span>Priority</span>
+              <select
+                onChange={(event) =>
+                  setPriority(event.target.value as "" | TaskPriority)
+                }
+                value={priority}
+              >
+                <option value="">All priorities</option>
+                {priorities.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Label</span>
+              <select
+                onChange={(event) => setLabelId(event.target.value)}
+                value={labelId}
+              >
+                <option value="">All labels</option>
+                {labels.map((label) => (
+                  <option key={label.id} value={label.id}>
+                    {label.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Assignee</span>
+              <select
+                onChange={(event) => setAssigneeUserId(event.target.value)}
+                value={assigneeUserId}
+              >
+                <option value="">All assignees</option>
+                <option value="none">Unassigned</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.user.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Due date</span>
+              <select
+                onChange={(event) => setDue(event.target.value as typeof due)}
+                value={due}
+              >
+                <option value="">Any date</option>
+                <option value="overdue">Overdue</option>
+                <option value="today">Today</option>
+                <option value="week">This week</option>
+                <option value="none">No due date</option>
+              </select>
+            </label>
+            <label>
+              <span>Task state</span>
+              <select
+                onChange={(event) => setShowArchived(event.target.value === "archived")}
+                value={showArchived ? "archived" : "active"}
+              >
+                <option value="active">Active tasks</option>
+                <option value="archived">Archived tasks</option>
+              </select>
+            </label>
+            <label>
+              <span>Sort by</span>
+              <select
+                onChange={(event) =>
+                  setSortBy(event.target.value as TaskSortField)
+                }
+                value={sortBy}
+              >
+                <option value="number">Task number</option>
+                <option value="createdAt">Created date</option>
+                <option value="updatedAt">Updated date</option>
+                <option value="priority">Priority</option>
+              </select>
+            </label>
+            <label>
+              <span>Order</span>
+              <select
+                onChange={(event) =>
+                  setSortOrder(event.target.value as TaskSortOrder)
+                }
+                value={sortOrder}
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </label>
+            <div className={styles.formActions}>
+              <button className={styles.primaryButton} disabled={isRefreshing} type="submit">
+                Apply filters
+              </button>
+              <button
+                className={styles.textButton}
+                disabled={isRefreshing}
+                onClick={() => void onClearFilters()}
+                type="button"
+              >
+                Clear all
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
 
       {error ? (
         <p className={styles.formError} role="alert">

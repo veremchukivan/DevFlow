@@ -354,6 +354,7 @@
 }
 .sprintToolbar select,
 .modalForm input,
+.modalForm select,
 .modalForm textarea {
   background: var(--surface);
   border: 1px solid #b9c4d1;
@@ -386,6 +387,31 @@
 .projectView[aria-selected="true"] {
   border-bottom-color: var(--brand);
   color: var(--brand);
+}
+.boardToolbar {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+}
+.boardToolbar label {
+  flex: 1;
+  max-width: 360px;
+}
+.boardToolbar input {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 38px;
+  padding: 0 10px;
+  width: 100%;
+}
+.boardToolbar .secondaryButton {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
 }
 .taskForm,
 .taskFilters {
