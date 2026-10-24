@@ -8,11 +8,13 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import {
   ApiClientError,
   createTaskComment,
+  deleteTask,
   deleteTaskComment,
   getCurrentUser,
   getTask,
   getTaskLabels,
   getWorkspaceLabels,
+  getWorkspace,
   getTaskActivity,
   getTaskComments,
   getWorkspaceMembers,
@@ -25,9 +27,11 @@ import type {
   TaskActivityEvent,
   TaskComment,
   TaskPriority,
+  WorkspaceRole,
   Label,
   WorkspaceMember,
 } from "@devflow/shared";
+import { can } from "@devflow/shared";
 
 import styles from "@/components/ui.module.css";
 
@@ -42,6 +46,7 @@ export function TaskDetail() {
   const router = useRouter();
   const [task, setTask] = useState<Task>();
   const [currentUserId, setCurrentUserId] = useState<string>();
+  const [role, setRole] = useState<WorkspaceRole>();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
@@ -56,6 +61,10 @@ export function TaskDetail() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [isSavingCommentId, setIsSavingCommentId] = useState<string>();
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const canUpdateTask = role ? can(role, "task:update") : false;
+  const canDeleteTask = role ? can(role, "task:delete") : false;
+  const canCreateComments = role ? can(role, "comment:create") : false;
 
   const loadTaskDetails = useCallback(async () => {
     try {
@@ -67,6 +76,7 @@ export function TaskDetail() {
         currentUserResponse,
         workspaceLabelsResponse,
         taskLabelsResponse,
+        workspaceResponse,
       ] = await Promise.all([
         getTask(params.workspaceId, params.projectId, params.taskId),
         getWorkspaceMembers(params.workspaceId),
@@ -75,6 +85,7 @@ export function TaskDetail() {
         getCurrentUser(),
         getWorkspaceLabels(params.workspaceId),
         getTaskLabels(params.workspaceId, params.projectId, params.taskId),
+        getWorkspace(params.workspaceId),
       ]);
 
       setTask(taskResponse.task);
@@ -86,6 +97,7 @@ export function TaskDetail() {
       setCurrentUserId(currentUserResponse.user.id);
       setWorkspaceLabels(workspaceLabelsResponse.labels);
       setTaskLabels(taskLabelsResponse.labels);
+      setRole(workspaceResponse.workspace.role);
     } catch (caughtError) {
       if (
         caughtError instanceof ApiClientError &&
@@ -178,6 +190,44 @@ export function TaskDetail() {
       );
     } finally {
       setIsSavingTask(false);
+    }
+  }
+
+  async function onTaskDelete() {
+    if (!task || !window.confirm("Delete this task? This cannot be undone.")) {
+      return;
+    }
+
+    setEditError(undefined);
+    setIsDeletingTask(true);
+    try {
+      await deleteTask(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        task.version,
+      );
+      router.replace(
+        `/workspaces/${params.workspaceId}/projects/${params.projectId}`,
+      );
+      router.refresh();
+    } catch (caughtError) {
+      if (
+        caughtError instanceof ApiClientError &&
+        caughtError.code === "TASK_VERSION_CONFLICT"
+      ) {
+        await loadTaskDetails();
+        setEditError("This task changed elsewhere. Review the latest version.");
+        return;
+      }
+
+      setEditError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete the task.",
+      );
+    } finally {
+      setIsDeletingTask(false);
     }
   }
 
@@ -311,20 +361,36 @@ export function TaskDetail() {
         <section className={styles.taskDetail}>
           <div className={styles.taskDetailHeading}>
             <p className={styles.eyebrow}>{task.key}</p>
-            {!isEditing ? (
-              <button
-                aria-label="Edit task"
-                className={styles.iconButton}
-                onClick={() => setIsEditing(true)}
-                title="Edit task"
-                type="button"
-              >
-                <Pencil aria-hidden="true" size={17} strokeWidth={1.8} />
-              </button>
+            {!isEditing && (canUpdateTask || canDeleteTask) ? (
+              <div className={styles.taskDetailActions}>
+                {canUpdateTask ? (
+                  <button
+                    aria-label="Edit task"
+                    className={styles.iconButton}
+                    onClick={() => setIsEditing(true)}
+                    title="Edit task"
+                    type="button"
+                  >
+                    <Pencil aria-hidden="true" size={17} strokeWidth={1.8} />
+                  </button>
+                ) : null}
+                {canDeleteTask ? (
+                  <button
+                    aria-label="Delete task"
+                    className={styles.iconButtonDanger}
+                    disabled={isDeletingTask}
+                    onClick={() => void onTaskDelete()}
+                    title="Delete task"
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" size={17} strokeWidth={1.8} />
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
 
-          {isEditing ? (
+          {isEditing && canUpdateTask ? (
             <form className={styles.taskEditForm} onSubmit={onTaskSubmit}>
               <label>
                 <span>Title</span>
@@ -433,44 +499,59 @@ export function TaskDetail() {
                 <div className={styles.sectionHeading}>
                   <h2 id="labels-title">Labels</h2>
                 </div>
-                <form className={styles.taskForm} onSubmit={onLabelsSubmit}>
-                  <div className={styles.labelPicker}>
-                    {workspaceLabels.length ? (
-                      workspaceLabels.map((label) => (
-                        <label key={label.id}>
-                          <input
-                            defaultChecked={taskLabels.some(
-                              (taskLabel) => taskLabel.id === label.id,
-                            )}
-                            name="labelIds"
-                            type="checkbox"
-                            value={label.id}
-                          />
+                {canUpdateTask ? (
+                  <form className={styles.taskForm} onSubmit={onLabelsSubmit}>
+                    <div className={styles.labelPicker}>
+                      {workspaceLabels.length ? (
+                        workspaceLabels.map((label) => (
+                          <label key={label.id}>
+                            <input
+                              defaultChecked={taskLabels.some(
+                                (taskLabel) => taskLabel.id === label.id,
+                              )}
+                              name="labelIds"
+                              type="checkbox"
+                              value={label.id}
+                            />
+                            <span style={{ backgroundColor: label.color }} />
+                            {label.name}
+                          </label>
+                        ))
+                      ) : (
+                        <p className={styles.emptyState}>
+                          Create labels for this workspace first.
+                        </p>
+                      )}
+                    </div>
+                    {editError ? (
+                      <p className={styles.formError} role="alert">
+                        {editError}
+                      </p>
+                    ) : null}
+                    <div className={styles.formActions}>
+                      <button
+                        className={styles.secondaryButton}
+                        disabled={isSavingLabels}
+                        type="submit"
+                      >
+                        {isSavingLabels ? "Saving" : "Save labels"}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className={styles.readOnlyLabels}>
+                    {taskLabels.length ? (
+                      taskLabels.map((label) => (
+                        <div key={label.id}>
                           <span style={{ backgroundColor: label.color }} />
                           {label.name}
-                        </label>
+                        </div>
                       ))
                     ) : (
-                      <p className={styles.emptyState}>
-                        Create labels for this workspace first.
-                      </p>
+                      <p className={styles.emptyState}>No labels.</p>
                     )}
                   </div>
-                  {editError ? (
-                    <p className={styles.formError} role="alert">
-                      {editError}
-                    </p>
-                  ) : null}
-                  <div className={styles.formActions}>
-                    <button
-                      className={styles.secondaryButton}
-                      disabled={isSavingLabels}
-                      type="submit"
-                    >
-                      {isSavingLabels ? "Saving" : "Save labels"}
-                    </button>
-                  </div>
-                </form>
+                )}
               </section>
             </>
           )}
@@ -482,32 +563,34 @@ export function TaskDetail() {
             <div className={styles.sectionHeading}>
               <h2 id="comments-title">Comments</h2>
             </div>
-            <form className={styles.taskForm} onSubmit={onCommentSubmit}>
-              <label className={styles.taskDescriptionField}>
-                <span className={styles.srOnly}>New comment</span>
-                <textarea
-                  maxLength={5000}
-                  name="body"
-                  placeholder="Add a comment"
-                  required
-                  rows={4}
-                />
-              </label>
-              {commentError ? (
-                <p className={styles.formError} role="alert">
-                  {commentError}
-                </p>
-              ) : null}
-              <div className={styles.formActions}>
-                <button
-                  className={styles.primaryButton}
-                  disabled={isSubmittingComment}
-                  type="submit"
-                >
-                  {isSubmittingComment ? "Adding" : "Add comment"}
-                </button>
-              </div>
-            </form>
+            {canCreateComments ? (
+              <form className={styles.taskForm} onSubmit={onCommentSubmit}>
+                <label className={styles.taskDescriptionField}>
+                  <span className={styles.srOnly}>New comment</span>
+                  <textarea
+                    maxLength={5000}
+                    name="body"
+                    placeholder="Add a comment"
+                    required
+                    rows={4}
+                  />
+                </label>
+                {commentError ? (
+                  <p className={styles.formError} role="alert">
+                    {commentError}
+                  </p>
+                ) : null}
+                <div className={styles.formActions}>
+                  <button
+                    className={styles.primaryButton}
+                    disabled={isSubmittingComment}
+                    type="submit"
+                  >
+                    {isSubmittingComment ? "Adding" : "Add comment"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
             {comments.length ? (
               <ol className={styles.commentList}>
                 {comments.map((comment) => (
@@ -516,7 +599,7 @@ export function TaskDetail() {
                       <strong>
                         {comment.author?.displayName ?? "Former member"}
                       </strong>
-                      {comment.authorUserId === currentUserId ? (
+                      {canManageComment(comment, currentUserId, role) ? (
                         <div className={styles.commentActions}>
                           <button
                             aria-label="Edit comment"
@@ -541,7 +624,8 @@ export function TaskDetail() {
                         </div>
                       ) : null}
                     </div>
-                    {editingCommentId === comment.id ? (
+                    {editingCommentId === comment.id &&
+                    canManageComment(comment, currentUserId, role) ? (
                       <form
                         className={styles.commentEditForm}
                         onSubmit={(event) =>
@@ -640,4 +724,18 @@ function formatDateTime(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function canManageComment(
+  comment: TaskComment,
+  currentUserId: string | undefined,
+  role: WorkspaceRole | undefined,
+) {
+  if (!role) return false;
+
+  return (
+    comment.authorUserId === currentUserId ||
+    can(role, "comment:update") ||
+    can(role, "comment:delete")
+  );
 }

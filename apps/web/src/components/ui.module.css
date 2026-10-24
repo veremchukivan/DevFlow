@@ -560,6 +560,10 @@
   display: flex;
   justify-content: space-between;
 }
+.taskDetailActions {
+  display: flex;
+  gap: 8px;
+}
 .taskDetailHeading .eyebrow {
   margin-bottom: 12px;
 }
@@ -577,6 +581,20 @@
 .iconButton:hover {
   border-color: var(--brand);
   color: var(--brand);
+}
+.iconButtonDanger {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--danger);
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+.iconButtonDanger:hover {
+  border-color: var(--danger);
 }
 .taskEditForm {
   display: grid;
@@ -650,6 +668,25 @@
   accent-color: var(--brand);
 }
 .labelPicker span {
+  border-radius: 50%;
+  height: 9px;
+  width: 9px;
+}
+.readOnlyLabels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.readOnlyLabels div {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 7px;
+  padding: 7px 9px;
+}
+.readOnlyLabels span {
   border-radius: 50%;
   height: 9px;
   width: 9px;

@@ -713,6 +713,21 @@ export function updateTask(
   );
 }
 
+export function deleteTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  version: number,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
+    {
+      headers: { "If-Match": `"${version}"` },
+      method: "DELETE",
+    },
+  );
+}
+
 export async function getApiHealth(): Promise<HealthResponse> {
   const response = await fetch(`${getApiUrl()}/healthz`, {
     cache: "no-store",
