@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { getWorkspaces } from "@/lib/api-client";
-import { subscribeToWorkspaceChanges } from "@/lib/workspace-events";
+import { getWorkspaces } from "@/shared/lib/api-client";
+import { subscribeToWorkspaceChanges } from "@/shared/lib/workspace-events";
 import type { Workspace } from "@devflow/shared";
 
 import styles from "./workspace-sidebar.module.css";

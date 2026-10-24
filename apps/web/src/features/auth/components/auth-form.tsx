@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-import { ApiClientError, login, register } from "@/lib/api-client";
-import styles from "@/components/ui.module.css";
+import { ApiClientError, login, register } from "@/shared/lib/api-client";
+import styles from "@/shared/styles/ui.module.css";
 
 type AuthMode = "login" | "register";
 

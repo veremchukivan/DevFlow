@@ -22,7 +22,7 @@ import {
   updateTask,
   updateTaskComment,
   replaceTaskLabels,
-} from "@/lib/api-client";
+} from "@/shared/lib/api-client";
 import type {
   Task,
   Project,
@@ -36,7 +36,7 @@ import type {
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
 
-import styles from "@/components/ui.module.css";
+import styles from "@/shared/styles/ui.module.css";
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
 const detailPageSize = 25;

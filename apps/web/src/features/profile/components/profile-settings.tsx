@@ -11,8 +11,8 @@ import {
   logout,
   resendEmailVerification,
   updateProfile,
-} from "@/lib/api-client";
-import { notifyUserChanged } from "@/lib/user-events";
+} from "@/shared/lib/api-client";
+import { notifyUserChanged } from "@/shared/lib/user-events";
 import type { AuthUser } from "@devflow/shared";
 
 import styles from "./profile-settings.module.css";

@@ -10,9 +10,9 @@ import {
   declineWorkspaceInvitation,
   getCurrentUser,
   getPublicWorkspaceInvitation,
-} from "@/lib/api-client";
+} from "@/shared/lib/api-client";
 import type { AuthUser, PublicWorkspaceInvitation } from "@devflow/shared";
-import styles from "@/components/ui.module.css";
+import styles from "@/shared/styles/ui.module.css";
 
 export function InvitationPage({ token }: { token: string }) {
   const router = useRouter();

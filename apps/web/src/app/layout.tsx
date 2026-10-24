@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/components/app-shell";
+import { AppShell } from "@/shared/components/app-shell";
 
 import "./globals.css";
 import styles from "./layout.module.css";

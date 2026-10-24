@@ -15,10 +15,10 @@ import {
   getWorkspaceLabels,
   updateWorkspace,
   updateWorkspaceLabel,
-} from "@/lib/api-client";
-import { notifyWorkspacesChanged } from "@/lib/workspace-events";
+} from "@/shared/lib/api-client";
+import { notifyWorkspacesChanged } from "@/shared/lib/workspace-events";
 import { can, type Label, type ProjectSummary, type Workspace } from "@devflow/shared";
-import styles from "@/components/ui.module.css";
+import styles from "@/shared/styles/ui.module.css";
 
 export function WorkspaceDetail() {
   const router = useRouter();

@@ -8,8 +8,8 @@ import {
   requestPasswordReset,
   resetPassword,
   verifyEmail,
-} from "@/lib/api-client";
-import styles from "@/components/ui.module.css";
+} from "@/shared/lib/api-client";
+import styles from "@/shared/styles/ui.module.css";
 
 type RecoveryMode = "request" | "reset" | "verify";
 

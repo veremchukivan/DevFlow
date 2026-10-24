@@ -8,11 +8,11 @@ import {
   ApiClientError,
   createWorkspace,
   getWorkspaces,
-} from "@/lib/api-client";
-import { notifyWorkspacesChanged } from "@/lib/workspace-events";
+} from "@/shared/lib/api-client";
+import { notifyWorkspacesChanged } from "@/shared/lib/workspace-events";
 import type { PageInfo, Workspace } from "@devflow/shared";
 
-import styles from "./ui.module.css";
+import styles from "@/shared/styles/ui.module.css";
 
 const workspacePageSize = 25;
 

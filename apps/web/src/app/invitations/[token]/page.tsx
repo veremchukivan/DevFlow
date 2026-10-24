@@ -1,4 +1,4 @@
-import { InvitationPage } from "@/components/invitation-page";
+import { InvitationPage } from "@/features/invitations/components/invitation-page";
 
 export default async function WorkspaceInvitationPage({
   params,

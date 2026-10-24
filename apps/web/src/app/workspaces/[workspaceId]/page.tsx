@@ -1,4 +1,4 @@
-import { WorkspaceDetail } from "@/components/workspace-detail";
+import { WorkspaceDetail } from "@/features/workspaces/components/workspace-detail";
 
 export default function WorkspacePage() {
   return <WorkspaceDetail />;

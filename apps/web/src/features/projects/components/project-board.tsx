@@ -22,7 +22,7 @@ import {
   updateTask,
   updateProject,
   updateProjectStatus,
-} from "@/lib/api-client";
+} from "@/shared/lib/api-client";
 import type {
   Label,
   PageInfo,
@@ -35,7 +35,7 @@ import type {
   WorkspaceRole,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
-import styles from "@/components/ui.module.css";
+import styles from "@/shared/styles/ui.module.css";
 
 type BoardFilters = {
   archived?: boolean;
