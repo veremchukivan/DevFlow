@@ -423,6 +423,18 @@
   padding: 0 8px;
   width: 100%;
 }
+.taskPagination {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 14px;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+.taskPagination > div {
+  display: flex;
+  gap: 8px;
+}
 .taskTableTitle {
   display: grid;
   gap: 5px;
@@ -882,5 +894,10 @@
   .taskBoard {
     grid-auto-columns: minmax(270px, 84vw);
     grid-template-columns: repeat(4, minmax(270px, 84vw));
+  }
+  .taskPagination {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 }

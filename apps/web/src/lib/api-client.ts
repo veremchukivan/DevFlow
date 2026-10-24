@@ -573,6 +573,8 @@ type TaskListFilters = {
   assigneeUserId?: string | "none";
   due?: "overdue" | "today" | "week" | "none";
   labelId?: string;
+  limit?: number;
+  offset?: number;
   priority?: TaskPriority;
   search?: string;
 };
@@ -583,8 +585,8 @@ export function getTasks(
   filters: TaskListFilters = {},
 ): Promise<TaskListResponse> {
   const query = new URLSearchParams({
-    limit: "100",
-    offset: "0",
+    limit: String(filters.limit ?? 50),
+    offset: String(filters.offset ?? 0),
     sortBy: "number",
     sortOrder: "asc",
   });

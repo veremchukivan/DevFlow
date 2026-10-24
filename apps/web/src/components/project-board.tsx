@@ -25,6 +25,7 @@ import {
 } from "@/lib/api-client";
 import type {
   Label,
+  PageInfo,
   Project,
   Task,
   TaskPriority,
@@ -46,6 +47,7 @@ type BoardFilters = {
 type ProjectView = "board" | "list";
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
+const taskPageSize = 50;
 const priorityStyles: Record<TaskPriority, string> = {
   high: styles.priorityHigh!,
   low: styles.priorityLow!,
@@ -59,6 +61,7 @@ export function ProjectBoard() {
   const { projectId, workspaceId } = params;
   const [project, setProject] = useState<Project>();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [filters, setFilters] = useState<BoardFilters>({});
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<"" | TaskPriority>("");
@@ -96,7 +99,7 @@ export function ProjectBoard() {
 
     void Promise.all([
       getProject(workspaceId, projectId),
-      getTasks(workspaceId, projectId),
+      getTasks(workspaceId, projectId, { limit: taskPageSize }),
       getWorkspaceLabels(workspaceId),
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
@@ -112,6 +115,7 @@ export function ProjectBoard() {
           if (!active) return;
           setProject(projectResponse.project);
           setTasks(taskResponse.tasks);
+          setPageInfo(taskResponse.pageInfo);
           setLabels(labelsResponse.labels);
           setMembers(
             membersResponse.members.filter(
@@ -140,12 +144,35 @@ export function ProjectBoard() {
     };
   }, [projectId, router, workspaceId]);
 
-  async function loadTasks(nextFilters: BoardFilters) {
+  async function loadTasks(nextFilters: BoardFilters, offset = 0) {
     setError(undefined);
     setIsRefreshing(true);
     try {
-      const response = await getTasks(workspaceId, projectId, nextFilters);
+      const requestFilters = {
+        ...nextFilters,
+        limit: taskPageSize,
+        offset,
+      };
+      let response = await getTasks(workspaceId, projectId, requestFilters);
+
+      if (
+        response.tasks.length === 0 &&
+        response.pageInfo.total > 0 &&
+        response.pageInfo.offset > 0
+      ) {
+        const lastPageOffset =
+          Math.floor(
+            (response.pageInfo.total - 1) / response.pageInfo.limit,
+          ) * response.pageInfo.limit;
+
+        response = await getTasks(workspaceId, projectId, {
+          ...requestFilters,
+          offset: lastPageOffset,
+        });
+      }
+
       setTasks(response.tasks);
+      setPageInfo(response.pageInfo);
     } catch (caughtError) {
       if (
         caughtError instanceof ApiClientError &&
@@ -207,10 +234,14 @@ export function ProjectBoard() {
       await restoreTask(workspaceId, projectId, task.id, task.version);
       const nextFilters = { ...filters, archived: true };
       setFilters(nextFilters);
-      await loadTasks(nextFilters);
+      await loadTasks(nextFilters, pageInfo?.offset);
     } catch (caughtError) {
       setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to restore task.");
     }
+  }
+
+  async function onChangeTaskPage(offset: number) {
+    await loadTasks(filters, offset);
   }
 
   async function onMoveStatus(statusId: string, direction: -1 | 1) {
@@ -277,7 +308,7 @@ export function ProjectBoard() {
       event.currentTarget.reset();
       setShowTaskForm(false);
       setDraftStatusId(undefined);
-      await loadTasks(filters);
+      await loadTasks(filters, pageInfo?.offset);
     } catch (caughtError) {
       setError(
         caughtError instanceof ApiClientError
@@ -413,7 +444,7 @@ export function ProjectBoard() {
         caughtError instanceof ApiClientError &&
         caughtError.code === "TASK_VERSION_CONFLICT"
       ) {
-        await loadTasks(filters);
+        await loadTasks(filters, pageInfo?.offset);
         setError("This task changed elsewhere. The latest version is shown.");
         return;
       }
@@ -941,6 +972,44 @@ export function ProjectBoard() {
           ) : null}
         </section>
       )}
+
+      {pageInfo ? (
+        <nav aria-label="Task pagination" className={styles.taskPagination}>
+          <span>
+            {pageInfo.total === 0
+              ? "No tasks"
+              : `${pageInfo.offset + 1}-${Math.min(pageInfo.offset + tasks.length, pageInfo.total)} of ${pageInfo.total}`}
+          </span>
+          <div>
+            <button
+              aria-label="Previous tasks"
+              className={styles.iconButton}
+              disabled={isRefreshing || pageInfo.offset === 0}
+              onClick={() =>
+                void onChangeTaskPage(
+                  Math.max(0, pageInfo.offset - pageInfo.limit),
+                )
+              }
+              title="Previous page"
+              type="button"
+            >
+              <ChevronLeft aria-hidden="true" size={16} />
+            </button>
+            <button
+              aria-label="Next tasks"
+              className={styles.iconButton}
+              disabled={isRefreshing || !pageInfo.hasNextPage}
+              onClick={() =>
+                void onChangeTaskPage(pageInfo.offset + pageInfo.limit)
+              }
+              title="Next page"
+              type="button"
+            >
+              <ChevronRight aria-hidden="true" size={16} />
+            </button>
+          </div>
+        </nav>
+      ) : null}
     </main>
   );
 }
