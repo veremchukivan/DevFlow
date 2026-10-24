@@ -68,6 +68,10 @@ export const updateProjectStatusRequestSchema = z
     message: "At least one status field is required"
   });
 
+export const reorderProjectStatusesRequestSchema = z.object({
+  statusIds: z.array(z.uuid()).min(1)
+});
+
 export const projectStatusParamsSchema = projectParamsSchema.extend({
   statusId: z.uuid()
 });
@@ -109,4 +113,7 @@ export type CreateProjectStatusRequest = z.infer<
 >;
 export type UpdateProjectStatusRequest = z.infer<
   typeof updateProjectStatusRequestSchema
+>;
+export type ReorderProjectStatusesRequest = z.infer<
+  typeof reorderProjectStatusesRequestSchema
 >;

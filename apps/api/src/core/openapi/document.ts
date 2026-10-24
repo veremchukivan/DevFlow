@@ -16,6 +16,7 @@ import {
   passwordResetRequestSchema,
   projectListResponseSchema,
   projectResponseSchema,
+  reorderProjectStatusesRequestSchema,
   publicWorkspaceInvitationResponseSchema,
   registerRequestSchema,
   taskCommentListResponseSchema,
@@ -57,6 +58,7 @@ const schemas = {
   PasswordResetRequest: passwordResetRequestSchema,
   ProjectListResponse: projectListResponseSchema,
   ProjectResponse: projectResponseSchema,
+  ReorderProjectStatusesRequest: reorderProjectStatusesRequestSchema,
   PublicWorkspaceInvitationResponse: publicWorkspaceInvitationResponseSchema,
   RegisterRequest: registerRequestSchema,
   TaskActivityEventListResponse: taskActivityEventListResponseSchema,
@@ -562,6 +564,14 @@ export const openApiDocument = {
         parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
         requestBody: requestBody("CreateProjectStatusRequest"),
         responses: { "201": response("Status created", "ProjectResponse"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/order": {
+      put: {
+        tags: ["Projects"], operationId: "reorderProjectStatuses", security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: requestBody("ReorderProjectStatusesRequest"),
+        responses: { "200": response("Statuses reordered", "ProjectResponse"), ...commonErrors },
       },
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/{statusId}": {

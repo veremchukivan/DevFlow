@@ -25,6 +25,7 @@ import {
   findProjectInWorkspace,
   listProjectsForWorkspace,
   listProjectStatuses,
+  reorderProjectStatusesInDb,
   softDeleteProjectInDb,
   updateProjectInDb,
   updateProjectStatusInDb
@@ -236,6 +237,27 @@ export async function updateProjectStatus(input: {
   await requireProjectUpdatePermission(input);
   const status = await updateProjectStatusInDb(input);
   if (!status) throw new AppError(404, "PROJECT_STATUS_NOT_FOUND", "Project status not found");
+  return getProject(input);
+}
+
+export async function reorderProjectStatuses(input: {
+  projectId: string;
+  statusIds: string[];
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+
+  const reordered = await reorderProjectStatusesInDb(input);
+
+  if (!reordered) {
+    throw new AppError(
+      400,
+      "PROJECT_STATUS_ORDER_INVALID",
+      "Status order must contain every project status exactly once",
+    );
+  }
+
   return getProject(input);
 }
 

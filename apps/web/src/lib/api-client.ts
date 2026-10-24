@@ -19,6 +19,7 @@ import {
   updateWorkspaceRequestSchema,
   createProjectRequestSchema,
   createProjectStatusRequestSchema,
+  reorderProjectStatusesRequestSchema,
   updateProjectRequestSchema,
   updateProjectStatusRequestSchema,
   createTaskRequestSchema,
@@ -57,6 +58,7 @@ import {
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateProjectStatusRequest,
+  type ReorderProjectStatusesRequest,
   type UpdateProjectRequest,
   type UpdateProjectStatusRequest,
   type CreateTaskRequest,
@@ -545,6 +547,21 @@ export function createProjectStatus(workspaceId: string, projectId: string, inpu
 
 export function updateProjectStatus(workspaceId: string, projectId: string, statusId: string, input: UpdateProjectStatusRequest): Promise<ProjectResponse> {
   return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`, { body: JSON.stringify(updateProjectStatusRequestSchema.parse(input)), method: "PATCH" }, projectResponseSchema);
+}
+
+export function reorderProjectStatuses(
+  workspaceId: string,
+  projectId: string,
+  input: ReorderProjectStatusesRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/order`,
+    {
+      body: JSON.stringify(reorderProjectStatusesRequestSchema.parse(input)),
+      method: "PUT",
+    },
+    projectResponseSchema,
+  );
 }
 
 export function deleteProjectStatus(workspaceId: string, projectId: string, statusId: string): Promise<void> {

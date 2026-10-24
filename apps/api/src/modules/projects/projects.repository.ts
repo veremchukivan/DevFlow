@@ -235,6 +235,49 @@ export async function updateProjectStatusInDb(input: {
   return status;
 }
 
+export async function reorderProjectStatusesInDb(input: {
+  projectId: string;
+  statusIds: string[];
+  workspaceId: string;
+}) {
+  return db.transaction(async (tx) => {
+    const statuses = await tx
+      .select({ id: projectStatuses.id })
+      .from(projectStatuses)
+      .where(
+        and(
+          eq(projectStatuses.workspaceId, input.workspaceId),
+          eq(projectStatuses.projectId, input.projectId),
+        ),
+      );
+    const expectedStatusIds = new Set(statuses.map((status) => status.id));
+    const providedStatusIds = new Set(input.statusIds);
+
+    if (
+      expectedStatusIds.size !== input.statusIds.length ||
+      providedStatusIds.size !== input.statusIds.length ||
+      input.statusIds.some((statusId) => !expectedStatusIds.has(statusId))
+    ) {
+      return false;
+    }
+
+    for (const [index, statusId] of input.statusIds.entries()) {
+      await tx
+        .update(projectStatuses)
+        .set({ position: (index + 1) * 1000, updatedAt: new Date() })
+        .where(
+          and(
+            eq(projectStatuses.id, statusId),
+            eq(projectStatuses.workspaceId, input.workspaceId),
+            eq(projectStatuses.projectId, input.projectId),
+          ),
+        );
+    }
+
+    return true;
+  });
+}
+
 export async function countProjectStatuses(input: {
   projectId: string;
   workspaceId: string;

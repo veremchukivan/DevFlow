@@ -47,6 +47,46 @@ describe("Project status integration tests", () => {
     expect(res.body.error.code).toBe("PROJECT_UPDATE_FORBIDDEN");
   });
 
+  it("reorders all project statuses atomically", async () => {
+    const initial = await request(app)
+      .get(`/api/v1/workspaces/${workspace.id}/projects/${project.id}`)
+      .set("Cookie", owner.cookie);
+    const statusIds = initial.body.project.statuses.map(
+      (status: { id: string }) => status.id,
+    );
+    const reorderedIds = [...statusIds].reverse();
+
+    const res = await request(app)
+      .put(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/statuses/order`)
+      .set("Cookie", owner.cookie)
+      .send({ statusIds: reorderedIds });
+
+    expect(res.status).toBe(200);
+    expect(res.body.project.statuses.map((status: { id: string }) => status.id)).toEqual(
+      reorderedIds,
+    );
+    expect(
+      res.body.project.statuses.map((status: { position: number }) => status.position),
+    ).toEqual(reorderedIds.map((_, index) => (index + 1) * 1000));
+  });
+
+  it("rejects a project status order with duplicate IDs", async () => {
+    const initial = await request(app)
+      .get(`/api/v1/workspaces/${workspace.id}/projects/${project.id}`)
+      .set("Cookie", owner.cookie);
+    const statusIds = initial.body.project.statuses.map(
+      (status: { id: string }) => status.id,
+    );
+
+    const res = await request(app)
+      .put(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/statuses/order`)
+      .set("Cookie", owner.cookie)
+      .send({ statusIds: [statusIds[0], ...statusIds.slice(1, -1), statusIds[0]] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("PROJECT_STATUS_ORDER_INVALID");
+  });
+
   it("does not delete a status that contains tasks", async () => {
     const status = project.statuses[0];
     await createTestTask(app, owner.cookie, workspace.id, project.id, { statusId: status.id });

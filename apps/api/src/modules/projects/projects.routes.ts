@@ -4,6 +4,7 @@ import {
   paginationQuerySchema,
   projectParamsSchema,
   projectStatusParamsSchema,
+  reorderProjectStatusesRequestSchema,
   updateProjectRequestSchema,
   updateProjectStatusRequestSchema,
   workspaceProjectsParamsSchema,
@@ -23,6 +24,7 @@ import {
   deleteProject,
   getProject,
   listProjects,
+  reorderProjectStatuses,
   updateProject,
   updateProjectStatus
 } from "./projects.service.js";
@@ -102,6 +104,18 @@ projectsRouter.post("/:projectId/statuses", async (req, res) => {
     workspaceId: params.workspaceId
   });
   res.status(201).json(toProjectResponse(project));
+});
+
+projectsRouter.put("/:projectId/statuses/order", async (req, res) => {
+  const params = projectParamsSchema.parse(req.params);
+  const input = reorderProjectStatusesRequestSchema.parse(req.body);
+  const project = await reorderProjectStatuses({
+    ...params,
+    ...input,
+    userId: getAuthenticatedUserId(req)
+  });
+
+  res.json(toProjectResponse(project));
 });
 
 projectsRouter.patch("/:projectId/statuses/:statusId", async (req, res) => {

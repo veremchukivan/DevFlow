@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type DragEvent, type FormEvent, useEffect, useState } from "react";
-import { LayoutGrid, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
 
 import {
   ApiClientError,
@@ -18,6 +18,7 @@ import {
   getWorkspaceMembers,
   getWorkspace,
   replaceTaskLabels,
+  reorderProjectStatuses,
   updateTask,
   updateProject,
   updateProjectStatus,
@@ -78,6 +79,7 @@ export function ProjectBoard() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [isReorderingStatuses, setIsReorderingStatuses] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
   const [draggedTaskId, setDraggedTaskId] = useState<string>();
@@ -208,6 +210,42 @@ export function ProjectBoard() {
       await loadTasks(nextFilters);
     } catch (caughtError) {
       setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to restore task.");
+    }
+  }
+
+  async function onMoveStatus(statusId: string, direction: -1 | 1) {
+    if (!project) return;
+
+    const currentIndex = project.statuses.findIndex(
+      (status) => status.id === statusId,
+    );
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= project.statuses.length) {
+      return;
+    }
+
+    const statuses = [...project.statuses];
+    [statuses[currentIndex], statuses[targetIndex]] = [
+      statuses[targetIndex]!,
+      statuses[currentIndex]!,
+    ];
+
+    setError(undefined);
+    setIsReorderingStatuses(true);
+    try {
+      const response = await reorderProjectStatuses(workspaceId, projectId, {
+        statusIds: statuses.map((status) => status.id),
+      });
+      setProject(response.project);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to reorder board statuses.",
+      );
+    } finally {
+      setIsReorderingStatuses(false);
     }
   }
 
@@ -511,13 +549,15 @@ export function ProjectBoard() {
       {showProjectSettings ? (
         <section className={styles.workspaceSection} aria-labelledby="statuses-title">
           <div className={styles.sectionHeading}><h2 id="statuses-title">Board statuses</h2></div>
-          {project.statuses.map((status) => (
+          {project.statuses.map((status, index) => (
             <form className={styles.memberInviteForm} key={status.id} onSubmit={(event) => void onUpdateStatus(event, status.id)}>
               <label><span>Name</span><input defaultValue={status.name} maxLength={80} name="name" required /></label>
               <label><span>Category</span><select defaultValue={status.category} name="category"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label>
               <label><span>Color</span><input defaultValue={status.color} name="color" pattern="#[0-9A-Fa-f]{6}" required /></label>
               <button className={styles.secondaryButton} disabled={isSavingStatus} type="submit">Save</button>
               <button className={styles.textButton} disabled={isSavingStatus} onClick={() => void onDeleteStatus(status.id)} type="button">Remove</button>
+              <button aria-label={`Move ${status.name} left`} className={styles.iconButton} disabled={isSavingStatus || isReorderingStatuses || index === 0} onClick={() => void onMoveStatus(status.id, -1)} title="Move left" type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
+              <button aria-label={`Move ${status.name} right`} className={styles.iconButton} disabled={isSavingStatus || isReorderingStatuses || index === project.statuses.length - 1} onClick={() => void onMoveStatus(status.id, 1)} title="Move right" type="button"><ChevronRight aria-hidden="true" size={16} /></button>
             </form>
           ))}
           <form className={styles.memberInviteForm} onSubmit={onCreateStatus}>
