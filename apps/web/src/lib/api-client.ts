@@ -385,6 +385,22 @@ export function updateWorkspaceMember(
   );
 }
 
+export function removeWorkspaceMember(
+  workspaceId: string,
+  userId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/members/${userId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function leaveWorkspace(workspaceId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/members/leave`, {
+    method: "POST",
+  });
+}
+
 export function getWorkspaceInvitations(
   workspaceId: string,
 ): Promise<WorkspaceInvitationListResponse> {

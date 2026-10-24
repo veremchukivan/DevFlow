@@ -7,9 +7,12 @@ import { type FormEvent, useEffect, useState } from "react";
 import {
   ApiClientError,
   createWorkspaceInvitation,
+  getCurrentUser,
   getWorkspace,
   getWorkspaceInvitations,
   getWorkspaceMembers,
+  leaveWorkspace,
+  removeWorkspaceMember,
   updateWorkspaceMember,
 } from "@/lib/api-client";
 import {
@@ -18,6 +21,7 @@ import {
   type WorkspaceInvitation,
   type WorkspaceMember,
   type WorkspaceMemberAssignableRole,
+  type AuthUser,
 } from "@devflow/shared";
 
 import styles from "@/components/ui.module.css";
@@ -32,12 +36,15 @@ export function WorkspaceMembers() {
   const params = useParams<{ workspaceId: string }>();
   const router = useRouter();
   const [workspace, setWorkspace] = useState<Workspace>();
+  const [currentUser, setCurrentUser] = useState<AuthUser>();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [invitations, setInvitations] = useState<WorkspaceInvitation[]>([]);
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
   const [updatingMemberId, setUpdatingMemberId] = useState<string>();
+  const [removingMemberId, setRemovingMemberId] = useState<string>();
+  const [isLeaving, setIsLeaving] = useState(false);
 
   const canManage = workspace ? can(workspace.role, "member:manage") : false;
 
@@ -49,15 +56,18 @@ export function WorkspaceMembers() {
           workspaceResponse.workspace.role,
           "member:manage",
         );
-        const [membersResponse, invitationsResponse] = await Promise.all([
+        const [currentUserResponse, membersResponse, invitationsResponse] =
+          await Promise.all([
+            getCurrentUser(),
           getWorkspaceMembers(params.workspaceId),
           canManageMembers
             ? getWorkspaceInvitations(params.workspaceId)
             : Promise.resolve(undefined),
-        ]);
+          ]);
 
         if (!active) return;
         setWorkspace(workspaceResponse.workspace);
+        setCurrentUser(currentUserResponse.user);
         setMembers(membersResponse.members);
         setInvitations(invitationsResponse?.invitations ?? []);
       })
@@ -131,6 +141,51 @@ export function WorkspaceMembers() {
     }
   }
 
+  async function onRemoveMember(member: WorkspaceMember) {
+    if (!window.confirm(`Remove ${member.user.displayName} from this workspace?`)) {
+      return;
+    }
+
+    setError(undefined);
+    setRemovingMemberId(member.userId);
+    try {
+      await removeWorkspaceMember(params.workspaceId, member.userId);
+      setMembers((current) =>
+        current.filter((item) => item.userId !== member.userId),
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to remove the member.",
+      );
+    } finally {
+      setRemovingMemberId(undefined);
+    }
+  }
+
+  async function onLeaveWorkspace() {
+    if (!window.confirm("Leave this workspace? You will lose access to its projects.")) {
+      return;
+    }
+
+    setError(undefined);
+    setIsLeaving(true);
+    try {
+      await leaveWorkspace(params.workspaceId);
+      router.replace("/workspaces");
+      router.refresh();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to leave this workspace.",
+      );
+    } finally {
+      setIsLeaving(false);
+    }
+  }
+
   if (isLoading) return <main className={styles.loading}>Loading team</main>;
 
   return (
@@ -147,6 +202,16 @@ export function WorkspaceMembers() {
           <h1>Team</h1>
           <p>Manage the people who can access this workspace.</p>
         </div>
+        {workspace && workspace.role !== "owner" ? (
+          <button
+            className={styles.textButton}
+            disabled={isLeaving}
+            onClick={() => void onLeaveWorkspace()}
+            type="button"
+          >
+            {isLeaving ? "Leaving" : "Leave workspace"}
+          </button>
+        ) : null}
       </header>
       {error ? (
         <p className={styles.formError} role="alert">
@@ -203,23 +268,36 @@ export function WorkspaceMembers() {
                 <strong>{member.user.displayName}</strong>
                 <span>{member.user.email}</span>
               </div>
-              {canManage && member.role !== "owner" ? (
-                <select
-                  disabled={updatingMemberId === member.userId}
-                  onChange={(event) =>
-                    void onRoleChange(
-                      member,
-                      event.target.value as WorkspaceMemberAssignableRole,
-                    )
-                  }
-                  value={member.role}
-                >
-                  {assignableRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))}
-                </select>
+              {canManageMember(workspace, currentUser, member) ? (
+                <div className={styles.memberActions}>
+                  <select
+                    disabled={updatingMemberId === member.userId}
+                    onChange={(event) =>
+                      void onRoleChange(
+                        member,
+                        event.target.value as WorkspaceMemberAssignableRole,
+                      )
+                    }
+                    value={member.role}
+                  >
+                    {rolesForMember(
+                      workspace?.role ?? "viewer",
+                      member.role,
+                    ).map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className={styles.textButton}
+                    disabled={removingMemberId === member.userId}
+                    onClick={() => void onRemoveMember(member)}
+                    type="button"
+                  >
+                    {removingMemberId === member.userId ? "Removing" : "Remove"}
+                  </button>
+                </div>
               ) : (
                 <span className={styles.roleBadge}>{member.role}</span>
               )}
@@ -262,4 +340,31 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
     new Date(value),
   );
+}
+
+function canManageMember(
+  workspace: Workspace | undefined,
+  currentUser: AuthUser | undefined,
+  member: WorkspaceMember,
+) {
+  if (!workspace || !currentUser || member.userId === currentUser.id) {
+    return false;
+  }
+
+  return (
+    can(workspace.role, "member:manage") &&
+    member.role !== "owner" &&
+    !(workspace.role === "admin" && member.role === "admin")
+  );
+}
+
+function rolesForMember(
+  actorRole: Workspace["role"],
+  memberRole: WorkspaceMember["role"],
+) {
+  if (actorRole === "admin" && memberRole !== "admin") {
+    return assignableRoles.filter((role) => role !== "admin");
+  }
+
+  return assignableRoles;
 }

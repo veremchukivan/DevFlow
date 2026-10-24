@@ -274,18 +274,26 @@
   justify-content: space-between;
   padding: 14px 16px;
 }
-.memberRow div {
+.memberRow > div:first-child {
   display: grid;
   gap: 4px;
 }
 .memberRow strong {
   font-size: 14px;
 }
-.memberRow div span {
+.memberRow > div:first-child span {
   color: var(--muted);
   font-size: 13px;
 }
 .memberRow select {
+  max-width: 150px;
+}
+.memberActions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+.memberActions select {
   max-width: 150px;
 }
 .projectDescription {
