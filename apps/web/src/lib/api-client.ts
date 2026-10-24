@@ -1,5 +1,6 @@
 import {
   authResponseSchema,
+  acceptInvitationResponseSchema,
   labelListResponseSchema,
   labelResponseSchema,
   createLabelRequestSchema,
@@ -20,6 +21,7 @@ import {
   updateProjectRequestSchema,
   createTaskRequestSchema,
   projectListResponseSchema,
+  publicWorkspaceInvitationResponseSchema,
   projectResponseSchema,
   taskListResponseSchema,
   taskActivityEventListResponseSchema,
@@ -34,6 +36,7 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type AcceptInvitationResponse,
   type LabelListResponse,
   type LabelResponse,
   type CreateLabelRequest,
@@ -56,6 +59,7 @@ import {
   type CreateTaskCommentRequest,
   type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
+  type PublicWorkspaceInvitationResponse,
   type ProjectResponse,
   type TaskListResponse,
   type TaskActivityEventListResponse,
@@ -443,6 +447,33 @@ export function resendWorkspaceInvitation(
     `/api/v1/workspaces/${workspaceId}/invitations/${invitationId}/resend`,
     { method: "POST" },
     workspaceInvitationResponseSchema,
+  );
+}
+
+export function getPublicWorkspaceInvitation(
+  token: string,
+): Promise<PublicWorkspaceInvitationResponse> {
+  return request(
+    `/api/v1/invitations/${encodeURIComponent(token)}`,
+    { method: "GET" },
+    publicWorkspaceInvitationResponseSchema,
+  );
+}
+
+export function acceptWorkspaceInvitation(
+  token: string,
+): Promise<AcceptInvitationResponse> {
+  return request(
+    `/api/v1/invitations/${encodeURIComponent(token)}/accept`,
+    { method: "POST" },
+    acceptInvitationResponseSchema,
+  );
+}
+
+export function declineWorkspaceInvitation(token: string): Promise<void> {
+  return requestNoContent(
+    `/api/v1/invitations/${encodeURIComponent(token)}/decline`,
+    { method: "POST" },
   );
 }
 

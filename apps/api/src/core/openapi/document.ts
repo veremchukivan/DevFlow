@@ -494,7 +494,7 @@ export const openApiDocument = {
         operationId: "declineInvitation",
         parameters: [tokenPath],
         responses: {
-          "204": response("Invitation declined"),
+          "200": response("Invitation declined"),
           "404": errorResponse("Invitation not found"),
         },
       },

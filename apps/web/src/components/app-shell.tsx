@@ -18,6 +18,7 @@ const publicPaths = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  "/invitations",
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

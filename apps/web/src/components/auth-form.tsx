@@ -9,7 +9,7 @@ import styles from "@/components/ui.module.css";
 
 type AuthMode = "login" | "register";
 
-export function AuthForm({ mode }: { mode: AuthMode }) {
+export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,7 +35,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         await login({ email, password });
       }
 
-      router.replace("/workspaces");
+      router.replace(getPostAuthPath(next));
       router.refresh();
     } catch (caughtError) {
       if (caughtError instanceof ApiClientError) {
@@ -131,4 +131,10 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       </section>
     </main>
   );
+}
+
+function getPostAuthPath(next: string | null | undefined) {
+  return next?.startsWith("/") && !next.startsWith("//")
+    ? next
+    : "/workspaces";
 }
