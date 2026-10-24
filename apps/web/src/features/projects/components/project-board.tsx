@@ -11,6 +11,8 @@ import {
   LayoutGrid,
   List,
   MoreHorizontal,
+  Plus,
+  Search,
   Settings,
   SlidersHorizontal,
   UserRound,
@@ -116,6 +118,7 @@ export function ProjectBoard() {
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showBoardSettings, setShowBoardSettings] = useState(false);
+  const [showAddColumn, setShowAddColumn] = useState(false);
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
@@ -605,6 +608,30 @@ export function ProjectBoard() {
     }
   }
 
+  async function onQuickCreateStatus(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingStatus(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await createProjectStatus(workspaceId, projectId, {
+        category: form.get("category") as "todo" | "in_progress" | "done",
+        color: String(form.get("color") ?? "#64748b"),
+        name: String(form.get("name") ?? ""),
+      });
+      setProject(response.project);
+      setShowAddColumn(false);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to add column.",
+      );
+    } finally {
+      setIsSavingStatus(false);
+    }
+  }
+
   async function onUpdateStatus(
     event: FormEvent<HTMLFormElement>,
     statusId: string,
@@ -846,18 +873,6 @@ export function ProjectBoard() {
                   <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
                   Project settings
                 </button>
-                <button
-                  disabled={!canUpdateProject}
-                  onClick={() => {
-                    setShowProjectMenu(false);
-                    setShowBoardSettings(true);
-                  }}
-                  role="menuitem"
-                  type="button"
-                >
-                  <LayoutGrid aria-hidden="true" size={17} strokeWidth={1.8} />
-                  Board settings
-                </button>
               </div>
             ) : null}
           </div>
@@ -953,16 +968,6 @@ export function ProjectBoard() {
             ) : null}
           </select>
         </label>
-        <button
-          aria-label="Sprint settings"
-          className={styles.iconButton}
-          disabled={!canUpdateProject || !selectedSprint}
-          onClick={() => setShowSprintSettings(true)}
-          title="Sprint settings"
-          type="button"
-        >
-          <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
-        </button>
       </div>
       {showSprintForm ? (
         <Modal
@@ -1317,6 +1322,55 @@ export function ProjectBoard() {
           </section>
         </Modal>
       ) : null}
+      {showAddColumn ? (
+        <Modal
+          isOpen={showAddColumn}
+          onClose={() => setShowAddColumn(false)}
+          title="Add a column"
+        >
+          <form className={styles.modalForm} onSubmit={onQuickCreateStatus}>
+            <label>
+              <span>Column name</span>
+              <input
+                autoFocus
+                maxLength={80}
+                name="name"
+                placeholder="For example, In review"
+                required
+              />
+            </label>
+            <label>
+              <span>Category</span>
+              <select defaultValue="todo" name="category">
+                <option value="todo">To do</option>
+                <option value="in_progress">In progress</option>
+                <option value="done">Done</option>
+              </select>
+            </label>
+            <label>
+              <span>Color</span>
+              <input defaultValue="#64748b" name="color" type="color" />
+            </label>
+            <div className={styles.formActions}>
+              <button
+                className={styles.primaryButton}
+                disabled={isSavingStatus}
+                type="submit"
+              >
+                {isSavingStatus ? "Adding" : "Add column"}
+              </button>
+              <button
+                className={styles.textButton}
+                disabled={isSavingStatus}
+                onClick={() => setShowAddColumn(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
 
       <div
         className={styles.projectViews}
@@ -1346,8 +1400,9 @@ export function ProjectBoard() {
       </div>
 
       <form className={styles.boardToolbar} onSubmit={onFilter}>
-        <label>
+        <label className={styles.boardSearch}>
           <span className={styles.srOnly}>Search tasks</span>
+          <Search aria-hidden="true" size={17} strokeWidth={1.8} />
           <input
             maxLength={200}
             onChange={(event) => setSearch(event.target.value)}
@@ -1356,11 +1411,13 @@ export function ProjectBoard() {
           />
         </label>
         <button
-          className={styles.secondaryButton}
+          aria-label="Search tasks"
+          className={styles.iconButton}
           disabled={isRefreshing}
+          title="Search tasks"
           type="submit"
         >
-          {isRefreshing ? "Loading" : "Search"}
+          <Search aria-hidden="true" size={17} strokeWidth={1.8} />
         </button>
         <button
           className={styles.secondaryButton}
@@ -1369,6 +1426,16 @@ export function ProjectBoard() {
         >
           <SlidersHorizontal aria-hidden="true" size={16} strokeWidth={1.8} />
           Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+        </button>
+        <button
+          aria-label="Board settings"
+          className={styles.iconButton}
+          disabled={!canUpdateProject}
+          onClick={() => setShowBoardSettings(true)}
+          title="Board settings"
+          type="button"
+        >
+          <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
         </button>
       </form>
       {showFilters ? (
@@ -1627,6 +1694,17 @@ export function ProjectBoard() {
               </section>
             );
           })}
+          {canUpdateProject ? (
+            <button
+              aria-label="Add column"
+              className={styles.addColumnButton}
+              onClick={() => setShowAddColumn(true)}
+              title="Add column"
+              type="button"
+            >
+              <Plus aria-hidden="true" size={20} strokeWidth={1.8} />
+            </button>
+          ) : null}
         </section>
       ) : (
         <section aria-label="Tasks list" className={styles.taskTable}>

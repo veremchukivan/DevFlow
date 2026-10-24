@@ -539,6 +539,17 @@
   flex: 1;
   max-width: 360px;
 }
+.boardToolbar .boardSearch {
+  position: relative;
+}
+.boardSearch > svg {
+  color: var(--muted);
+  left: 11px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
 .boardToolbar input {
   background: var(--surface);
   border: 1px solid #b9c4d1;
@@ -546,7 +557,7 @@
   color: var(--ink);
   font: inherit;
   min-height: 38px;
-  padding: 0 10px;
+  padding: 0 10px 0 36px;
   width: 100%;
 }
 .boardToolbar .secondaryButton {
@@ -578,11 +589,8 @@
   grid-column: span 3;
 }
 .taskBoard {
-  display: grid;
+  display: flex;
   gap: 20px;
-  grid-auto-columns: minmax(264px, 1fr);
-  grid-auto-flow: column;
-  grid-template-columns: repeat(4, minmax(264px, 1fr));
   margin-top: 30px;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -658,8 +666,26 @@
 .taskColumn {
   background: #e9edf3;
   border-radius: 8px;
+  flex: 1 0 264px;
   min-width: 0;
   padding: 16px;
+}
+.addColumnButton {
+  align-items: center;
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: inline-flex;
+  flex: 0 0 42px;
+  height: 42px;
+  justify-content: center;
+  padding: 0;
+}
+.addColumnButton:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
 }
 .taskColumnDropTarget {
   outline: 2px solid var(--brand);
@@ -1298,8 +1324,10 @@
     grid-template-columns: 1fr;
   }
   .taskBoard {
-    grid-auto-columns: minmax(270px, 84vw);
-    grid-template-columns: repeat(4, minmax(270px, 84vw));
+    gap: 12px;
+  }
+  .taskColumn {
+    flex-basis: 84vw;
   }
   .pagination {
     align-items: flex-start;
