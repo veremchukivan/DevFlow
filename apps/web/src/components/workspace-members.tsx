@@ -17,6 +17,7 @@ import {
   resendWorkspaceInvitation,
   updateWorkspaceMember,
 } from "@/lib/api-client";
+import { notifyWorkspacesChanged } from "@/lib/workspace-events";
 import {
   can,
   type Workspace,
@@ -177,6 +178,7 @@ export function WorkspaceMembers() {
     setIsLeaving(true);
     try {
       await leaveWorkspace(params.workspaceId);
+      notifyWorkspacesChanged();
       router.replace("/workspaces");
       router.refresh();
     } catch (caughtError) {

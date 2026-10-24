@@ -16,6 +16,7 @@ import {
   updateWorkspace,
   updateWorkspaceLabel,
 } from "@/lib/api-client";
+import { notifyWorkspacesChanged } from "@/lib/workspace-events";
 import { can, type Label, type ProjectSummary, type Workspace } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
@@ -203,6 +204,7 @@ export function WorkspaceDetail() {
       return;
     try {
       await deleteWorkspace(workspaceId);
+      notifyWorkspacesChanged();
       router.replace("/workspaces");
       router.refresh();
     } catch (caughtError) {
