@@ -274,7 +274,20 @@ export async function deleteProjectStatus(input: {
   if ((await countTasksForProjectStatus(input)) > 0) {
     throw new AppError(409, "PROJECT_STATUS_TASKS_EXIST", "Move tasks out of this status before deleting it");
   }
-  const status = await deleteProjectStatusInDb(input);
+  let status;
+  try {
+    status = await deleteProjectStatusInDb(input);
+  } catch (error) {
+    if (isForeignKeyViolation(error)) {
+      throw new AppError(
+        409,
+        "PROJECT_STATUS_TASKS_EXIST",
+        "Move tasks out of this status before deleting it"
+      );
+    }
+
+    throw error;
+  }
   if (!status) throw new AppError(404, "PROJECT_STATUS_NOT_FOUND", "Project status not found");
   return getProject(input);
 }
@@ -379,5 +392,14 @@ function isUniqueViolation(error: unknown) {
     error !== null &&
     "code" in error &&
     error.code === "23505"
+  );
+}
+
+function isForeignKeyViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "23503"
   );
 }
