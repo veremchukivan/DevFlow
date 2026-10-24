@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           error instanceof ApiClientError &&
           error.code === "UNAUTHENTICATED"
         ) {
-          router.replace("/login");
+          router.replace(`/login?next=${encodeURIComponent(pathname)}`);
           return;
         }
 
@@ -63,7 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [isPublicPage, router]);
+  }, [isPublicPage, pathname, router]);
 
   useEffect(() => subscribeToUserChanges(setUser), []);
 

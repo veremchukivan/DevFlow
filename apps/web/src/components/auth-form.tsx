@@ -14,6 +14,7 @@ export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
   const [error, setError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isRegister = mode === "register";
+  const nextQuery = next ? `?next=${encodeURIComponent(next)}` : "";
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,7 +120,7 @@ export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
 
         <p className={styles.authSwitch}>
           {isRegister ? "Already have an account?" : "New to DevFlow?"}{" "}
-          <Link href={isRegister ? "/login" : "/register"}>
+          <Link href={`${isRegister ? "/login" : "/register"}${nextQuery}`}>
             {isRegister ? "Sign in" : "Create an account"}
           </Link>
         </p>
