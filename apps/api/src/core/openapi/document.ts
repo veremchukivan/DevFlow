@@ -711,6 +711,13 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/restore": {
+      post: {
+        tags: ["Tasks"], operationId: "restoreTask", security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("taskId"), { name: "If-Match", in: "header", required: true, schema: { type: "string", pattern: '^"[1-9]\\d*"$' } }],
+        responses: { "204": response("Task restored"), "409": errorResponse("Task version conflict"), "428": errorResponse("Task version is required"), ...commonErrors },
+      },
+    },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/comments":
       {
         get: {

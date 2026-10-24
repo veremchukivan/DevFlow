@@ -8,6 +8,7 @@ import { LayoutGrid, List } from "lucide-react";
 import {
   ApiClientError,
   createTask,
+  restoreTask,
   createProjectStatus,
   deleteProject,
   deleteProjectStatus,
@@ -33,6 +34,7 @@ import { can } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
 type BoardFilters = {
+  archived?: boolean;
   priority?: TaskPriority;
   labelId?: string;
   assigneeUserId?: string | "none";
@@ -80,8 +82,10 @@ export function ProjectBoard() {
   const [error, setError] = useState<string>();
   const [draggedTaskId, setDraggedTaskId] = useState<string>();
   const [dropStatusId, setDropStatusId] = useState<string>();
+  const [showArchived, setShowArchived] = useState(false);
   const canCreateTasks = role ? can(role, "task:create") : false;
   const canUpdateTasks = role ? can(role, "task:update") : false;
+  const canDeleteTasks = role ? can(role, "task:delete") : false;
   const canUpdateProject = role ? can(role, "project:update") : false;
   const canDeleteProject = role ? can(role, "project:delete") : false;
 
@@ -164,6 +168,7 @@ export function ProjectBoard() {
         ? { assigneeUserId: assigneeUserId as string | "none" }
         : {}),
       ...(due ? { due } : {}),
+      ...(showArchived ? { archived: true } : {}),
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
@@ -175,8 +180,24 @@ export function ProjectBoard() {
     setLabelId("");
     setAssigneeUserId("");
     setDue("");
+    setShowArchived(false);
     setFilters({});
     await loadTasks({});
+  }
+
+  async function onToggleArchived() {
+    const nextArchived = !showArchived;
+    setShowArchived(nextArchived);
+    await loadTasks({ ...filters, ...(nextArchived ? { archived: true } : {}) });
+  }
+
+  async function onRestoreTask(task: Task) {
+    try {
+      await restoreTask(workspaceId, projectId, task.id, task.version);
+      await loadTasks({ ...filters, archived: true });
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to restore task.");
+    }
   }
 
   async function onCreateTask(event: FormEvent<HTMLFormElement>) {
@@ -693,6 +714,9 @@ export function ProjectBoard() {
           Clear
         </button>
       </form>
+      <button className={styles.secondaryButton} disabled={isRefreshing} onClick={() => void onToggleArchived()} type="button">
+        {showArchived ? "Show active tasks" : "Show archived tasks"}
+      </button>
 
       {error ? (
         <p className={styles.formError} role="alert">
@@ -794,6 +818,7 @@ export function ProjectBoard() {
                         task={task}
                         updatingTaskId={updatingTaskId}
                         canUpdate={canUpdateTasks}
+                        onRestore={showArchived && canDeleteTasks ? onRestoreTask : undefined}
                       />
                     </article>
                   ))}
@@ -876,6 +901,7 @@ function TaskControls({
   task,
   updatingTaskId,
   canUpdate,
+  onRestore,
 }: {
   onUpdateTask: (
     task: Task,
@@ -886,6 +912,7 @@ function TaskControls({
   task: Task;
   updatingTaskId?: string;
   canUpdate: boolean;
+  onRestore?: (task: Task) => Promise<void>;
 }) {
   return (
     <div className={styles.taskCardControls}>
@@ -925,6 +952,7 @@ function TaskControls({
           ))}
         </select>
       </label>
+      {onRestore ? <button className={styles.textButton} onClick={() => void onRestore(task)} type="button">Restore</button> : null}
     </div>
   );
 }

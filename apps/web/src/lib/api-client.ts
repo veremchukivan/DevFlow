@@ -552,6 +552,7 @@ export function deleteProjectStatus(workspaceId: string, projectId: string, stat
 }
 
 type TaskListFilters = {
+  archived?: boolean;
   assigneeUserId?: string | "none";
   due?: "overdue" | "today" | "week" | "none";
   labelId?: string;
@@ -578,6 +579,7 @@ export function getTasks(
   if (filters.assigneeUserId)
     query.set("assigneeUserId", filters.assigneeUserId);
   if (filters.due) query.set("due", filters.due);
+  if (filters.archived) query.set("archived", "true");
 
   if (filters.search) {
     query.set("search", filters.search);
@@ -742,6 +744,10 @@ export function deleteTask(
       method: "DELETE",
     },
   );
+}
+
+export function restoreTask(workspaceId: string, projectId: string, taskId: string, version: number): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/restore`, { headers: { "If-Match": `"${version}"` }, method: "POST" });
 }
 
 export async function getApiHealth(): Promise<HealthResponse> {

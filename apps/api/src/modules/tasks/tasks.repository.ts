@@ -454,6 +454,18 @@ export async function softDeleteTaskInProject(
   return task;
 }
 
+export async function restoreTaskInProject(
+  input: { projectId: string; taskId: string; version: number; workspaceId: string },
+  executor: DbExecutor = db,
+) {
+  const [task] = await executor
+    .update(tasks)
+    .set({ deletedAt: null, updatedAt: new Date(), version: sql`${tasks.version} + 1` })
+    .where(and(eq(tasks.id, input.taskId), eq(tasks.workspaceId, input.workspaceId), eq(tasks.projectId, input.projectId), eq(tasks.version, input.version), isNotNull(tasks.deletedAt)))
+    .returning();
+  return task;
+}
+
 function escapeLikePattern(pattern: string): string {
   return pattern.replace(/[%_\\]/g, "\\$&");
 }

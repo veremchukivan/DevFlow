@@ -8,6 +8,7 @@ import {
   cleanupDatabase,
   createTestApp,
   createTestProject,
+  createTestTask,
   createTestUser,
   createTestWorkspace,
   db,
@@ -102,5 +103,16 @@ describe("Soft Delete Constraints Integration Tests", () => {
     expect(res.status).toBe(201);
     expect(res.body.user.email).toBe(email);
     expect(res.body.user.displayName).toBe("New Profile");
+  });
+
+  it("restores an archived task with its current version", async () => {
+    const owner = await createTestUser(app);
+    const workspace = await createTestWorkspace(app, owner.cookie);
+    const project = await createTestProject(app, owner.cookie, workspace.id);
+    const task = await createTestTask(app, owner.cookie, workspace.id, project.id);
+    const deleted = await request(app).delete(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`).set("Cookie", owner.cookie).set("If-Match", `"${task.version}"`);
+    expect(deleted.status).toBe(204);
+    const restored = await request(app).post(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/restore`).set("Cookie", owner.cookie).set("If-Match", `"${task.version + 1}"`);
+    expect(restored.status).toBe(204);
   });
 });

@@ -18,6 +18,7 @@ import {
 import {
   createTask,
   deleteTask,
+  restoreTask,
   getTask,
   listTasks,
   updateTask,
@@ -100,6 +101,12 @@ tasksRouter.delete("/:taskId", async (req, res) => {
     workspaceId: params.workspaceId,
   });
 
+  res.status(204).send();
+});
+
+tasksRouter.post("/:taskId/restore", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  await restoreTask({ ...params, expectedVersion: getExpectedTaskVersion(req), userId: getAuthenticatedUserId(req) });
   res.status(204).send();
 });
 
