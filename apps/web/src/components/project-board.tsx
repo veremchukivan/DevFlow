@@ -187,14 +187,25 @@ export function ProjectBoard() {
 
   async function onToggleArchived() {
     const nextArchived = !showArchived;
+    const nextFilters = { ...filters };
+
+    if (nextArchived) {
+      nextFilters.archived = true;
+    } else {
+      delete nextFilters.archived;
+    }
+
     setShowArchived(nextArchived);
-    await loadTasks({ ...filters, ...(nextArchived ? { archived: true } : {}) });
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
   }
 
   async function onRestoreTask(task: Task) {
     try {
       await restoreTask(workspaceId, projectId, task.id, task.version);
-      await loadTasks({ ...filters, archived: true });
+      const nextFilters = { ...filters, archived: true };
+      setFilters(nextFilters);
+      await loadTasks(nextFilters);
     } catch (caughtError) {
       setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to restore task.");
     }

@@ -264,8 +264,7 @@ export async function countTasksForProjectStatus(input: {
       and(
         eq(tasks.workspaceId, input.workspaceId),
         eq(tasks.projectId, input.projectId),
-        eq(tasks.statusId, input.statusId),
-        isNull(tasks.deletedAt)
+        eq(tasks.statusId, input.statusId)
       )
     );
 

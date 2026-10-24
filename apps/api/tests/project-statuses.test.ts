@@ -54,4 +54,29 @@ describe("Project status integration tests", () => {
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("PROJECT_STATUS_TASKS_EXIST");
   });
+
+  it("does not delete a status that contains archived tasks", async () => {
+    const status = project.statuses[0];
+    const task = await createTestTask(app, owner.cookie, workspace.id, project.id, {
+      statusId: status.id,
+    });
+
+    const archived = await request(app)
+      .delete(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`,
+      )
+      .set("Cookie", owner.cookie)
+      .set("If-Match", `"${task.version}"`);
+
+    expect(archived.status).toBe(204);
+
+    const res = await request(app)
+      .delete(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/statuses/${status.id}`,
+      )
+      .set("Cookie", owner.cookie);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("PROJECT_STATUS_TASKS_EXIST");
+  });
 });
