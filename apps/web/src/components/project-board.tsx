@@ -29,6 +29,8 @@ import type {
   Project,
   Task,
   TaskPriority,
+  TaskSortField,
+  TaskSortOrder,
   WorkspaceMember,
   WorkspaceRole,
 } from "@devflow/shared";
@@ -42,6 +44,8 @@ type BoardFilters = {
   assigneeUserId?: string | "none";
   due?: "overdue" | "today" | "week" | "none";
   search?: string;
+  sortBy?: TaskSortField;
+  sortOrder?: TaskSortOrder;
 };
 
 type ProjectView = "board" | "list";
@@ -73,6 +77,8 @@ export function ProjectBoard() {
   const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
     "",
   );
+  const [sortBy, setSortBy] = useState<TaskSortField>("number");
+  const [sortOrder, setSortOrder] = useState<TaskSortOrder>("asc");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -198,6 +204,8 @@ export function ProjectBoard() {
         : {}),
       ...(due ? { due } : {}),
       ...(showArchived ? { archived: true } : {}),
+      sortBy,
+      sortOrder,
     };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
@@ -209,9 +217,12 @@ export function ProjectBoard() {
     setLabelId("");
     setAssigneeUserId("");
     setDue("");
+    setSortBy("number");
+    setSortOrder("asc");
     setShowArchived(false);
-    setFilters({});
-    await loadTasks({});
+    const nextFilters = { sortBy: "number" as const, sortOrder: "asc" as const };
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
   }
 
   async function onToggleArchived() {
@@ -778,6 +789,32 @@ export function ProjectBoard() {
             <option value="today">Today</option>
             <option value="week">This week</option>
             <option value="none">No due date</option>
+          </select>
+        </label>
+        <label>
+          <span>Sort by</span>
+          <select
+            onChange={(event) =>
+              setSortBy(event.target.value as TaskSortField)
+            }
+            value={sortBy}
+          >
+            <option value="number">Task number</option>
+            <option value="createdAt">Created date</option>
+            <option value="updatedAt">Updated date</option>
+            <option value="priority">Priority</option>
+          </select>
+        </label>
+        <label>
+          <span>Order</span>
+          <select
+            onChange={(event) =>
+              setSortOrder(event.target.value as TaskSortOrder)
+            }
+            value={sortOrder}
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
           </select>
         </label>
         <button

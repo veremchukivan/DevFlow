@@ -73,6 +73,8 @@ import {
   type TaskCommentResponse,
   type UpdateTaskCommentRequest,
   type TaskPriority,
+  type TaskSortField,
+  type TaskSortOrder,
   type TaskResponse,
   type UpdateTaskRequest,
   type UpdateProfileRequest,
@@ -577,6 +579,8 @@ type TaskListFilters = {
   offset?: number;
   priority?: TaskPriority;
   search?: string;
+  sortBy?: TaskSortField;
+  sortOrder?: TaskSortOrder;
 };
 
 export function getTasks(
@@ -587,8 +591,8 @@ export function getTasks(
   const query = new URLSearchParams({
     limit: String(filters.limit ?? 50),
     offset: String(filters.offset ?? 0),
-    sortBy: "number",
-    sortOrder: "asc",
+    sortBy: filters.sortBy ?? "number",
+    sortOrder: filters.sortOrder ?? "asc",
   });
 
   if (filters.priority) {
