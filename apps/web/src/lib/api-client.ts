@@ -425,6 +425,27 @@ export function createWorkspaceInvitation(
   );
 }
 
+export function cancelWorkspaceInvitation(
+  workspaceId: string,
+  invitationId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/invitations/${invitationId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function resendWorkspaceInvitation(
+  workspaceId: string,
+  invitationId: string,
+): Promise<WorkspaceInvitationResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/invitations/${invitationId}/resend`,
+    { method: "POST" },
+    workspaceInvitationResponseSchema,
+  );
+}
+
 export function getProjects(workspaceId: string): Promise<ProjectListResponse> {
   return request(
     `/api/v1/workspaces/${workspaceId}/projects?limit=100&offset=0`,

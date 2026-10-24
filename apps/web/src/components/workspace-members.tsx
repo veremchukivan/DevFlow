@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import {
   ApiClientError,
+  cancelWorkspaceInvitation,
   createWorkspaceInvitation,
   getCurrentUser,
   getWorkspace,
@@ -13,6 +14,7 @@ import {
   getWorkspaceMembers,
   leaveWorkspace,
   removeWorkspaceMember,
+  resendWorkspaceInvitation,
   updateWorkspaceMember,
 } from "@/lib/api-client";
 import {
@@ -45,6 +47,8 @@ export function WorkspaceMembers() {
   const [updatingMemberId, setUpdatingMemberId] = useState<string>();
   const [removingMemberId, setRemovingMemberId] = useState<string>();
   const [isLeaving, setIsLeaving] = useState(false);
+  const [cancellingInvitationId, setCancellingInvitationId] = useState<string>();
+  const [resendingInvitationId, setResendingInvitationId] = useState<string>();
 
   const canManage = workspace ? can(workspace.role, "member:manage") : false;
 
@@ -183,6 +187,53 @@ export function WorkspaceMembers() {
       );
     } finally {
       setIsLeaving(false);
+    }
+  }
+
+  async function onCancelInvitation(invitation: WorkspaceInvitation) {
+    if (!window.confirm(`Cancel the invitation for ${invitation.email}?`)) {
+      return;
+    }
+
+    setError(undefined);
+    setCancellingInvitationId(invitation.id);
+    try {
+      await cancelWorkspaceInvitation(params.workspaceId, invitation.id);
+      setInvitations((current) =>
+        current.filter((item) => item.id !== invitation.id),
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to cancel the invitation.",
+      );
+    } finally {
+      setCancellingInvitationId(undefined);
+    }
+  }
+
+  async function onResendInvitation(invitation: WorkspaceInvitation) {
+    setError(undefined);
+    setResendingInvitationId(invitation.id);
+    try {
+      const response = await resendWorkspaceInvitation(
+        params.workspaceId,
+        invitation.id,
+      );
+      setInvitations((current) =>
+        current.map((item) =>
+          item.id === invitation.id ? response.invitation : item,
+        ),
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to resend the invitation.",
+      );
+    } finally {
+      setResendingInvitationId(undefined);
     }
   }
 
@@ -326,7 +377,29 @@ export function WorkspaceMembers() {
                     <strong>{invitation.email}</strong>
                     <span>Expires {formatDate(invitation.expiresAt)}</span>
                   </div>
-                  <span className={styles.roleBadge}>{invitation.role}</span>
+                  <div className={styles.memberActions}>
+                    <span className={styles.roleBadge}>{invitation.role}</span>
+                    <button
+                      className={styles.textButton}
+                      disabled={resendingInvitationId === invitation.id}
+                      onClick={() => void onResendInvitation(invitation)}
+                      type="button"
+                    >
+                      {resendingInvitationId === invitation.id
+                        ? "Sending"
+                        : "Resend"}
+                    </button>
+                    <button
+                      className={styles.textButton}
+                      disabled={cancellingInvitationId === invitation.id}
+                      onClick={() => void onCancelInvitation(invitation)}
+                      type="button"
+                    >
+                      {cancellingInvitationId === invitation.id
+                        ? "Cancelling"
+                        : "Cancel"}
+                    </button>
+                  </div>
                 </div>
               ))}
           </div>
