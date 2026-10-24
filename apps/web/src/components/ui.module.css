@@ -423,7 +423,7 @@
   padding: 0 8px;
   width: 100%;
 }
-.taskPagination {
+.pagination {
   align-items: center;
   color: var(--muted);
   display: flex;
@@ -431,7 +431,7 @@
   justify-content: space-between;
   margin-top: 18px;
 }
-.taskPagination > div {
+.pagination > div {
   display: flex;
   gap: 8px;
 }
@@ -895,7 +895,7 @@
     grid-auto-columns: minmax(270px, 84vw);
     grid-template-columns: repeat(4, minmax(270px, 84vw));
   }
-  .taskPagination {
+  .pagination {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;

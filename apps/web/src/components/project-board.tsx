@@ -974,7 +974,7 @@ export function ProjectBoard() {
       )}
 
       {pageInfo ? (
-        <nav aria-label="Task pagination" className={styles.taskPagination}>
+        <nav aria-label="Task pagination" className={styles.pagination}>
           <span>
             {pageInfo.total === 0
               ? "No tasks"

@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
@@ -31,6 +31,7 @@ import type {
   TaskPriority,
   WorkspaceRole,
   Label,
+  PageInfo,
   WorkspaceMember,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
@@ -38,6 +39,7 @@ import { can } from "@devflow/shared";
 import styles from "@/components/ui.module.css";
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
+const detailPageSize = 25;
 
 export function TaskDetail() {
   const params = useParams<{
@@ -52,7 +54,9 @@ export function TaskDetail() {
   const [role, setRole] = useState<WorkspaceRole>();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
+  const [commentsPageInfo, setCommentsPageInfo] = useState<PageInfo>();
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
+  const [activityPageInfo, setActivityPageInfo] = useState<PageInfo>();
   const [workspaceLabels, setWorkspaceLabels] = useState<Label[]>([]);
   const [taskLabels, setTaskLabels] = useState<Label[]>([]);
   const [isSavingLabels, setIsSavingLabels] = useState(false);
@@ -84,8 +88,12 @@ export function TaskDetail() {
       ] = await Promise.all([
         getTask(params.workspaceId, params.projectId, params.taskId),
         getWorkspaceMembers(params.workspaceId),
-        getTaskComments(params.workspaceId, params.projectId, params.taskId),
-        getTaskActivity(params.workspaceId, params.projectId, params.taskId),
+        getTaskComments(params.workspaceId, params.projectId, params.taskId, {
+          limit: detailPageSize,
+        }),
+        getTaskActivity(params.workspaceId, params.projectId, params.taskId, {
+          limit: detailPageSize,
+        }),
         getCurrentUser(),
         getWorkspaceLabels(params.workspaceId),
         getTaskLabels(params.workspaceId, params.projectId, params.taskId),
@@ -99,7 +107,9 @@ export function TaskDetail() {
         membersResponse.members.filter((member) => member.status === "active"),
       );
       setComments(commentsResponse.comments);
+      setCommentsPageInfo(commentsResponse.pageInfo);
       setActivity(activityResponse.events);
+      setActivityPageInfo(activityResponse.pageInfo);
       setCurrentUserId(currentUserResponse.user.id);
       setWorkspaceLabels(workspaceLabelsResponse.labels);
       setTaskLabels(taskLabelsResponse.labels);
@@ -146,6 +156,52 @@ export function TaskDetail() {
     void loadTaskDetails();
   }, [loadTaskDetails]);
 
+  async function loadComments(offset = 0) {
+    const response = await getTaskComments(
+      params.workspaceId,
+      params.projectId,
+      params.taskId,
+      { limit: detailPageSize, offset },
+    );
+    setComments(response.comments);
+    setCommentsPageInfo(response.pageInfo);
+  }
+
+  async function loadActivity(offset = 0) {
+    const response = await getTaskActivity(
+      params.workspaceId,
+      params.projectId,
+      params.taskId,
+      { limit: detailPageSize, offset },
+    );
+    setActivity(response.events);
+    setActivityPageInfo(response.pageInfo);
+  }
+
+  async function onChangeCommentsPage(offset: number) {
+    try {
+      await loadComments(offset);
+    } catch (caughtError) {
+      setCommentError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to load comments.",
+      );
+    }
+  }
+
+  async function onChangeActivityPage(offset: number) {
+    try {
+      await loadActivity(offset);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to load activity.",
+      );
+    }
+  }
+
   async function onTaskSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!task) return;
@@ -172,14 +228,8 @@ export function TaskDetail() {
         },
         task.version,
       );
-      const activityResponse = await getTaskActivity(
-        params.workspaceId,
-        params.projectId,
-        params.taskId,
-      );
-
       setTask(response.task);
-      setActivity(activityResponse.events);
+      await loadActivity(activityPageInfo?.offset);
       setIsEditing(false);
     } catch (caughtError) {
       if (
@@ -248,20 +298,16 @@ export function TaskDetail() {
     const body = String(new FormData(form).get("body") ?? "");
 
     try {
-      const response = await createTaskComment(
+      await createTaskComment(
         params.workspaceId,
         params.projectId,
         params.taskId,
         { body },
       );
-      const activityResponse = await getTaskActivity(
-        params.workspaceId,
-        params.projectId,
-        params.taskId,
-      );
-
-      setComments((current) => [...current, response.comment]);
-      setActivity(activityResponse.events);
+      await Promise.all([
+        loadComments(commentsPageInfo?.offset),
+        loadActivity(activityPageInfo?.offset),
+      ]);
       form.reset();
     } catch (caughtError) {
       setCommentError(
@@ -284,25 +330,17 @@ export function TaskDetail() {
     const body = String(new FormData(event.currentTarget).get("body") ?? "");
 
     try {
-      const response = await updateTaskComment(
+      await updateTaskComment(
         params.workspaceId,
         params.projectId,
         params.taskId,
         commentId,
         { body },
       );
-      const activityResponse = await getTaskActivity(
-        params.workspaceId,
-        params.projectId,
-        params.taskId,
-      );
-
-      setComments((current) =>
-        current.map((comment) =>
-          comment.id === commentId ? response.comment : comment,
-        ),
-      );
-      setActivity(activityResponse.events);
+      await Promise.all([
+        loadComments(commentsPageInfo?.offset),
+        loadActivity(activityPageInfo?.offset),
+      ]);
       setEditingCommentId(undefined);
     } catch (caughtError) {
       setCommentError(
@@ -330,16 +368,10 @@ export function TaskDetail() {
         params.taskId,
         commentId,
       );
-      const activityResponse = await getTaskActivity(
-        params.workspaceId,
-        params.projectId,
-        params.taskId,
-      );
-
-      setComments((current) =>
-        current.filter((comment) => comment.id !== commentId),
-      );
-      setActivity(activityResponse.events);
+      await Promise.all([
+        loadComments(commentsPageInfo?.offset),
+        loadActivity(activityPageInfo?.offset),
+      ]);
     } catch (caughtError) {
       setCommentError(
         caughtError instanceof ApiClientError
@@ -688,6 +720,13 @@ export function TaskDetail() {
             ) : (
               <p className={styles.emptyState}>No comments yet.</p>
             )}
+            {commentsPageInfo ? (
+              <DetailPagination
+                label="comments"
+                pageInfo={commentsPageInfo}
+                onChange={onChangeCommentsPage}
+              />
+            ) : null}
           </section>
 
           <section
@@ -711,10 +750,41 @@ export function TaskDetail() {
             ) : (
               <p className={styles.emptyState}>No activity yet.</p>
             )}
+            {activityPageInfo ? (
+              <DetailPagination
+                label="activity"
+                pageInfo={activityPageInfo}
+                onChange={onChangeActivityPage}
+              />
+            ) : null}
           </section>
         </section>
       )}
     </main>
+  );
+}
+
+function DetailPagination({
+  label,
+  onChange,
+  pageInfo,
+}: {
+  label: string;
+  onChange: (offset: number) => Promise<void>;
+  pageInfo: PageInfo;
+}) {
+  return (
+    <nav aria-label={`${label} pagination`} className={styles.pagination}>
+      <span>
+        {pageInfo.total === 0
+          ? `No ${label}`
+          : `${pageInfo.offset + 1}-${Math.min(pageInfo.offset + pageInfo.limit, pageInfo.total)} of ${pageInfo.total}`}
+      </span>
+      <div>
+        <button aria-label={`Previous ${label}`} className={styles.iconButton} disabled={pageInfo.offset === 0} onClick={() => void onChange(Math.max(0, pageInfo.offset - pageInfo.limit))} title="Previous page" type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
+        <button aria-label={`Next ${label}`} className={styles.iconButton} disabled={!pageInfo.hasNextPage} onClick={() => void onChange(pageInfo.offset + pageInfo.limit)} title="Next page" type="button"><ChevronRight aria-hidden="true" size={16} /></button>
+      </div>
+    </nav>
   );
 }
 

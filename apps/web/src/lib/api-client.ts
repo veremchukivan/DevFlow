@@ -652,9 +652,10 @@ export function getTaskComments(
   workspaceId: string,
   projectId: string,
   taskId: string,
+  pagination: { limit?: number; offset?: number } = {},
 ): Promise<TaskCommentListResponse> {
   return request(
-    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments?limit=100&offset=0`,
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments?limit=${pagination.limit ?? 25}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     taskCommentListResponseSchema,
   );
@@ -709,9 +710,10 @@ export function getTaskActivity(
   workspaceId: string,
   projectId: string,
   taskId: string,
+  pagination: { limit?: number; offset?: number } = {},
 ): Promise<TaskActivityEventListResponse> {
   return request(
-    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/activity?limit=100&offset=0`,
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/activity?limit=${pagination.limit ?? 25}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     taskActivityEventListResponseSchema,
   );
