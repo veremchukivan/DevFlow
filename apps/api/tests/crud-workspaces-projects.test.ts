@@ -271,6 +271,10 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
     const workspaceResponse = await request(app).get(`/api/v1/workspaces/${transferWorkspace.id}`).set("Cookie", target.cookie);
     expect(workspaceResponse.body.workspace.ownerUserId).toBe(target.user.id);
     expect(workspaceResponse.body.workspace.role).toBe("owner");
+    const formerOwner = await request(app).get(`/api/v1/workspaces/${transferWorkspace.id}`).set("Cookie", transferOwner.cookie);
+    expect(formerOwner.body.workspace.role).toBe("admin");
+    const repeatedTransfer = await request(app).post(`/api/v1/workspaces/${transferWorkspace.id}/members/transfer-ownership`).set("Cookie", transferOwner.cookie).send({ userId: target.user.id });
+    expect(repeatedTransfer.status).toBe(403);
   });
 });
 

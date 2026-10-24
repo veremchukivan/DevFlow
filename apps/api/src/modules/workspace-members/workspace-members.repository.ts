@@ -165,10 +165,11 @@ export async function transferWorkspaceOwnership(input: { fromUserId: string; to
     const [target] = await tx.select({ status: workspaceMembers.status }).from(workspaceMembers).where(and(eq(workspaceMembers.userId, input.toUserId), eq(workspaceMembers.workspaceId, input.workspaceId))).limit(1);
     if (!target || target.status !== "active") return false;
     const now = new Date();
+    const [workspace] = await tx.update(workspaces).set({ ownerUserId: input.toUserId, updatedAt: now }).where(and(eq(workspaces.id, input.workspaceId), eq(workspaces.ownerUserId, input.fromUserId), isNull(workspaces.deletedAt))).returning({ id: workspaces.id });
+    if (!workspace) return false;
     await tx.update(workspaceMembers).set({ role: "admin", updatedAt: now }).where(and(eq(workspaceMembers.userId, input.fromUserId), eq(workspaceMembers.workspaceId, input.workspaceId), eq(workspaceMembers.role, "owner")));
     await tx.update(workspaceMembers).set({ role: "owner", updatedAt: now }).where(and(eq(workspaceMembers.userId, input.toUserId), eq(workspaceMembers.workspaceId, input.workspaceId)));
-    const [workspace] = await tx.update(workspaces).set({ ownerUserId: input.toUserId, updatedAt: now }).where(and(eq(workspaces.id, input.workspaceId), eq(workspaces.ownerUserId, input.fromUserId), isNull(workspaces.deletedAt))).returning({ id: workspaces.id });
-    return Boolean(workspace);
+    return true;
   });
 }
 
