@@ -55,18 +55,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.activeWorkspace small,
-.projectsHeading {
+.activeWorkspace small {
   color: var(--muted);
   font-size: 12px;
 }
-.navigation,
-.workspaceList {
+.navigation {
   display: grid;
   gap: 4px;
 }
-.navigationLink,
-.workspaceLink {
+.navigationLink {
   align-items: center;
   border-radius: 6px;
   color: #607086;
@@ -78,39 +75,13 @@
   padding: 0 14px;
   text-decoration: none;
 }
-.navigationLink:hover,
-.workspaceLink:hover {
+.navigationLink:hover {
   background: #f1f5fa;
   color: #316bb1;
 }
-.navigationLink[aria-current="page"],
-.workspaceLink[aria-current="page"] {
+.navigationLink[aria-current="page"] {
   background: #e5effb;
   color: #316bb1;
-}
-.projects {
-  display: grid;
-  gap: 12px;
-}
-.projectsHeading {
-  align-items: center;
-  display: flex;
-  font-weight: 700;
-  justify-content: space-between;
-  letter-spacing: 0;
-  padding: 0 14px;
-  text-transform: uppercase;
-}
-.projectsHeading a {
-  align-items: center;
-  color: var(--muted);
-  display: inline-flex;
-  height: 28px;
-  justify-content: center;
-  width: 28px;
-}
-.projectsHeading a:hover {
-  color: var(--brand);
 }
 @media (max-width: 840px) {
   .sidebar {

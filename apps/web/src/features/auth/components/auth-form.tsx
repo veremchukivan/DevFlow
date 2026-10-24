@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-import { ApiClientError, login, register } from "@/shared/lib/api-client";
+import {
+  ApiClientError,
+  getWorkspaces,
+  login,
+  register,
+} from "@/shared/lib/api-client";
 import styles from "@/shared/styles/ui.module.css";
 
 type AuthMode = "login" | "register";
@@ -36,7 +41,17 @@ export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
         await login({ email, password });
       }
 
-      router.replace(getPostAuthPath(next));
+      const postAuthPath = getPostAuthPath(next);
+      if (postAuthPath === "/workspaces") {
+        const workspaces = await getWorkspaces({ limit: 1 });
+        router.replace(
+          workspaces.workspaces[0]
+            ? `/workspaces/${workspaces.workspaces[0].id}`
+            : "/workspaces",
+        );
+      } else {
+        router.replace(postAuthPath);
+      }
       router.refresh();
     } catch (caughtError) {
       if (caughtError instanceof ApiClientError) {
@@ -135,7 +150,5 @@ export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
 }
 
 function getPostAuthPath(next: string | null | undefined) {
-  return next?.startsWith("/") && !next.startsWith("//")
-    ? next
-    : "/workspaces";
+  return next?.startsWith("/") && !next.startsWith("//") ? next : "/workspaces";
 }

@@ -6,6 +6,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { authTokens } from "../src/core/db/schema/auth-tokens.js";
 import { sessions } from "../src/core/db/schema/sessions.js";
 import { users } from "../src/core/db/schema/users.js";
+import { workspaceMembers } from "../src/core/db/schema/workspace-members.js";
+import { workspaces } from "../src/core/db/schema/workspaces.js";
 import { issueEmailVerificationToken } from "../src/modules/auth/auth.service.js";
 import {
   cleanupDatabase,
@@ -37,6 +39,19 @@ describe("Auth Module Integration Tests", () => {
     });
     expect(res.body.user.id).toBeDefined();
     expect(res.body.token).toBeUndefined();
+
+    const [workspace] = await db
+      .select({ name: workspaces.name, role: workspaceMembers.role })
+      .from(workspaces)
+      .innerJoin(
+        workspaceMembers,
+        eq(workspaceMembers.workspaceId, workspaces.id),
+      )
+      .where(eq(workspaceMembers.userId, res.body.user.id));
+    expect(workspace).toEqual({
+      name: "Alice Developer's workspace",
+      role: "owner",
+    });
 
     const cookies = res.headers["set-cookie"];
     expect(cookies).toBeDefined();

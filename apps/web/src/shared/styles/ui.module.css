@@ -336,6 +336,40 @@
   gap: 28px;
   margin-top: 34px;
 }
+.sprintToolbar {
+  align-items: end;
+  display: flex;
+  margin-top: 24px;
+}
+.sprintToolbar label,
+.modalForm label {
+  display: grid;
+  gap: 7px;
+}
+.sprintToolbar label > span,
+.modalForm label > span {
+  font-size: 13px;
+  font-weight: 700;
+}
+.sprintToolbar select,
+.modalForm input,
+.modalForm textarea {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+}
+.modalForm {
+  display: grid;
+  gap: 16px;
+}
+.modalForm textarea {
+  padding: 10px;
+  resize: vertical;
+}
 .projectView {
   align-items: center;
   background: transparent;
@@ -505,6 +539,8 @@
   width: 8px;
 }
 .taskList {
+  display: grid;
+  gap: 10px;
   margin-top: 12px;
 }
 .taskCard {
@@ -513,6 +549,77 @@
   border-radius: 8px;
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
   padding: 16px;
+}
+.taskQuickAdd {
+  align-items: center;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #526176;
+  display: inline-flex;
+  font-size: 22px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0;
+  width: 100%;
+}
+.taskQuickAdd:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.quickTaskForm {
+  background: var(--surface);
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgb(31 44 61 / 8%);
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+.quickTaskForm > input {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  min-width: 0;
+  outline: none;
+  padding: 2px 0;
+}
+.quickTaskForm > input::placeholder {
+  color: #667085;
+}
+.quickTaskControls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.quickTaskControls select,
+.quickTaskIconField input {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+  min-height: 30px;
+  padding: 0 7px;
+}
+.quickTaskIconField {
+  align-items: center;
+  color: #526176;
+  display: inline-flex;
+  gap: 4px;
+}
+.quickTaskIconField input {
+  max-width: 126px;
+}
+.quickTaskControls .textButton {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 0 4px;
 }
 .taskCard[draggable="true"] {
   cursor: grab;

@@ -15,6 +15,7 @@ import {
 
 import { softDeleteColumn, timestampColumns } from "./_common.js";
 import { projectStatuses } from "./project-statuses.js";
+import { projectSprints } from "./project-sprints.js";
 import { projects } from "./projects.js";
 import { users } from "./users.js";
 import { workspaces } from "./workspaces.js";
@@ -24,6 +25,13 @@ export const taskPriorityEnum = pgEnum("task_priority", [
   "medium",
   "high",
   "urgent",
+]);
+
+export const taskTypeEnum = pgEnum("task_type", [
+  "bug",
+  "feature",
+  "story",
+  "task",
 ]);
 
 export const tasks = pgTable(
@@ -36,6 +44,8 @@ export const tasks = pgTable(
     projectId: uuid("project_id").notNull(),
     number: integer("number").notNull(),
     statusId: uuid("status_id").notNull(),
+    sprintId: uuid("sprint_id"),
+    type: taskTypeEnum("type").notNull().default("task"),
     title: varchar("title", { length: 200 }).notNull(),
     description: text("description"),
     dueDate: date("due_date"),
@@ -65,6 +75,15 @@ export const tasks = pgTable(
       ],
       name: "tasks_project_status_fk",
     }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.workspaceId, table.projectId, table.sprintId],
+      foreignColumns: [
+        projectSprints.workspaceId,
+        projectSprints.projectId,
+        projectSprints.id,
+      ],
+      name: "tasks_project_sprint_fk",
+    }).onDelete("restrict"),
     uniqueIndex("tasks_project_number_unique").on(
       table.workspaceId,
       table.projectId,
@@ -79,6 +98,11 @@ export const tasks = pgTable(
       table.workspaceId,
       table.projectId,
       table.statusId,
+    ),
+    index("tasks_project_sprint_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.sprintId,
     ),
     index("tasks_project_deleted_at_idx").on(
       table.workspaceId,

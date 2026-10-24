@@ -4,6 +4,8 @@ import { db } from "../../core/db/client.js";
 import { authTokens } from "../../core/db/schema/auth-tokens.js";
 import { sessions } from "../../core/db/schema/sessions.js";
 import { users, type NewUser, type User } from "../../core/db/schema/users.js";
+import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
+import { workspaces } from "../../core/db/schema/workspaces.js";
 
 export type SessionUser = Pick<
   User,
@@ -35,6 +37,78 @@ export async function createUser(input: NewUser) {
   }
 
   return user;
+}
+
+export async function createUserWithDefaultWorkspace(
+  input: NewUser & { workspaceSlug: string },
+) {
+  return db.transaction(async (tx) => {
+    const { workspaceSlug, ...userInput } = input;
+    const [user] = await tx.insert(users).values(userInput).returning();
+    if (!user) throw new Error("Failed to create user");
+
+    const [workspace] = await tx
+      .insert(workspaces)
+      .values({
+        name: `${user.displayName}'s workspace`,
+        ownerUserId: user.id,
+        slug: workspaceSlug,
+      })
+      .returning({ id: workspaces.id });
+    if (!workspace) throw new Error("Failed to create default workspace");
+
+    await tx.insert(workspaceMembers).values({
+      role: "owner",
+      status: "active",
+      userId: user.id,
+      workspaceId: workspace.id,
+    });
+
+    return user;
+  });
+}
+
+export async function ensureDefaultWorkspaceForUser(input: {
+  displayName: string;
+  userId: string;
+  workspaceSlug: string;
+}) {
+  return db.transaction(async (tx) => {
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, input.userId))
+      .for("update");
+
+    const [membership] = await tx
+      .select({ workspaceId: workspaceMembers.workspaceId })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.userId, input.userId),
+          eq(workspaceMembers.status, "active"),
+        ),
+      )
+      .limit(1);
+    if (membership) return;
+
+    const [workspace] = await tx
+      .insert(workspaces)
+      .values({
+        name: `${input.displayName}'s workspace`,
+        ownerUserId: input.userId,
+        slug: input.workspaceSlug,
+      })
+      .returning({ id: workspaces.id });
+    if (!workspace) throw new Error("Failed to create default workspace");
+
+    await tx.insert(workspaceMembers).values({
+      role: "owner",
+      status: "active",
+      userId: input.userId,
+      workspaceId: workspace.id,
+    });
+  });
 }
 
 export async function createSession(input: {

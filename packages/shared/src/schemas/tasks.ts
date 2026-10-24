@@ -4,6 +4,7 @@ import { pageInfoSchema, paginationQuerySchema } from "./pagination.js";
 import { projectStatusCategorySchema } from "./projects.js";
 
 export const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
+export const taskTypeSchema = z.enum(["bug", "feature", "story", "task"]);
 export const taskDueDateSchema = z.iso.date();
 
 export const createTaskRequestSchema = z.object({
@@ -12,6 +13,8 @@ export const createTaskRequestSchema = z.object({
   dueDate: taskDueDateSchema.optional(),
   priority: taskPrioritySchema.optional(),
   statusId: z.uuid().optional(),
+  sprintId: z.uuid().optional(),
+  type: taskTypeSchema.optional(),
   title: z.string().trim().min(2).max(200),
 });
 
@@ -22,6 +25,8 @@ export const updateTaskRequestSchema = z
     dueDate: taskDueDateSchema.nullable().optional(),
     priority: taskPrioritySchema.optional(),
     statusId: z.uuid().optional(),
+    sprintId: z.uuid().nullable().optional(),
+    type: taskTypeSchema.optional(),
     title: z.string().trim().min(2).max(200).optional(),
   })
   .refine((input) => Object.keys(input).length > 0, {
@@ -64,6 +69,7 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
   sortBy: taskSortFieldSchema.default("createdAt"),
   sortOrder: taskSortOrderSchema.default("desc"),
   statusId: z.uuid().optional(),
+  sprintId: z.union([z.uuid(), z.literal("backlog")]).optional(),
 });
 
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
@@ -107,7 +113,9 @@ export const taskSchema = z.object({
   reporterUserId: z.uuid().nullable(),
   status: taskStatusSchema,
   statusId: z.uuid(),
+  sprintId: z.uuid().nullable(),
   title: z.string(),
+  type: taskTypeSchema,
   updatedAt: z.string().datetime(),
   version: z.number().int().positive(),
   workspaceId: z.uuid(),
@@ -125,6 +133,7 @@ export const taskListResponseSchema = z.object({
 export type CreateTaskRequest = z.infer<typeof createTaskRequestSchema>;
 export type UpdateTaskRequest = z.infer<typeof updateTaskRequestSchema>;
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
+export type TaskType = z.infer<typeof taskTypeSchema>;
 export type TaskUser = z.infer<typeof taskUserSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type TaskResponse = z.infer<typeof taskResponseSchema>;

@@ -13,9 +13,11 @@ import { AppError } from "../../core/errors/app-error.js";
 import {
   createSession,
   createUser,
+  createUserWithDefaultWorkspace,
   consumeEmailVerificationToken,
   consumePasswordResetToken,
   deleteSessionByTokenHash,
+  ensureDefaultWorkspaceForUser,
   findUserPasswordById,
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
@@ -101,6 +103,12 @@ export async function login(
   if (!user?.passwordHash || !passwordMatches) {
     throw invalidCredentialsError();
   }
+
+  await ensureDefaultWorkspaceForUser({
+    displayName: user.displayName,
+    userId: user.id,
+    workspaceSlug: `personal-${randomBytes(6).toString("hex")}`,
+  });
 
   return createAuthResult(user, meta);
 }
@@ -318,7 +326,10 @@ async function createRegisteredUser(input: {
   passwordHash: string;
 }) {
   try {
-    return await createUser(input);
+    return await createUserWithDefaultWorkspace({
+      ...input,
+      workspaceSlug: `personal-${randomBytes(6).toString("hex")}`,
+    });
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(

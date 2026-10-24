@@ -17,6 +17,7 @@ export async function cleanupDatabase() {
       task_checklist_items,
       task_comments,
       tasks,
+      project_sprints,
       project_statuses,
       projects,
       workspace_invitations,
@@ -166,6 +167,7 @@ export async function createTestTask(
     assigneeUserId?: string;
     description?: string;
     priority?: "low" | "medium" | "high" | "urgent";
+    sprintId?: string;
     statusId?: string;
     title?: string;
   },
@@ -180,6 +182,7 @@ export async function createTestTask(
       assigneeUserId: overrides?.assigneeUserId,
       description: overrides?.description,
       priority: overrides?.priority ?? "medium",
+      sprintId: overrides?.sprintId,
       statusId: overrides?.statusId,
       title,
     });
@@ -206,6 +209,7 @@ export async function createTestTask(
       position: number;
     };
     statusId: string;
+    sprintId: string | null;
     title: string;
     updatedAt: string;
     version: number;

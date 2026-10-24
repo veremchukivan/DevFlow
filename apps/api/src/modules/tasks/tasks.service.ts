@@ -9,6 +9,7 @@ import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import { canCreateTask, canDeleteTask, canUpdateTask } from "./tasks.policy.js";
+import { findProjectSprint } from "../project-sprints/project-sprints.repository.js";
 import {
   createTaskWithNextNumber,
   findActiveWorkspaceMember,
@@ -53,6 +54,13 @@ export async function createTask(input: {
       workspaceId: input.workspaceId,
     });
   }
+  if (input.input.sprintId) {
+    await requireProjectSprint({
+      projectId: input.projectId,
+      sprintId: input.input.sprintId,
+      workspaceId: input.workspaceId,
+    });
+  }
 
   // createTaskWithNextNumber uses SELECT FOR UPDATE on the project row, which
   // serialises concurrent task creation for the same project and makes a
@@ -70,7 +78,9 @@ export async function createTask(input: {
     projectId: input.projectId,
     reporterUserId: input.userId,
     statusId: status.id,
+    sprintId: input.input.sprintId,
     title: input.input.title,
+    type: input.input.type,
     workspaceId: input.workspaceId,
   });
 
@@ -176,6 +186,8 @@ export async function updateTask(input: {
       workspaceId: input.workspaceId,
     });
   }
+  if (input.input.sprintId)
+    await requireProjectSprint({ ...input, sprintId: input.input.sprintId });
 
   return db.transaction(async (tx) => {
     const updatedTask = await updateTaskInProject(
@@ -186,8 +198,10 @@ export async function updateTask(input: {
         priority: input.input.priority,
         projectId: input.projectId,
         statusId: input.input.statusId,
+        sprintId: input.input.sprintId,
         taskId: input.taskId,
         title: input.input.title,
+        type: input.input.type,
         version: input.expectedVersion,
         workspaceId: input.workspaceId,
       },
@@ -413,6 +427,20 @@ async function requireAssignableWorkspaceMember(input: {
       400,
       "TASK_ASSIGNEE_INVALID",
       "Assignee must be an active workspace member",
+    );
+  }
+}
+
+async function requireProjectSprint(input: {
+  projectId: string;
+  sprintId: string;
+  workspaceId: string;
+}) {
+  if (!(await findProjectSprint(input))) {
+    throw new AppError(
+      400,
+      "TASK_SPRINT_INVALID",
+      "Sprint must belong to this project",
     );
   }
 }

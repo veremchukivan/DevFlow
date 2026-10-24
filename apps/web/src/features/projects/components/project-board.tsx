@@ -3,21 +3,30 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type DragEvent, type FormEvent, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CornerDownLeft,
+  LayoutGrid,
+  List,
+  UserRound,
+} from "lucide-react";
 
 import {
   ApiClientError,
   createTask,
+  createProjectSprint,
   restoreTask,
   createProjectStatus,
   deleteProject,
   deleteProjectStatus,
   getProject,
+  getProjectSprints,
   getTasks,
   getWorkspaceLabels,
   getWorkspaceMembers,
   getWorkspace,
-  replaceTaskLabels,
   reorderProjectStatuses,
   updateTask,
   updateProject,
@@ -28,13 +37,16 @@ import type {
   PageInfo,
   Project,
   Task,
+  TaskType,
   TaskPriority,
   TaskSortField,
   TaskSortOrder,
   WorkspaceMember,
   WorkspaceRole,
+  ProjectSprint,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
+import { Modal } from "@/shared/components/modal";
 import styles from "@/shared/styles/ui.module.css";
 
 type BoardFilters = {
@@ -46,11 +58,13 @@ type BoardFilters = {
   search?: string;
   sortBy?: TaskSortField;
   sortOrder?: TaskSortOrder;
+  sprintId?: string | "backlog";
 };
 
 type ProjectView = "board" | "list";
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
+const taskTypes: TaskType[] = ["task", "bug", "feature", "story"];
 const taskPageSize = 50;
 const priorityStyles: Record<TaskPriority, string> = {
   high: styles.priorityHigh!,
@@ -64,6 +78,10 @@ export function ProjectBoard() {
   const params = useParams<{ projectId: string; workspaceId: string }>();
   const { projectId, workspaceId } = params;
   const [project, setProject] = useState<Project>();
+  const [sprints, setSprints] = useState<ProjectSprint[]>([]);
+  const [selectedSprintId, setSelectedSprintId] = useState<string | "backlog">(
+    "backlog",
+  );
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [filters, setFilters] = useState<BoardFilters>({});
@@ -86,6 +104,8 @@ export function ProjectBoard() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showSprintForm, setShowSprintForm] = useState(false);
+  const [isSavingSprint, setIsSavingSprint] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isReorderingStatuses, setIsReorderingStatuses] = useState(false);
@@ -105,23 +125,34 @@ export function ProjectBoard() {
 
     void Promise.all([
       getProject(workspaceId, projectId),
-      getTasks(workspaceId, projectId, { limit: taskPageSize }),
       getWorkspaceLabels(workspaceId),
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
+      getProjectSprints(workspaceId, projectId),
     ])
-      .then(
-        ([
+      .then(async ([
           projectResponse,
-          taskResponse,
           labelsResponse,
           membersResponse,
           workspaceResponse,
-        ]) => {
+          sprintsResponse,
+      ]) => {
+          if (!active) return;
+          const activeSprint = sprintsResponse.sprints.find(
+            (sprint) => sprint.status === "active",
+          );
+          const initialSprintId = activeSprint?.id ?? "backlog";
+          const taskResponse = await getTasks(workspaceId, projectId, {
+            limit: taskPageSize,
+            sprintId: initialSprintId,
+          });
           if (!active) return;
           setProject(projectResponse.project);
           setTasks(taskResponse.tasks);
           setPageInfo(taskResponse.pageInfo);
+          setSprints(sprintsResponse.sprints);
+          setSelectedSprintId(initialSprintId);
+          setFilters({ sprintId: initialSprintId });
           setLabels(labelsResponse.labels);
           setMembers(
             membersResponse.members.filter(
@@ -129,8 +160,7 @@ export function ProjectBoard() {
             ),
           );
           setRole(workspaceResponse.workspace.role);
-        },
-      )
+      })
       .catch((caughtError: unknown) => {
         if (
           caughtError instanceof ApiClientError &&
@@ -167,9 +197,8 @@ export function ProjectBoard() {
         response.pageInfo.offset > 0
       ) {
         const lastPageOffset =
-          Math.floor(
-            (response.pageInfo.total - 1) / response.pageInfo.limit,
-          ) * response.pageInfo.limit;
+          Math.floor((response.pageInfo.total - 1) / response.pageInfo.limit) *
+          response.pageInfo.limit;
 
         response = await getTasks(workspaceId, projectId, {
           ...requestFilters,
@@ -204,6 +233,7 @@ export function ProjectBoard() {
         : {}),
       ...(due ? { due } : {}),
       ...(showArchived ? { archived: true } : {}),
+      sprintId: selectedSprintId,
       sortBy,
       sortOrder,
     };
@@ -220,7 +250,11 @@ export function ProjectBoard() {
     setSortBy("number");
     setSortOrder("asc");
     setShowArchived(false);
-    const nextFilters = { sortBy: "number" as const, sortOrder: "asc" as const };
+    const nextFilters = {
+      sortBy: "number" as const,
+      sortOrder: "asc" as const,
+      sprintId: selectedSprintId,
+    };
     setFilters(nextFilters);
     await loadTasks(nextFilters);
   }
@@ -247,7 +281,11 @@ export function ProjectBoard() {
       setFilters(nextFilters);
       await loadTasks(nextFilters, pageInfo?.offset);
     } catch (caughtError) {
-      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to restore task.");
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to restore task.",
+      );
     }
   }
 
@@ -263,7 +301,11 @@ export function ProjectBoard() {
     );
     const targetIndex = currentIndex + direction;
 
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= project.statuses.length) {
+    if (
+      currentIndex < 0 ||
+      targetIndex < 0 ||
+      targetIndex >= project.statuses.length
+    ) {
       return;
     }
 
@@ -296,26 +338,19 @@ export function ProjectBoard() {
     setError(undefined);
     setIsCreating(true);
     const form = new FormData(event.currentTarget);
-    const description = String(form.get("description") ?? "").trim();
-
     try {
       const response = await createTask(workspaceId, projectId, {
         title: String(form.get("title") ?? ""),
         statusId: String(form.get("statusId")),
         priority: form.get("priority") as TaskPriority,
+        ...(selectedSprintId === "backlog"
+          ? {}
+          : { sprintId: selectedSprintId }),
+        type: form.get("type") as TaskType,
         assigneeUserId: String(form.get("assigneeUserId") ?? "") || undefined,
         dueDate: String(form.get("dueDate") ?? "") || undefined,
-        ...(description ? { description } : {}),
       });
-      const labelIds = form.getAll("labelIds").map(String);
-      if (labelIds.length) {
-        await replaceTaskLabels(
-          workspaceId,
-          projectId,
-          response.task.id,
-          labelIds,
-        );
-      }
+      setTasks((current) => [...current, response.task]);
       event.currentTarget.reset();
       setShowTaskForm(false);
       setDraftStatusId(undefined);
@@ -329,6 +364,44 @@ export function ProjectBoard() {
     } finally {
       setIsCreating(false);
     }
+  }
+
+  async function onCreateSprint(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingSprint(true);
+    const form = new FormData(event.currentTarget);
+
+    try {
+      const response = await createProjectSprint(workspaceId, projectId, {
+        endDate: String(form.get("endDate") ?? "") || undefined,
+        goal: String(form.get("goal") ?? "").trim() || undefined,
+        name: String(form.get("name") ?? ""),
+        startDate: String(form.get("startDate") ?? "") || undefined,
+        status: "active",
+      });
+      const nextFilters = { ...filters, sprintId: response.sprint.id };
+      setSprints((current) => [response.sprint, ...current]);
+      setSelectedSprintId(response.sprint.id);
+      setFilters(nextFilters);
+      setShowSprintForm(false);
+      await loadTasks(nextFilters);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to create sprint.",
+      );
+    } finally {
+      setIsSavingSprint(false);
+    }
+  }
+
+  async function onSelectSprint(sprintId: string | "backlog") {
+    const nextFilters = { ...filters, sprintId };
+    setSelectedSprintId(sprintId);
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
   }
 
   async function onProjectSettingsSubmit(event: FormEvent<HTMLFormElement>) {
@@ -391,40 +464,74 @@ export function ProjectBoard() {
       setProject(response.project);
       event.currentTarget.reset();
     } catch (caughtError) {
-      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to add status.");
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to add status.",
+      );
     } finally {
       setIsSavingStatus(false);
     }
   }
 
-  async function onUpdateStatus(event: FormEvent<HTMLFormElement>, statusId: string) {
+  async function onUpdateStatus(
+    event: FormEvent<HTMLFormElement>,
+    statusId: string,
+  ) {
     event.preventDefault();
     setError(undefined);
     setIsSavingStatus(true);
     const form = new FormData(event.currentTarget);
     try {
-      const response = await updateProjectStatus(workspaceId, projectId, statusId, {
-        category: form.get("category") as "todo" | "in_progress" | "done",
-        color: String(form.get("color") ?? "#64748b"),
-        name: String(form.get("name") ?? ""),
-      });
+      const response = await updateProjectStatus(
+        workspaceId,
+        projectId,
+        statusId,
+        {
+          category: form.get("category") as "todo" | "in_progress" | "done",
+          color: String(form.get("color") ?? "#64748b"),
+          name: String(form.get("name") ?? ""),
+        },
+      );
       setProject(response.project);
     } catch (caughtError) {
-      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to update status.");
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update status.",
+      );
     } finally {
       setIsSavingStatus(false);
     }
   }
 
   async function onDeleteStatus(statusId: string) {
-    if (!window.confirm("Delete this status? Empty it first if it contains tasks.")) return;
+    if (
+      !window.confirm(
+        "Delete this status? Empty it first if it contains tasks.",
+      )
+    )
+      return;
     setError(undefined);
     setIsSavingStatus(true);
     try {
       await deleteProjectStatus(workspaceId, projectId, statusId);
-      setProject((current) => current ? { ...current, statuses: current.statuses.filter((status) => status.id !== statusId) } : current);
+      setProject((current) =>
+        current
+          ? {
+              ...current,
+              statuses: current.statuses.filter(
+                (status) => status.id !== statusId,
+              ),
+            }
+          : current,
+      );
     } catch (caughtError) {
-      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to delete status.");
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete status.",
+      );
     } finally {
       setIsSavingStatus(false);
     }
@@ -522,25 +629,83 @@ export function ProjectBoard() {
             Settings
           </button>
           <button
-            className={styles.textButton}
-            disabled={!canDeleteProject}
-            onClick={() => void onProjectDelete()}
-            type="button"
-          >
-            Delete
-          </button>
-          <button
             className={styles.primaryButton}
-            disabled={!canCreateTasks}
-            onClick={() => setShowTaskForm((current) => !current)}
+            disabled={!canUpdateProject}
+            onClick={() => setShowSprintForm(true)}
             type="button"
           >
-            New task
+            New sprint
           </button>
         </div>
       </header>
+      <div className={styles.sprintToolbar}>
+        <label>
+          <span>Board</span>
+          <select
+            disabled={isRefreshing}
+            onChange={(event) => void onSelectSprint(event.target.value)}
+            value={selectedSprintId}
+          >
+            <option value="backlog">Backlog</option>
+            {sprints.map((sprint) => (
+              <option key={sprint.id} value={sprint.id}>
+                {sprint.name} ({sprint.status})
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {showSprintForm ? (
+        <Modal
+          isOpen={showSprintForm}
+          onClose={() => setShowSprintForm(false)}
+          title="Start a sprint"
+        >
+          <form className={styles.modalForm} onSubmit={onCreateSprint}>
+            <label>
+              <span>Sprint name</span>
+              <input autoFocus maxLength={120} name="name" required />
+            </label>
+            <label>
+              <span>Goal</span>
+              <textarea maxLength={2000} name="goal" rows={3} />
+            </label>
+            <label>
+              <span>Start date</span>
+              <input name="startDate" type="date" />
+            </label>
+            <label>
+              <span>End date</span>
+              <input name="endDate" type="date" />
+            </label>
+            <div className={styles.formActions}>
+              <button
+                className={styles.primaryButton}
+                disabled={isSavingSprint}
+                type="submit"
+              >
+                {isSavingSprint ? "Starting" : "Start sprint"}
+              </button>
+              <button
+                className={styles.textButton}
+                disabled={isSavingSprint}
+                onClick={() => setShowSprintForm(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
       {showProjectSettings ? (
-        <form className={styles.taskForm} onSubmit={onProjectSettingsSubmit}>
+        <Modal
+          isOpen={showProjectSettings}
+          onClose={() => setShowProjectSettings(false)}
+          title="Project settings"
+          width="wide"
+        >
+          <form className={styles.taskForm} onSubmit={onProjectSettingsSubmit}>
           <label>
             <span>Project name</span>
             <input
@@ -585,30 +750,135 @@ export function ProjectBoard() {
               Cancel
             </button>
           </div>
-        </form>
-      ) : null}
-
-      {showProjectSettings ? (
-        <section className={styles.workspaceSection} aria-labelledby="statuses-title">
-          <div className={styles.sectionHeading}><h2 id="statuses-title">Board statuses</h2></div>
+          </form>
+          <section
+          className={styles.workspaceSection}
+          aria-labelledby="statuses-title"
+        >
+          <div className={styles.sectionHeading}>
+            <h2 id="statuses-title">Board statuses</h2>
+          </div>
           {project.statuses.map((status, index) => (
-            <form className={styles.memberInviteForm} key={status.id} onSubmit={(event) => void onUpdateStatus(event, status.id)}>
-              <label><span>Name</span><input defaultValue={status.name} maxLength={80} name="name" required /></label>
-              <label><span>Category</span><select defaultValue={status.category} name="category"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label>
-              <label><span>Color</span><input defaultValue={status.color} name="color" pattern="#[0-9A-Fa-f]{6}" required /></label>
-              <button className={styles.secondaryButton} disabled={isSavingStatus} type="submit">Save</button>
-              <button className={styles.textButton} disabled={isSavingStatus} onClick={() => void onDeleteStatus(status.id)} type="button">Remove</button>
-              <button aria-label={`Move ${status.name} left`} className={styles.iconButton} disabled={isSavingStatus || isReorderingStatuses || index === 0} onClick={() => void onMoveStatus(status.id, -1)} title="Move left" type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
-              <button aria-label={`Move ${status.name} right`} className={styles.iconButton} disabled={isSavingStatus || isReorderingStatuses || index === project.statuses.length - 1} onClick={() => void onMoveStatus(status.id, 1)} title="Move right" type="button"><ChevronRight aria-hidden="true" size={16} /></button>
+            <form
+              className={styles.memberInviteForm}
+              key={status.id}
+              onSubmit={(event) => void onUpdateStatus(event, status.id)}
+            >
+              <label>
+                <span>Name</span>
+                <input
+                  defaultValue={status.name}
+                  maxLength={80}
+                  name="name"
+                  required
+                />
+              </label>
+              <label>
+                <span>Category</span>
+                <select defaultValue={status.category} name="category">
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+              <label>
+                <span>Color</span>
+                <input
+                  defaultValue={status.color}
+                  name="color"
+                  pattern="#[0-9A-Fa-f]{6}"
+                  required
+                />
+              </label>
+              <button
+                className={styles.secondaryButton}
+                disabled={isSavingStatus}
+                type="submit"
+              >
+                Save
+              </button>
+              <button
+                className={styles.textButton}
+                disabled={isSavingStatus}
+                onClick={() => void onDeleteStatus(status.id)}
+                type="button"
+              >
+                Remove
+              </button>
+              <button
+                aria-label={`Move ${status.name} left`}
+                className={styles.iconButton}
+                disabled={isSavingStatus || isReorderingStatuses || index === 0}
+                onClick={() => void onMoveStatus(status.id, -1)}
+                title="Move left"
+                type="button"
+              >
+                <ChevronLeft aria-hidden="true" size={16} />
+              </button>
+              <button
+                aria-label={`Move ${status.name} right`}
+                className={styles.iconButton}
+                disabled={
+                  isSavingStatus ||
+                  isReorderingStatuses ||
+                  index === project.statuses.length - 1
+                }
+                onClick={() => void onMoveStatus(status.id, 1)}
+                title="Move right"
+                type="button"
+              >
+                <ChevronRight aria-hidden="true" size={16} />
+              </button>
             </form>
           ))}
           <form className={styles.memberInviteForm} onSubmit={onCreateStatus}>
-            <label><span>Name</span><input maxLength={80} name="name" required /></label>
-            <label><span>Category</span><select defaultValue="todo" name="category"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="done">Done</option></select></label>
-            <label><span>Color</span><input defaultValue="#64748b" name="color" pattern="#[0-9A-Fa-f]{6}" required /></label>
-            <button className={styles.primaryButton} disabled={isSavingStatus} type="submit">Add status</button>
+            <label>
+              <span>Name</span>
+              <input maxLength={80} name="name" required />
+            </label>
+            <label>
+              <span>Category</span>
+              <select defaultValue="todo" name="category">
+                <option value="todo">To do</option>
+                <option value="in_progress">In progress</option>
+                <option value="done">Done</option>
+              </select>
+            </label>
+            <label>
+              <span>Color</span>
+              <input
+                defaultValue="#64748b"
+                name="color"
+                pattern="#[0-9A-Fa-f]{6}"
+                required
+              />
+            </label>
+            <button
+              className={styles.primaryButton}
+              disabled={isSavingStatus}
+              type="submit"
+            >
+              Add status
+            </button>
           </form>
-        </section>
+          </section>
+          <section className={styles.workspaceSection}>
+            <div className={styles.sectionHeading}>
+              <div>
+                <h2>Danger zone</h2>
+                <p>Permanently delete this project and all its tasks.</p>
+              </div>
+              <button
+                className={styles.textButton}
+                disabled={!canDeleteProject}
+                onClick={() => void onProjectDelete()}
+                type="button"
+              >
+                Delete project
+              </button>
+            </div>
+          </section>
+        </Modal>
       ) : null}
 
       <div
@@ -637,91 +907,6 @@ export function ProjectBoard() {
           List
         </button>
       </div>
-
-      {showTaskForm ? (
-        <form className={styles.taskForm} onSubmit={onCreateTask}>
-          <label>
-            <span>Task title</span>
-            <input maxLength={200} minLength={2} name="title" required />
-          </label>
-          <label>
-            <span>Status</span>
-            <select
-              defaultValue={
-                draftStatusId ??
-                project.statuses.find((status) => status.isDefault)?.id
-              }
-              name="statusId"
-              required
-            >
-              {project.statuses.map((status) => (
-                <option key={status.id} value={status.id}>
-                  {status.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Priority</span>
-            <select defaultValue="medium" name="priority">
-              {priorities.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Assignee</span>
-            <select defaultValue="" name="assigneeUserId">
-              <option value="">Unassigned</option>
-              {members.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.user.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Due date</span>
-            <input name="dueDate" type="date" />
-          </label>
-          {labels.length ? (
-            <fieldset className={styles.taskLabelsFieldset}>
-              <legend>Labels</legend>
-              {labels.map((label) => (
-                <label key={label.id}>
-                  <input name="labelIds" type="checkbox" value={label.id} />
-                  {label.name}
-                </label>
-              ))}
-            </fieldset>
-          ) : null}
-          <label className={styles.taskDescriptionField}>
-            <span>Description</span>
-            <textarea maxLength={10000} name="description" rows={3} />
-          </label>
-          <div className={styles.formActions}>
-            <button
-              className={styles.primaryButton}
-              disabled={isCreating}
-              type="submit"
-            >
-              {isCreating ? "Creating" : "Create task"}
-            </button>
-            <button
-              className={styles.textButton}
-              onClick={() => {
-                setShowTaskForm(false);
-                setDraftStatusId(undefined);
-              }}
-              type="button"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
 
       <form className={styles.taskFilters} onSubmit={onFilter}>
         <label>
@@ -794,9 +979,7 @@ export function ProjectBoard() {
         <label>
           <span>Sort by</span>
           <select
-            onChange={(event) =>
-              setSortBy(event.target.value as TaskSortField)
-            }
+            onChange={(event) => setSortBy(event.target.value as TaskSortField)}
             value={sortBy}
           >
             <option value="number">Task number</option>
@@ -833,7 +1016,12 @@ export function ProjectBoard() {
           Clear
         </button>
       </form>
-      <button className={styles.secondaryButton} disabled={isRefreshing} onClick={() => void onToggleArchived()} type="button">
+      <button
+        className={styles.secondaryButton}
+        disabled={isRefreshing}
+        onClick={() => void onToggleArchived()}
+        type="button"
+      >
         {showArchived ? "Show active tasks" : "Show archived tasks"}
       </button>
 
@@ -868,19 +1056,6 @@ export function ProjectBoard() {
                     <h2>{status.name}</h2>
                   </div>
                   <span>{statusTasks.length}</span>
-                  <button
-                    aria-label={`Create task in ${status.name}`}
-                    className={styles.iconButton}
-                    disabled={!canCreateTasks}
-                    onClick={() => {
-                      setDraftStatusId(status.id);
-                      setShowTaskForm(true);
-                    }}
-                    title="Create task"
-                    type="button"
-                  >
-                    +
-                  </button>
                 </header>
                 <div className={styles.taskList}>
                   {statusTasks.map((task) => (
@@ -937,12 +1112,42 @@ export function ProjectBoard() {
                         task={task}
                         updatingTaskId={updatingTaskId}
                         canUpdate={canUpdateTasks}
-                        onRestore={showArchived && canDeleteTasks ? onRestoreTask : undefined}
+                        onRestore={
+                          showArchived && canDeleteTasks
+                            ? onRestoreTask
+                            : undefined
+                        }
                       />
                     </article>
                   ))}
                   {statusTasks.length === 0 ? (
                     <p className={styles.taskColumnEmpty}>No tasks</p>
+                  ) : null}
+                  {showTaskForm && draftStatusId === status.id ? (
+                    <QuickTaskForm
+                      isCreating={isCreating}
+                      members={members}
+                      onCancel={() => {
+                        setShowTaskForm(false);
+                        setDraftStatusId(undefined);
+                      }}
+                      onSubmit={onCreateTask}
+                      statusId={status.id}
+                    />
+                  ) : canCreateTasks ? (
+                    <button
+                      aria-label={`Create task in ${status.name}`}
+                      className={styles.taskQuickAdd}
+                      disabled={isCreating}
+                      onClick={() => {
+                        setDraftStatusId(status.id);
+                        setShowTaskForm(true);
+                      }}
+                      title={`Create task in ${status.name}`}
+                      type="button"
+                    >
+                      +
+                    </button>
                   ) : null}
                 </div>
               </section>
@@ -1109,7 +1314,103 @@ function TaskControls({
           ))}
         </select>
       </label>
-      {onRestore ? <button className={styles.textButton} onClick={() => void onRestore(task)} type="button">Restore</button> : null}
+      {onRestore ? (
+        <button
+          className={styles.textButton}
+          onClick={() => void onRestore(task)}
+          type="button"
+        >
+          Restore
+        </button>
+      ) : null}
     </div>
+  );
+}
+
+function QuickTaskForm({
+  isCreating,
+  members,
+  onCancel,
+  onSubmit,
+  statusId,
+}: {
+  isCreating: boolean;
+  members: WorkspaceMember[];
+  onCancel: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  statusId: string;
+}) {
+  return (
+    <form className={styles.quickTaskForm} onSubmit={(event) => void onSubmit(event)}>
+      <input name="statusId" type="hidden" value={statusId} />
+      <label className={styles.srOnly} htmlFor={`task-title-${statusId}`}>
+        Task title
+      </label>
+      <input
+        autoFocus
+        id={`task-title-${statusId}`}
+        maxLength={200}
+        minLength={2}
+        name="title"
+        placeholder="What needs to be done?"
+        required
+      />
+      <div className={styles.quickTaskControls}>
+        <label title="Work type">
+          <span className={styles.srOnly}>Work type</span>
+          <select defaultValue="task" name="type">
+            {taskTypes.map((type) => (
+              <option key={type} value={type}>
+                {type[0]!.toUpperCase() + type.slice(1)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label title="Priority">
+          <span className={styles.srOnly}>Priority</span>
+          <select defaultValue="medium" name="priority">
+            {priorities.map((priority) => (
+              <option key={priority} value={priority}>
+                {priority[0]!.toUpperCase() + priority.slice(1)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={styles.quickTaskIconField} title="Due date">
+          <CalendarDays aria-hidden="true" size={16} />
+          <span className={styles.srOnly}>Due date</span>
+          <input aria-label="Due date" name="dueDate" type="date" />
+        </label>
+        <label className={styles.quickTaskIconField} title="Assignee">
+          <UserRound aria-hidden="true" size={16} />
+          <span className={styles.srOnly}>Assignee</span>
+          <select aria-label="Assignee" defaultValue="" name="assigneeUserId">
+            <option value="">Unassigned</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.user.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          aria-label="Create task"
+          className={styles.iconButton}
+          disabled={isCreating}
+          title="Create task"
+          type="submit"
+        >
+          <CornerDownLeft aria-hidden="true" size={17} />
+        </button>
+        <button
+          className={styles.textButton}
+          disabled={isCreating}
+          onClick={onCancel}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

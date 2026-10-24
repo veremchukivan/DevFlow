@@ -19,12 +19,16 @@ import {
   createWorkspaceRequestSchema,
   updateWorkspaceRequestSchema,
   createProjectRequestSchema,
+  createProjectSprintRequestSchema,
   createProjectStatusRequestSchema,
   reorderProjectStatusesRequestSchema,
   updateProjectRequestSchema,
+  updateProjectSprintRequestSchema,
   updateProjectStatusRequestSchema,
   createTaskRequestSchema,
   projectListResponseSchema,
+  projectSprintListResponseSchema,
+  projectSprintResponseSchema,
   publicWorkspaceInvitationResponseSchema,
   projectResponseSchema,
   taskListResponseSchema,
@@ -61,15 +65,19 @@ import {
   type WorkspaceMemberResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
+  type CreateProjectSprintRequest,
   type CreateProjectStatusRequest,
   type ReorderProjectStatusesRequest,
   type UpdateProjectRequest,
+  type UpdateProjectSprintRequest,
   type UpdateProjectStatusRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
   type CreateTaskChecklistItemRequest,
   type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
+  type ProjectSprintListResponse,
+  type ProjectSprintResponse,
   type PublicWorkspaceInvitationResponse,
   type ProjectResponse,
   type TaskListResponse,
@@ -562,6 +570,59 @@ export function deleteProject(
   );
 }
 
+export function getProjectSprints(
+  workspaceId: string,
+  projectId: string,
+): Promise<ProjectSprintListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/sprints`,
+    { method: "GET" },
+    projectSprintListResponseSchema,
+  );
+}
+
+export function createProjectSprint(
+  workspaceId: string,
+  projectId: string,
+  input: CreateProjectSprintRequest,
+): Promise<ProjectSprintResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/sprints`,
+    {
+      body: JSON.stringify(createProjectSprintRequestSchema.parse(input)),
+      method: "POST",
+    },
+    projectSprintResponseSchema,
+  );
+}
+
+export function updateProjectSprint(
+  workspaceId: string,
+  projectId: string,
+  sprintId: string,
+  input: UpdateProjectSprintRequest,
+): Promise<ProjectSprintResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/sprints/${sprintId}`,
+    {
+      body: JSON.stringify(updateProjectSprintRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    projectSprintResponseSchema,
+  );
+}
+
+export function deleteProjectSprint(
+  workspaceId: string,
+  projectId: string,
+  sprintId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/sprints/${sprintId}`,
+    { method: "DELETE" },
+  );
+}
+
 export function createProjectStatus(
   workspaceId: string,
   projectId: string,
@@ -628,6 +689,7 @@ type TaskListFilters = {
   offset?: number;
   priority?: TaskPriority;
   search?: string;
+  sprintId?: string | "backlog";
   sortBy?: TaskSortField;
   sortOrder?: TaskSortOrder;
 };
@@ -652,6 +714,7 @@ export function getTasks(
     query.set("assigneeUserId", filters.assigneeUserId);
   if (filters.due) query.set("due", filters.due);
   if (filters.archived) query.set("archived", "true");
+  if (filters.sprintId) query.set("sprintId", filters.sprintId);
 
   if (filters.search) {
     query.set("search", filters.search);

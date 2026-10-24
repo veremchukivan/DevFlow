@@ -106,7 +106,11 @@ tasksRouter.delete("/:taskId", async (req, res) => {
 
 tasksRouter.post("/:taskId/restore", async (req, res) => {
   const params = taskParamsSchema.parse(req.params);
-  await restoreTask({ ...params, expectedVersion: getExpectedTaskVersion(req), userId: getAuthenticatedUserId(req) });
+  await restoreTask({
+    ...params,
+    expectedVersion: getExpectedTaskVersion(req),
+    userId: getAuthenticatedUserId(req),
+  });
   res.status(204).send();
 });
 
@@ -212,7 +216,9 @@ function toTaskDto(task: {
     workspaceId: string;
   };
   statusId: string;
+  sprintId: string | null;
   title: string;
+  type: "bug" | "feature" | "story" | "task";
   updatedAt: Date;
   version: number;
   workspaceId: string;
@@ -255,7 +261,9 @@ function toTaskDto(task: {
       workspaceId: task.status.workspaceId,
     },
     statusId: task.statusId,
+    sprintId: task.sprintId,
     title: task.title,
+    type: task.type,
     updatedAt: task.updatedAt.toISOString(),
     version: task.version,
     workspaceId: task.workspaceId,

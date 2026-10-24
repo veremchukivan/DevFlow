@@ -4,6 +4,7 @@ export * from "./schemas/health.js";
 export * from "./schemas/labels.js";
 export * from "./schemas/pagination.js";
 export * from "./schemas/projects.js";
+export * from "./schemas/project-sprints.js";
 export * from "./schemas/task-activity.js";
 export * from "./schemas/task-checklists.js";
 export * from "./schemas/task-comments.js";

@@ -26,6 +26,7 @@ const assigneeUsers = alias(users, "assignee_users");
 const reporterUsers = alias(users, "reporter_users");
 
 type TaskPriority = "low" | "medium" | "high" | "urgent";
+type TaskType = "bug" | "feature" | "story" | "task";
 
 export async function findActiveWorkspaceMembership(input: {
   userId: string;
@@ -146,6 +147,8 @@ export async function createTaskWithNextNumber(input: {
   description?: string;
   dueDate?: string;
   priority?: TaskPriority;
+  sprintId?: string;
+  type?: TaskType;
   projectId: string;
   reporterUserId: string;
   statusId: string;
@@ -190,6 +193,8 @@ export async function createTaskWithNextNumber(input: {
       ...(input.description ? { description: input.description } : {}),
       ...(input.dueDate ? { dueDate: input.dueDate } : {}),
       ...(input.priority ? { priority: input.priority } : {}),
+      ...(input.sprintId ? { sprintId: input.sprintId } : {}),
+      ...(input.type ? { type: input.type } : {}),
     };
 
     const [task] = await tx.insert(tasks).values(values).returning();
@@ -239,6 +244,7 @@ export async function listTasksForProject(input: {
   workspaceId: string;
   filters: {
     statusId?: string;
+    sprintId?: string | "backlog";
     priority?: TaskPriority;
     labelId?: string;
     due?: "overdue" | "today" | "week" | "none";
@@ -268,6 +274,9 @@ export async function listTasksForProject(input: {
   if (f.statusId !== undefined) {
     conditions.push(eq(tasks.statusId, f.statusId));
   }
+  if (f.sprintId === "backlog") conditions.push(isNull(tasks.sprintId));
+  else if (f.sprintId !== undefined)
+    conditions.push(eq(tasks.sprintId, f.sprintId));
 
   if (f.priority !== undefined) {
     conditions.push(eq(tasks.priority, f.priority));
@@ -396,8 +405,10 @@ export async function updateTaskInProject(
     priority?: TaskPriority;
     projectId: string;
     statusId?: string;
+    sprintId?: string | null;
     taskId: string;
     title?: string;
+    type?: TaskType;
     version: number;
     workspaceId: string;
   },
@@ -455,13 +466,30 @@ export async function softDeleteTaskInProject(
 }
 
 export async function restoreTaskInProject(
-  input: { projectId: string; taskId: string; version: number; workspaceId: string },
+  input: {
+    projectId: string;
+    taskId: string;
+    version: number;
+    workspaceId: string;
+  },
   executor: DbExecutor = db,
 ) {
   const [task] = await executor
     .update(tasks)
-    .set({ deletedAt: null, updatedAt: new Date(), version: sql`${tasks.version} + 1` })
-    .where(and(eq(tasks.id, input.taskId), eq(tasks.workspaceId, input.workspaceId), eq(tasks.projectId, input.projectId), eq(tasks.version, input.version), isNotNull(tasks.deletedAt)))
+    .set({
+      deletedAt: null,
+      updatedAt: new Date(),
+      version: sql`${tasks.version} + 1`,
+    })
+    .where(
+      and(
+        eq(tasks.id, input.taskId),
+        eq(tasks.workspaceId, input.workspaceId),
+        eq(tasks.projectId, input.projectId),
+        eq(tasks.version, input.version),
+        isNotNull(tasks.deletedAt),
+      ),
+    )
     .returning();
   return task;
 }
@@ -490,6 +518,7 @@ function taskSelect(executor: DbExecutor = db) {
       reporterId: reporterUsers.id,
       reporterUserId: tasks.reporterUserId,
       statusId: tasks.statusId,
+      sprintId: tasks.sprintId,
       status: {
         category: projectStatuses.category,
         color: projectStatuses.color,
@@ -500,6 +529,7 @@ function taskSelect(executor: DbExecutor = db) {
         workspaceId: projectStatuses.workspaceId,
       },
       title: tasks.title,
+      type: tasks.type,
       updatedAt: tasks.updatedAt,
       version: tasks.version,
       workspaceId: tasks.workspaceId,
@@ -542,7 +572,9 @@ function toTaskUpdateValues(input: {
   dueDate?: string | null;
   priority?: TaskPriority;
   statusId?: string;
+  sprintId?: string | null;
   title?: string;
+  type?: TaskType;
 }) {
   const values: {
     assigneeUserId?: string | null;
@@ -550,7 +582,9 @@ function toTaskUpdateValues(input: {
     dueDate?: string | null;
     priority?: TaskPriority;
     statusId?: string;
+    sprintId?: string | null;
     title?: string;
+    type?: TaskType;
     updatedAt: Date;
   } = {
     updatedAt: new Date(),
@@ -577,6 +611,9 @@ function toTaskUpdateValues(input: {
   if (input.statusId !== undefined) {
     values.statusId = input.statusId;
   }
+  if (input.sprintId !== undefined) values.sprintId = input.sprintId;
+
+  if (input.type !== undefined) values.type = input.type;
 
   // Use strict undefined check so that a non-empty title update is always saved.
   if (input.title !== undefined) {
