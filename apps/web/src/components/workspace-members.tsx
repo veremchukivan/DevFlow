@@ -16,6 +16,7 @@ import {
   removeWorkspaceMember,
   resendWorkspaceInvitation,
   updateWorkspaceMember,
+  transferWorkspaceOwnership,
 } from "@/lib/api-client";
 import { notifyWorkspacesChanged } from "@/lib/workspace-events";
 import {
@@ -49,6 +50,7 @@ export function WorkspaceMembers() {
   const [updatingMemberId, setUpdatingMemberId] = useState<string>();
   const [removingMemberId, setRemovingMemberId] = useState<string>();
   const [isLeaving, setIsLeaving] = useState(false);
+  const [transferringOwnershipId, setTransferringOwnershipId] = useState<string>();
   const [cancellingInvitationId, setCancellingInvitationId] = useState<string>();
   const [resendingInvitationId, setResendingInvitationId] = useState<string>();
 
@@ -218,6 +220,23 @@ export function WorkspaceMembers() {
       );
     } finally {
       setIsLeaving(false);
+    }
+  }
+
+  async function onTransferOwnership(member: WorkspaceMember) {
+    if (!window.confirm(`Transfer workspace ownership to ${member.user.displayName}? You will become an admin.`)) return;
+    setError(undefined);
+    setTransferringOwnershipId(member.userId);
+    try {
+      await transferWorkspaceOwnership(params.workspaceId, member.userId);
+      const [workspaceResponse, membersResponse] = await Promise.all([getWorkspace(params.workspaceId), getWorkspaceMembers(params.workspaceId)]);
+      setWorkspace(workspaceResponse.workspace);
+      setMembers(membersResponse.members);
+      notifyWorkspacesChanged();
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiClientError ? caughtError.message : "Unable to transfer workspace ownership.");
+    } finally {
+      setTransferringOwnershipId(undefined);
     }
   }
 
@@ -397,6 +416,11 @@ export function WorkspaceMembers() {
                   >
                     {removingMemberId === member.userId ? "Removing" : "Remove"}
                   </button>
+                  {workspace?.role === "owner" && member.status === "active" ? (
+                    <button className={styles.textButton} disabled={transferringOwnershipId === member.userId} onClick={() => void onTransferOwnership(member)} type="button">
+                      {transferringOwnershipId === member.userId ? "Transferring" : "Make owner"}
+                    </button>
+                  ) : null}
                 </div>
               ) : (
                 <div className={styles.memberBadges}>

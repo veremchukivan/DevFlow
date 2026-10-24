@@ -33,6 +33,7 @@ export const updateWorkspaceMemberRequestSchema = z
   .refine((input) => Object.keys(input).length > 0, {
     message: "At least one member field is required"
   });
+export const transferWorkspaceOwnershipRequestSchema = z.object({ userId: z.uuid() });
 
 export const workspaceMembersParamsSchema = z.object({
   workspaceId: z.uuid()

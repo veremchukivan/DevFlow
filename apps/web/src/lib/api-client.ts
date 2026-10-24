@@ -412,6 +412,9 @@ export function leaveWorkspace(workspaceId: string): Promise<void> {
     method: "POST",
   });
 }
+export function transferWorkspaceOwnership(workspaceId: string, userId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/members/transfer-ownership`, { body: JSON.stringify({ userId }), method: "POST" });
+}
 
 export function getWorkspaceInvitations(
   workspaceId: string,
