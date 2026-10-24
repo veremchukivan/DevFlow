@@ -277,9 +277,11 @@ export function changePassword(input: ChangePasswordRequest): Promise<void> {
   });
 }
 
-export function getWorkspaces(): Promise<WorkspaceListResponse> {
+export function getWorkspaces(
+  pagination: { limit?: number; offset?: number } = {},
+): Promise<WorkspaceListResponse> {
   return request(
-    "/api/v1/workspaces?limit=100&offset=0",
+    `/api/v1/workspaces?limit=${pagination.limit ?? 25}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     workspaceListResponseSchema,
   );
