@@ -728,6 +728,8 @@ function describeActivity(event: TaskActivityEvent) {
       return `${actor} updated this task`;
     case "task_deleted":
       return `${actor} deleted this task`;
+    case "task_restored":
+      return `${actor} restored this task`;
     case "task_comment_created":
       return `${actor} added a comment`;
     case "task_comment_updated":

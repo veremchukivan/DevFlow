@@ -114,5 +114,18 @@ describe("Soft Delete Constraints Integration Tests", () => {
     expect(deleted.status).toBe(204);
     const restored = await request(app).post(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/restore`).set("Cookie", owner.cookie).set("If-Match", `"${task.version + 1}"`);
     expect(restored.status).toBe(204);
+
+    const activity = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/activity`,
+      )
+      .set("Cookie", owner.cookie);
+
+    expect(activity.status).toBe(200);
+    expect(activity.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ eventType: "task_restored" }),
+      ]),
+    );
   });
 });
