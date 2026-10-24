@@ -50,6 +50,7 @@ COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/shared ./packages/shared
 COPY --from=builder /app/apps/api ./apps/api
+RUN mkdir -p /app/apps/api/uploads && chown -R devflow:nodejs /app/apps/api
 
 USER devflow
 EXPOSE 4000

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { LogOut, Plus } from "lucide-react";
 import Link from "next/link";
 
-import { logout } from "@/shared/lib/api-client";
+import { getApiAssetUrl, logout } from "@/shared/lib/api-client";
 import type { AuthUser } from "@devflow/shared";
 
 import styles from "./site-header.module.css";
@@ -45,7 +45,11 @@ export function SiteHeader({ user }: { user: AuthUser }) {
             href="/profile"
             title="Profile settings"
           >
-            {user.displayName.slice(0, 2).toUpperCase()}
+            {user.avatarUrl ? (
+              <img alt="" src={getApiAssetUrl(user.avatarUrl) ?? undefined} />
+            ) : (
+              user.displayName.slice(0, 2).toUpperCase()
+            )}
           </Link>
           <button
             aria-label="Sign out"

@@ -121,6 +121,30 @@ describe("Auth Module Integration Tests", () => {
     expect(updateRes.body.user.displayName).toBe("Alice Product");
   });
 
+  it("uploads and removes the authenticated user's avatar", async () => {
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "alice@devflow.io", password: "Password123!" });
+    const cookie = loginRes.headers["set-cookie"][0];
+
+    const uploaded = await request(app)
+      .put("/api/v1/auth/profile/avatar")
+      .set("Cookie", cookie)
+      .attach("image", Buffer.from([0x89, 0x50, 0x4e, 0x47]), {
+        contentType: "image/png",
+        filename: "avatar.png",
+      });
+
+    expect(uploaded.status).toBe(200);
+    expect(uploaded.body.user.avatarUrl).toMatch(/^\/uploads\/avatars\//);
+
+    const removed = await request(app)
+      .delete("/api/v1/auth/profile/avatar")
+      .set("Cookie", cookie);
+    expect(removed.status).toBe(200);
+    expect(removed.body.user.avatarUrl).toBeNull();
+  });
+
   it("rejects an incorrect current password without ending the session", async () => {
     const loginRes = await request(app)
       .post("/api/v1/auth/login")

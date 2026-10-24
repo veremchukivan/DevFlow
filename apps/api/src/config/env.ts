@@ -81,6 +81,7 @@ const envSchema = z
     SMTP_USER: optionalNonEmptyString,
     SMTP_PASSWORD: optionalNonEmptyString,
     SMTP_FROM: optionalNonEmptyString,
+    UPLOADS_DIR: z.string().min(1).default("uploads"),
   })
   .superRefine((value, context) => {
     if (value.NODE_ENV === "production" && !value.REDIS_URL) {

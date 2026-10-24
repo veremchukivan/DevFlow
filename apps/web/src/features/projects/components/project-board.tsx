@@ -10,6 +10,7 @@ import {
   CornerDownLeft,
   LayoutGrid,
   List,
+  MoreHorizontal,
   Settings,
   SlidersHorizontal,
   UserRound,
@@ -30,12 +31,15 @@ import {
   getWorkspaceLabels,
   getWorkspaceMembers,
   getWorkspace,
+  getApiAssetUrl,
   replaceTaskLabels,
   reorderProjectStatuses,
   updateTask,
   updateProject,
   updateProjectSprint,
   updateProjectStatus,
+  uploadProjectIcon,
+  deleteProjectIcon,
 } from "@/shared/lib/api-client";
 import type {
   Label,
@@ -111,11 +115,13 @@ export function ProjectBoard() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [isSavingSprint, setIsSavingSprint] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
+  const [isSavingProjectIcon, setIsSavingProjectIcon] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isReorderingStatuses, setIsReorderingStatuses] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
@@ -504,6 +510,43 @@ export function ProjectBoard() {
     }
   }
 
+  async function onProjectIconChange(event: FormEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file || !project) return;
+    setError(undefined);
+    setIsSavingProjectIcon(true);
+    try {
+      const response = await uploadProjectIcon(workspaceId, projectId, file);
+      setProject(response.project);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to upload project icon.",
+      );
+    } finally {
+      event.currentTarget.value = "";
+      setIsSavingProjectIcon(false);
+    }
+  }
+
+  async function onProjectIconRemove() {
+    setError(undefined);
+    setIsSavingProjectIcon(true);
+    try {
+      const response = await deleteProjectIcon(workspaceId, projectId);
+      setProject(response.project);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to remove project icon.",
+      );
+    } finally {
+      setIsSavingProjectIcon(false);
+    }
+  }
+
   async function onProjectDelete() {
     if (
       !window.confirm(
@@ -746,20 +789,50 @@ export function ProjectBoard() {
         {"<- Back to workspace"}
       </Link>
       <header className={styles.projectBoardHeader}>
-        <div>
-          <p className={styles.eyebrow}>{project.key}</p>
-          <h1>{project.name}</h1>
-          {project.description ? <p>{project.description}</p> : null}
+        <div className={styles.projectIdentity}>
+          <span className={styles.projectIcon}>
+            {project.iconUrl ? (
+              <img alt="" src={getApiAssetUrl(project.iconUrl) ?? undefined} />
+            ) : (
+              project.key.slice(0, 1)
+            )}
+          </span>
+          <div>
+            <p className={styles.eyebrow}>{project.key}</p>
+            <h1>{project.name}</h1>
+            {project.description ? <p>{project.description}</p> : null}
+          </div>
         </div>
-        <div className={styles.formActions}>
-          <button
-            className={styles.secondaryButton}
-            disabled={!canUpdateProject}
-            onClick={() => setShowProjectSettings((current) => !current)}
-            type="button"
-          >
-            Settings
-          </button>
+        <div className={styles.projectHeaderActions}>
+          <div className={styles.projectMenu}>
+            <button
+              aria-expanded={showProjectMenu}
+              aria-haspopup="menu"
+              aria-label="Project actions"
+              className={styles.iconButton}
+              onClick={() => setShowProjectMenu((current) => !current)}
+              title="Project actions"
+              type="button"
+            >
+              <MoreHorizontal aria-hidden="true" size={19} strokeWidth={1.8} />
+            </button>
+            {showProjectMenu ? (
+              <div className={styles.projectMenuList} role="menu">
+                <button
+                  disabled={!canUpdateProject}
+                  onClick={() => {
+                    setShowProjectMenu(false);
+                    setShowProjectSettings(true);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+                  Project settings
+                </button>
+              </div>
+            ) : null}
+          </div>
           <button
             className={styles.primaryButton}
             disabled={!canUpdateProject}
@@ -928,6 +1001,36 @@ export function ProjectBoard() {
           title="Project settings"
           width="wide"
         >
+          <section className={styles.projectIconSettings}>
+            <span className={styles.projectIcon}>
+              {project.iconUrl ? (
+                <img alt="" src={getApiAssetUrl(project.iconUrl) ?? undefined} />
+              ) : (
+                project.key.slice(0, 1)
+              )}
+            </span>
+            <div>
+              <label className={styles.secondaryButton}>
+                {isSavingProjectIcon ? "Uploading" : "Change icon"}
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={isSavingProjectIcon || !canUpdateProject}
+                  onChange={(event) => void onProjectIconChange(event)}
+                  type="file"
+                />
+              </label>
+              {project.iconUrl ? (
+                <button
+                  className={styles.textButton}
+                  disabled={isSavingProjectIcon || !canUpdateProject}
+                  onClick={() => void onProjectIconRemove()}
+                  type="button"
+                >
+                  Remove icon
+                </button>
+              ) : null}
+            </div>
+          </section>
           <form className={styles.taskForm} onSubmit={onProjectSettingsSubmit}>
           <label>
             <span>Project name</span>

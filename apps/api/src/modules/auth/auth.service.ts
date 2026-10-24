@@ -10,6 +10,7 @@ import type {
 import { env } from "../../config/env.js";
 import type { User } from "../../core/db/schema/users.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { deleteStoredImage, saveImage } from "../../core/uploads/images.js";
 import {
   createSession,
   createUser,
@@ -21,11 +22,13 @@ import {
   findUserPasswordById,
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
+  findUserAvatarById,
   replaceEmailVerificationToken,
   replacePasswordResetToken,
   touchSession,
   updatePasswordAndDeleteSessions,
   updateUserDisplayName,
+  updateUserAvatar,
   type SessionUser,
 } from "./auth.repository.js";
 
@@ -144,6 +147,38 @@ export async function updateProfile(
     throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
   }
 
+  return user;
+}
+
+export async function updateProfileAvatar(
+  userId: string,
+  file: Express.Multer.File,
+) {
+  const current = await findUserAvatarById(userId);
+  if (!current) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  const avatarUrl = await saveImage({ file, kind: "avatars" });
+  const user = await updateUserAvatar(userId, avatarUrl);
+  if (!user) {
+    await deleteStoredImage(avatarUrl);
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  await deleteStoredImage(current.avatarUrl);
+  return user;
+}
+
+export async function removeProfileAvatar(userId: string) {
+  const current = await findUserAvatarById(userId);
+  if (!current) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  const user = await updateUserAvatar(userId, null);
+  if (!user) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  await deleteStoredImage(current.avatarUrl);
   return user;
 }
 

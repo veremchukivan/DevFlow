@@ -12,6 +12,7 @@ export const loginRequestSchema = z.object({
 });
 
 export const authUserSchema = z.object({
+  avatarUrl: z.string().max(500).nullable(),
   createdAt: z.string().datetime(),
   displayName: z.string(),
   email: z.string().email(),

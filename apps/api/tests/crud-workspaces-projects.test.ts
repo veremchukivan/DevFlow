@@ -162,6 +162,25 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
       expect(res.status).toBe(409);
       expect(res.body.error.code).toBe("PROJECT_KEY_TAKEN");
     });
+
+    it("allows an admin to upload and remove a project icon", async () => {
+      const uploaded = await request(app)
+        .put(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/icon`)
+        .set("Cookie", admin.cookie)
+        .attach("image", Buffer.from([0x89, 0x50, 0x4e, 0x47]), {
+          contentType: "image/png",
+          filename: "project.png",
+        });
+
+      expect(uploaded.status).toBe(200);
+      expect(uploaded.body.project.iconUrl).toMatch(/^\/uploads\/projects\//);
+
+      const removed = await request(app)
+        .delete(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/icon`)
+        .set("Cookie", admin.cookie);
+      expect(removed.status).toBe(200);
+      expect(removed.body.project.iconUrl).toBeNull();
+    });
   });
 
   describe("Project DELETE /api/v1/workspaces/:workspaceId/projects/:projectId", () => {

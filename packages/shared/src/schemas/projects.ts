@@ -77,6 +77,7 @@ export const projectStatusParamsSchema = projectParamsSchema.extend({
 });
 
 export const projectSchema = z.object({
+  iconUrl: z.string().max(500).nullable(),
   createdAt: z.string().datetime(),
   description: z.string().nullable(),
   id: z.uuid(),

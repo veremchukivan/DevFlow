@@ -9,6 +9,7 @@ import { workspaces } from "../../core/db/schema/workspaces.js";
 
 export type SessionUser = Pick<
   User,
+  | "avatarUrl"
   | "createdAt"
   | "displayName"
   | "email"
@@ -143,6 +144,7 @@ export async function findSessionUserByTokenHash(tokenHash: string) {
       sessionId: sessions.id,
       user: {
         createdAt: users.createdAt,
+        avatarUrl: users.avatarUrl,
         displayName: users.displayName,
         email: users.email,
         emailVerifiedAt: users.emailVerifiedAt,
@@ -184,6 +186,7 @@ export async function updateUserDisplayName(
     .set({ displayName, updatedAt: new Date() })
     .where(and(eq(users.id, userId), isNull(users.deletedAt)))
     .returning({
+      avatarUrl: users.avatarUrl,
       createdAt: users.createdAt,
       displayName: users.displayName,
       email: users.email,
@@ -192,6 +195,33 @@ export async function updateUserDisplayName(
       isPlatformAdmin: users.isPlatformAdmin,
     });
 
+  return user ?? null;
+}
+
+export async function updateUserAvatar(userId: string, avatarUrl: string | null) {
+  const [user] = await db
+    .update(users)
+    .set({ avatarUrl, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning({
+      avatarUrl: users.avatarUrl,
+      createdAt: users.createdAt,
+      displayName: users.displayName,
+      email: users.email,
+      emailVerifiedAt: users.emailVerifiedAt,
+      id: users.id,
+      isPlatformAdmin: users.isPlatformAdmin,
+    });
+
+  return user ?? null;
+}
+
+export async function findUserAvatarById(userId: string) {
+  const [user] = await db
+    .select({ avatarUrl: users.avatarUrl })
+    .from(users)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .limit(1);
   return user ?? null;
 }
 

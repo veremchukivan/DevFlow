@@ -43,6 +43,33 @@
   justify-content: center;
   width: 58px;
 }
+.avatar img {
+  border-radius: inherit;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.avatarActions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.avatarActions .secondaryButton {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+}
+.avatarActions .secondaryButton input {
+  display: none;
+}
+.photoRemoveButton {
+  background: transparent;
+  border: 0;
+  color: var(--danger);
+  font: inherit;
+  font-size: 13px;
+  padding: 0 4px;
+}
 .section {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -190,7 +217,8 @@
     padding: 20px;
   }
   .formFooter,
-  .signOutSection {
+  .signOutSection,
+  .avatarActions {
     align-items: stretch;
     flex-direction: column;
     gap: 16px;

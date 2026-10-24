@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from "express";
+import { MulterError } from "multer";
 import { ZodError } from "zod";
 
 import { AppError } from "../errors/app-error.js";
@@ -25,6 +26,20 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
         issues: error.issues,
         requestId
       }
+    });
+    return;
+  }
+
+  if (error instanceof MulterError) {
+    res.status(400).json({
+      error: {
+        code: error.code === "LIMIT_FILE_SIZE" ? "IMAGE_TOO_LARGE" : "UPLOAD_INVALID",
+        message:
+          error.code === "LIMIT_FILE_SIZE"
+            ? "Image must be 2 MB or smaller"
+            : "Invalid image upload",
+        requestId,
+      },
     });
     return;
   }

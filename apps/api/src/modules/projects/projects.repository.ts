@@ -362,6 +362,25 @@ export async function updateProjectInDb(input: {
   return project;
 }
 
+export async function updateProjectIconInDb(input: {
+  iconUrl: string | null;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [project] = await db
+    .update(projects)
+    .set({ iconUrl: input.iconUrl, updatedAt: new Date() })
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+        isNull(projects.deletedAt),
+      ),
+    )
+    .returning();
+  return project ?? null;
+}
+
 export async function softDeleteProjectInDb(input: {
   projectId: string;
   workspaceId: string;

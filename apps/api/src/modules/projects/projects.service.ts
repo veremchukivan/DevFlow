@@ -8,6 +8,7 @@ import type {
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { deleteStoredImage, saveImage } from "../../core/uploads/images.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import {
   canCreateProject,
@@ -28,6 +29,7 @@ import {
   reorderProjectStatusesInDb,
   softDeleteProjectInDb,
   updateProjectInDb,
+  updateProjectIconInDb,
   updateProjectStatusInDb
 } from "./projects.repository.js";
 
@@ -214,6 +216,47 @@ export async function deleteProject(input: {
   if (!deleted) {
     throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
   }
+}
+
+export async function updateProjectIcon(input: {
+  file: Express.Multer.File;
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateProject(membership.role)) {
+    throw new AppError(403, "PROJECT_UPDATE_FORBIDDEN", "You cannot update projects in this workspace");
+  }
+  const existing = await findProjectInWorkspace(input);
+  if (!existing) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+
+  const iconUrl = await saveImage({ file: input.file, kind: "projects" });
+  const project = await updateProjectIconInDb({ ...input, iconUrl });
+  if (!project) {
+    await deleteStoredImage(iconUrl);
+    throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  }
+  await deleteStoredImage(existing.iconUrl);
+  return { ...project, statuses: await listProjectStatuses(input) };
+}
+
+export async function removeProjectIcon(input: {
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateProject(membership.role)) {
+    throw new AppError(403, "PROJECT_UPDATE_FORBIDDEN", "You cannot update projects in this workspace");
+  }
+  const existing = await findProjectInWorkspace(input);
+  if (!existing) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+
+  const project = await updateProjectIconInDb({ ...input, iconUrl: null });
+  if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  await deleteStoredImage(existing.iconUrl);
+  return { ...project, statuses: await listProjectStatuses(input) };
 }
 
 export async function createProjectStatus(input: {

@@ -13,6 +13,9 @@ import {
 } from "@devflow/shared";
 import { Router } from "express";
 
+import { AppError } from "../../core/errors/app-error.js";
+import { imageUpload } from "../../core/uploads/images.js";
+
 import {
   type AuthenticatedRequest,
   requireAuth
@@ -26,6 +29,8 @@ import {
   listProjects,
   reorderProjectStatuses,
   updateProject,
+  updateProjectIcon,
+  removeProjectIcon,
   updateProjectStatus
 } from "./projects.service.js";
 
@@ -81,6 +86,32 @@ projectsRouter.patch("/:projectId", async (req, res) => {
     workspaceId: params.workspaceId
   });
 
+  res.json(toProjectResponse(project));
+});
+
+projectsRouter.put(
+  "/:projectId/icon",
+  imageUpload.single("image"),
+  async (req, res) => {
+    const params = projectParamsSchema.parse(req.params);
+    if (!req.file) {
+      throw new AppError(400, "IMAGE_REQUIRED", "Choose an image to upload");
+    }
+    const project = await updateProjectIcon({
+      ...params,
+      file: req.file,
+      userId: getAuthenticatedUserId(req),
+    });
+    res.json(toProjectResponse(project));
+  },
+);
+
+projectsRouter.delete("/:projectId/icon", async (req, res) => {
+  const params = projectParamsSchema.parse(req.params);
+  const project = await removeProjectIcon({
+    ...params,
+    userId: getAuthenticatedUserId(req),
+  });
   res.json(toProjectResponse(project));
 });
 
@@ -150,6 +181,7 @@ function toProjectSummaryDto(project: {
   createdAt: Date;
   description: string | null;
   id: string;
+  iconUrl: string | null;
   key: string;
   name: string;
   ownerUserId: string | null;
@@ -160,6 +192,7 @@ function toProjectSummaryDto(project: {
     createdAt: project.createdAt.toISOString(),
     description: project.description,
     id: project.id,
+    iconUrl: project.iconUrl,
     key: project.key,
     name: project.name,
     ownerUserId: project.ownerUserId,

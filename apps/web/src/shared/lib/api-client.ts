@@ -120,6 +120,10 @@ function getApiUrl() {
   return apiUrl.origin;
 }
 
+export function getApiAssetUrl(path: string | null) {
+  return path ? new URL(path, `${getApiUrl()}/`).toString() : null;
+}
+
 const apiErrorSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -148,7 +152,9 @@ async function request<T>(
     credentials: "include",
     ...init,
     headers: {
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(init.body && !(init.body instanceof FormData)
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...init.headers,
     },
   });
@@ -183,7 +189,9 @@ async function requestNoContent(
     credentials: "include",
     ...init,
     headers: {
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(init.body && !(init.body instanceof FormData)
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...init.headers,
     },
   });
@@ -282,6 +290,24 @@ export function updateProfile(
       body: JSON.stringify(updateProfileRequestSchema.parse(input)),
       method: "PATCH",
     },
+    authResponseSchema,
+  );
+}
+
+export function uploadProfileAvatar(file: File): Promise<AuthResponse> {
+  const form = new FormData();
+  form.set("image", file);
+  return request(
+    "/api/v1/auth/profile/avatar",
+    { body: form, method: "PUT" },
+    authResponseSchema,
+  );
+}
+
+export function deleteProfileAvatar(): Promise<AuthResponse> {
+  return request(
+    "/api/v1/auth/profile/avatar",
+    { method: "DELETE" },
     authResponseSchema,
   );
 }
@@ -567,6 +593,31 @@ export function deleteProject(
   return requestNoContent(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
     { method: "DELETE" },
+  );
+}
+
+export function uploadProjectIcon(
+  workspaceId: string,
+  projectId: string,
+  file: File,
+): Promise<ProjectResponse> {
+  const form = new FormData();
+  form.set("image", file);
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/icon`,
+    { body: form, method: "PUT" },
+    projectResponseSchema,
+  );
+}
+
+export function deleteProjectIcon(
+  workspaceId: string,
+  projectId: string,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/icon`,
+    { method: "DELETE" },
+    projectResponseSchema,
   );
 }
 

@@ -20,6 +20,7 @@ export const users = pgTable(
     email: varchar("email", { length: 320 }).notNull(),
     emailNormalized: varchar("email_normalized", { length: 320 }).notNull(),
     displayName: varchar("display_name", { length: 120 }).notNull(),
+    avatarUrl: varchar("avatar_url", { length: 500 }),
     passwordHash: text("password_hash"),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),

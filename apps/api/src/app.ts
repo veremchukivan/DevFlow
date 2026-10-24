@@ -48,6 +48,14 @@ export function createApp() {
   );
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
+  app.use(
+    "/uploads",
+    express.static(env.UPLOADS_DIR, {
+      fallthrough: false,
+      maxAge: "30d",
+      immutable: true,
+    }),
+  );
   app.use(csrfProtection);
 
   app.get("/", (_req, res) => {

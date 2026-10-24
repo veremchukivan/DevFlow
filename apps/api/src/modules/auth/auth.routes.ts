@@ -17,6 +17,7 @@ import {
 } from "../../core/email/mailer.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { authRateLimiter } from "../../core/http/rate-limiter.js";
+import { imageUpload } from "../../core/uploads/images.js";
 import { type AuthenticatedRequest, requireAuth } from "./auth.middleware.js";
 import { clearSessionCookie, setSessionCookie } from "./auth.cookies.js";
 import {
@@ -29,6 +30,8 @@ import {
   register,
   resetPassword,
   updateProfile,
+  updateProfileAvatar,
+  removeProfileAvatar,
   verifyEmail,
 } from "./auth.service.js";
 
@@ -66,6 +69,24 @@ authRouter.patch("/profile", requireAuth, async (req, res) => {
   const input = updateProfileRequestSchema.parse(req.body);
   const user = await updateProfile(getAuthenticatedUser(req).id, input);
 
+  res.json(toAuthResponse(user));
+});
+
+authRouter.put(
+  "/profile/avatar",
+  requireAuth,
+  imageUpload.single("image"),
+  async (req, res) => {
+    if (!req.file) {
+      throw new AppError(400, "IMAGE_REQUIRED", "Choose an image to upload");
+    }
+    const user = await updateProfileAvatar(getAuthenticatedUser(req).id, req.file);
+    res.json(toAuthResponse(user));
+  },
+);
+
+authRouter.delete("/profile/avatar", requireAuth, async (req, res) => {
+  const user = await removeProfileAvatar(getAuthenticatedUser(req).id);
   res.json(toAuthResponse(user));
 });
 
@@ -160,6 +181,7 @@ function getRequestMeta(req: Request) {
 }
 
 function toAuthResponse(user: {
+  avatarUrl: string | null;
   createdAt: Date;
   displayName: string;
   email: string;
@@ -169,6 +191,7 @@ function toAuthResponse(user: {
 }): AuthResponse {
   return {
     user: {
+      avatarUrl: user.avatarUrl,
       createdAt: user.createdAt.toISOString(),
       displayName: user.displayName,
       email: user.email,

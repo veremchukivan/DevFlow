@@ -11,6 +11,7 @@ import {
   deleteWorkspaceLabel,
   deleteWorkspace,
   getProjects,
+  getApiAssetUrl,
   getWorkspace,
   getWorkspaceLabels,
   updateWorkspace,
@@ -380,7 +381,13 @@ export function WorkspaceDetail() {
                 href={`/workspaces/${workspaceId}/projects/${project.id}`}
                 key={project.id}
               >
-                <span className={styles.projectKey}>{project.key}</span>
+                <span className={styles.projectListIcon}>
+                  {project.iconUrl ? (
+                    <img alt="" src={getApiAssetUrl(project.iconUrl) ?? undefined} />
+                  ) : (
+                    project.key.slice(0, 1)
+                  )}
+                </span>
                 <div>
                   <h3>{project.name}</h3>
                   {project.description ? <p>{project.description}</p> : null}

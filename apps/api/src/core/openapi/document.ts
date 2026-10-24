@@ -123,6 +123,21 @@ const response = (
   ...(schema ? json(schema) : {}),
 });
 
+const imageRequestBody = {
+  required: true,
+  content: {
+    "multipart/form-data": {
+      schema: {
+        type: "object",
+        required: ["image"],
+        properties: {
+          image: { type: "string", format: "binary" },
+        },
+      },
+    },
+  },
+};
+
 const errorResponse = (description: string) => ({
   description,
   headers: {
@@ -271,6 +286,27 @@ export const openApiDocument = {
         requestBody: requestBody("UpdateProfileRequest"),
         responses: {
           "200": response("Profile updated", "AuthResponse"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/auth/profile/avatar": {
+      put: {
+        tags: ["Auth"],
+        operationId: "uploadProfileAvatar",
+        security: authenticated,
+        requestBody: imageRequestBody,
+        responses: {
+          "200": response("Avatar updated", "AuthResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Auth"],
+        operationId: "deleteProfileAvatar",
+        security: authenticated,
+        responses: {
+          "200": response("Avatar removed", "AuthResponse"),
           ...commonErrors,
         },
       },
@@ -589,6 +625,29 @@ export const openApiDocument = {
         security: authenticated,
         parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
         responses: { "204": response("Project deleted"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/icon": {
+      put: {
+        tags: ["Projects"],
+        operationId: "uploadProjectIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: imageRequestBody,
+        responses: {
+          "200": response("Project icon updated", "ProjectResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Projects"],
+        operationId: "deleteProjectIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        responses: {
+          "200": response("Project icon removed", "ProjectResponse"),
+          ...commonErrors,
+        },
       },
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/sprints": {

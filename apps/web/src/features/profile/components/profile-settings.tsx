@@ -8,9 +8,12 @@ import {
   ApiClientError,
   changePassword,
   getCurrentUser,
+  deleteProfileAvatar,
+  getApiAssetUrl,
   logout,
   resendEmailVerification,
   updateProfile,
+  uploadProfileAvatar,
 } from "@/shared/lib/api-client";
 import { notifyUserChanged } from "@/shared/lib/user-events";
 import type { AuthUser } from "@devflow/shared";
@@ -24,6 +27,7 @@ export function ProfileSettings() {
   const [message, setMessage] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
@@ -68,6 +72,41 @@ export function ProfileSettings() {
       setError(toMessage(caughtError, "Unable to save your profile."));
     } finally {
       setIsSavingProfile(false);
+    }
+  }
+
+  async function onAvatarChange(event: FormEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    setError(undefined);
+    setMessage(undefined);
+    setIsSavingAvatar(true);
+    try {
+      const response = await uploadProfileAvatar(file);
+      setUser(response.user);
+      notifyUserChanged(response.user);
+      setMessage("Profile photo updated.");
+    } catch (caughtError) {
+      setError(toMessage(caughtError, "Unable to upload the profile photo."));
+    } finally {
+      event.currentTarget.value = "";
+      setIsSavingAvatar(false);
+    }
+  }
+
+  async function onAvatarRemove() {
+    setError(undefined);
+    setMessage(undefined);
+    setIsSavingAvatar(true);
+    try {
+      const response = await deleteProfileAvatar();
+      setUser(response.user);
+      notifyUserChanged(response.user);
+      setMessage("Profile photo removed.");
+    } catch (caughtError) {
+      setError(toMessage(caughtError, "Unable to remove the profile photo."));
+    } finally {
+      setIsSavingAvatar(false);
     }
   }
 
@@ -141,9 +180,34 @@ export function ProfileSettings() {
           <h1>Profile settings</h1>
           <p>Manage the details associated with your DevFlow account.</p>
         </div>
-        <span aria-label={user.displayName} className={styles.avatar}>
-          {initials(user.displayName)}
-        </span>
+        <div className={styles.avatarActions}>
+          <span aria-label={user.displayName} className={styles.avatar}>
+            {user.avatarUrl ? (
+              <img alt="" src={getApiAssetUrl(user.avatarUrl) ?? undefined} />
+            ) : (
+              initials(user.displayName)
+            )}
+          </span>
+          <label className={styles.secondaryButton}>
+            {isSavingAvatar ? "Uploading" : "Change photo"}
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              disabled={isSavingAvatar}
+              onChange={(event) => void onAvatarChange(event)}
+              type="file"
+            />
+          </label>
+          {user.avatarUrl ? (
+            <button
+              className={styles.photoRemoveButton}
+              disabled={isSavingAvatar}
+              onClick={() => void onAvatarRemove()}
+              type="button"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {error ? (
