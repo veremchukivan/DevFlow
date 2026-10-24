@@ -30,6 +30,7 @@ import {
   updateTaskCommentRequestSchema,
   updateTaskRequestSchema,
   updateWorkspaceMemberRequestSchema,
+  transferWorkspaceOwnershipRequestSchema,
   updateWorkspaceRequestSchema,
   workspaceInvitationListResponseSchema,
   workspaceInvitationResponseSchema,
@@ -72,6 +73,7 @@ const schemas = {
   UpdateTaskCommentRequest: updateTaskCommentRequestSchema,
   UpdateTaskRequest: updateTaskRequestSchema,
   UpdateWorkspaceMemberRequest: updateWorkspaceMemberRequestSchema,
+  TransferWorkspaceOwnershipRequest: transferWorkspaceOwnershipRequestSchema,
   UpdateWorkspaceRequest: updateWorkspaceRequestSchema,
   WorkspaceInvitationListResponse: workspaceInvitationListResponseSchema,
   WorkspaceInvitationResponse: workspaceInvitationResponseSchema,
@@ -423,6 +425,14 @@ export const openApiDocument = {
         security: authenticated,
         parameters: [uuidPath("workspaceId")],
         responses: { "204": response("Workspace left"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/members/transfer-ownership": {
+      post: {
+        tags: ["Members"], operationId: "transferWorkspaceOwnership", security: authenticated,
+        parameters: [uuidPath("workspaceId")],
+        requestBody: requestBody("TransferWorkspaceOwnershipRequest"),
+        responses: { "204": response("Ownership transferred"), ...commonErrors },
       },
     },
     "/api/v1/workspaces/{workspaceId}/invitations": {
