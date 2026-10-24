@@ -6,6 +6,7 @@ import {
   createLabelRequestSchema,
   updateLabelRequestSchema,
   createTaskCommentRequestSchema,
+  createTaskChecklistItemRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
   emailVerificationTokenRequestSchema,
@@ -30,7 +31,10 @@ import {
   taskActivityEventListResponseSchema,
   taskCommentListResponseSchema,
   taskCommentResponseSchema,
+  taskChecklistListResponseSchema,
+  taskChecklistResponseSchema,
   updateTaskCommentRequestSchema,
+  updateTaskChecklistItemRequestSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
   workspaceInvitationListResponseSchema,
@@ -63,6 +67,7 @@ import {
   type UpdateProjectStatusRequest,
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
+  type CreateTaskChecklistItemRequest,
   type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
   type PublicWorkspaceInvitationResponse,
@@ -71,7 +76,10 @@ import {
   type TaskActivityEventListResponse,
   type TaskCommentListResponse,
   type TaskCommentResponse,
+  type TaskChecklistListResponse,
+  type TaskChecklistResponse,
   type UpdateTaskCommentRequest,
+  type UpdateTaskChecklistItemRequest,
   type TaskPriority,
   type TaskSortField,
   type TaskSortOrder,
@@ -414,8 +422,14 @@ export function leaveWorkspace(workspaceId: string): Promise<void> {
     method: "POST",
   });
 }
-export function transferWorkspaceOwnership(workspaceId: string, userId: string): Promise<void> {
-  return requestNoContent(`/api/v1/workspaces/${workspaceId}/members/transfer-ownership`, { body: JSON.stringify({ userId }), method: "POST" });
+export function transferWorkspaceOwnership(
+  workspaceId: string,
+  userId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/members/transfer-ownership`,
+    { body: JSON.stringify({ userId }), method: "POST" },
+  );
 }
 
 export function getWorkspaceInvitations(
@@ -548,12 +562,35 @@ export function deleteProject(
   );
 }
 
-export function createProjectStatus(workspaceId: string, projectId: string, input: CreateProjectStatusRequest): Promise<ProjectResponse> {
-  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses`, { body: JSON.stringify(createProjectStatusRequestSchema.parse(input)), method: "POST" }, projectResponseSchema);
+export function createProjectStatus(
+  workspaceId: string,
+  projectId: string,
+  input: CreateProjectStatusRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses`,
+    {
+      body: JSON.stringify(createProjectStatusRequestSchema.parse(input)),
+      method: "POST",
+    },
+    projectResponseSchema,
+  );
 }
 
-export function updateProjectStatus(workspaceId: string, projectId: string, statusId: string, input: UpdateProjectStatusRequest): Promise<ProjectResponse> {
-  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`, { body: JSON.stringify(updateProjectStatusRequestSchema.parse(input)), method: "PATCH" }, projectResponseSchema);
+export function updateProjectStatus(
+  workspaceId: string,
+  projectId: string,
+  statusId: string,
+  input: UpdateProjectStatusRequest,
+): Promise<ProjectResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`,
+    {
+      body: JSON.stringify(updateProjectStatusRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    projectResponseSchema,
+  );
 }
 
 export function reorderProjectStatuses(
@@ -571,8 +608,15 @@ export function reorderProjectStatuses(
   );
 }
 
-export function deleteProjectStatus(workspaceId: string, projectId: string, statusId: string): Promise<void> {
-  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`, { method: "DELETE" });
+export function deleteProjectStatus(
+  workspaceId: string,
+  projectId: string,
+  statusId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/statuses/${statusId}`,
+    { method: "DELETE" },
+  );
 }
 
 type TaskListFilters = {
@@ -715,6 +759,63 @@ export function deleteTaskComment(
   );
 }
 
+export function getTaskChecklist(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskChecklistListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist`,
+    { method: "GET" },
+    taskChecklistListResponseSchema,
+  );
+}
+
+export function createTaskChecklistItem(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: CreateTaskChecklistItemRequest,
+): Promise<TaskChecklistResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist`,
+    {
+      body: JSON.stringify(createTaskChecklistItemRequestSchema.parse(input)),
+      method: "POST",
+    },
+    taskChecklistResponseSchema,
+  );
+}
+
+export function updateTaskChecklistItem(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  itemId: string,
+  input: UpdateTaskChecklistItemRequest,
+): Promise<TaskChecklistResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist/${itemId}`,
+    {
+      body: JSON.stringify(updateTaskChecklistItemRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    taskChecklistResponseSchema,
+  );
+}
+
+export function deleteTaskChecklistItem(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  itemId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist/${itemId}`,
+    { method: "DELETE" },
+  );
+}
+
 export function getTaskActivity(
   workspaceId: string,
   projectId: string,
@@ -776,8 +877,16 @@ export function deleteTask(
   );
 }
 
-export function restoreTask(workspaceId: string, projectId: string, taskId: string, version: number): Promise<void> {
-  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/restore`, { headers: { "If-Match": `"${version}"` }, method: "POST" });
+export function restoreTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  version: number,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/restore`,
+    { headers: { "If-Match": `"${version}"` }, method: "POST" },
+  );
 }
 
 export async function getApiHealth(): Promise<HealthResponse> {

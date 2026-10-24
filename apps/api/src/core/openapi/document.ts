@@ -6,6 +6,7 @@ import {
   createProjectRequestSchema,
   createProjectStatusRequestSchema,
   createTaskCommentRequestSchema,
+  createTaskChecklistItemRequestSchema,
   createTaskRequestSchema,
   createWorkspaceInvitationRequestSchema,
   createWorkspaceRequestSchema,
@@ -21,6 +22,8 @@ import {
   registerRequestSchema,
   taskCommentListResponseSchema,
   taskCommentResponseSchema,
+  taskChecklistListResponseSchema,
+  taskChecklistResponseSchema,
   taskListResponseSchema,
   taskResponseSchema,
   updateProfileRequestSchema,
@@ -28,6 +31,7 @@ import {
   updateProjectRequestSchema,
   updateProjectStatusRequestSchema,
   updateTaskCommentRequestSchema,
+  updateTaskChecklistItemRequestSchema,
   updateTaskRequestSchema,
   updateWorkspaceMemberRequestSchema,
   transferWorkspaceOwnershipRequestSchema,
@@ -49,6 +53,7 @@ const schemas = {
   CreateProjectRequest: createProjectRequestSchema,
   CreateProjectStatusRequest: createProjectStatusRequestSchema,
   CreateTaskCommentRequest: createTaskCommentRequestSchema,
+  CreateTaskChecklistItemRequest: createTaskChecklistItemRequestSchema,
   CreateTaskRequest: createTaskRequestSchema,
   CreateWorkspaceInvitationRequest: createWorkspaceInvitationRequestSchema,
   CreateWorkspaceRequest: createWorkspaceRequestSchema,
@@ -65,12 +70,15 @@ const schemas = {
   TaskActivityEventListResponse: taskActivityEventListResponseSchema,
   TaskCommentListResponse: taskCommentListResponseSchema,
   TaskCommentResponse: taskCommentResponseSchema,
+  TaskChecklistListResponse: taskChecklistListResponseSchema,
+  TaskChecklistResponse: taskChecklistResponseSchema,
   TaskListResponse: taskListResponseSchema,
   TaskResponse: taskResponseSchema,
   UpdateProjectRequest: updateProjectRequestSchema,
   UpdateProjectStatusRequest: updateProjectStatusRequestSchema,
   UpdateProfileRequest: updateProfileRequestSchema,
   UpdateTaskCommentRequest: updateTaskCommentRequestSchema,
+  UpdateTaskChecklistItemRequest: updateTaskChecklistItemRequestSchema,
   UpdateTaskRequest: updateTaskRequestSchema,
   UpdateWorkspaceMemberRequest: updateWorkspaceMemberRequestSchema,
   TransferWorkspaceOwnershipRequest: transferWorkspaceOwnershipRequestSchema,
@@ -179,6 +187,7 @@ export const openApiDocument = {
     { name: "Projects" },
     { name: "Tasks" },
     { name: "Comments" },
+    { name: "Checklists" },
     { name: "Activity" },
   ],
   paths: {
@@ -429,10 +438,15 @@ export const openApiDocument = {
     },
     "/api/v1/workspaces/{workspaceId}/members/transfer-ownership": {
       post: {
-        tags: ["Members"], operationId: "transferWorkspaceOwnership", security: authenticated,
+        tags: ["Members"],
+        operationId: "transferWorkspaceOwnership",
+        security: authenticated,
         parameters: [uuidPath("workspaceId")],
         requestBody: requestBody("TransferWorkspaceOwnershipRequest"),
-        responses: { "204": response("Ownership transferred"), ...commonErrors },
+        responses: {
+          "204": response("Ownership transferred"),
+          ...commonErrors,
+        },
       },
     },
     "/api/v1/workspaces/{workspaceId}/invitations": {
@@ -570,33 +584,59 @@ export const openApiDocument = {
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses": {
       post: {
-        tags: ["Projects"], operationId: "createProjectStatus", security: authenticated,
+        tags: ["Projects"],
+        operationId: "createProjectStatus",
+        security: authenticated,
         parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
         requestBody: requestBody("CreateProjectStatusRequest"),
-        responses: { "201": response("Status created", "ProjectResponse"), ...commonErrors },
+        responses: {
+          "201": response("Status created", "ProjectResponse"),
+          ...commonErrors,
+        },
       },
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/order": {
       put: {
-        tags: ["Projects"], operationId: "reorderProjectStatuses", security: authenticated,
+        tags: ["Projects"],
+        operationId: "reorderProjectStatuses",
+        security: authenticated,
         parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
         requestBody: requestBody("ReorderProjectStatusesRequest"),
-        responses: { "200": response("Statuses reordered", "ProjectResponse"), ...commonErrors },
+        responses: {
+          "200": response("Statuses reordered", "ProjectResponse"),
+          ...commonErrors,
+        },
       },
     },
-    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/{statusId}": {
-      patch: {
-        tags: ["Projects"], operationId: "updateProjectStatus", security: authenticated,
-        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("statusId")],
-        requestBody: requestBody("UpdateProjectStatusRequest"),
-        responses: { "200": response("Status updated", "ProjectResponse"), ...commonErrors },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/{statusId}":
+      {
+        patch: {
+          tags: ["Projects"],
+          operationId: "updateProjectStatus",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("statusId"),
+          ],
+          requestBody: requestBody("UpdateProjectStatusRequest"),
+          responses: {
+            "200": response("Status updated", "ProjectResponse"),
+            ...commonErrors,
+          },
+        },
+        delete: {
+          tags: ["Projects"],
+          operationId: "deleteProjectStatus",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("statusId"),
+          ],
+          responses: { "204": response("Status deleted"), ...commonErrors },
+        },
       },
-      delete: {
-        tags: ["Projects"], operationId: "deleteProjectStatus", security: authenticated,
-        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("statusId")],
-        responses: { "204": response("Status deleted"), ...commonErrors },
-      },
-    },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks": {
       get: {
         tags: ["Tasks"],
@@ -731,13 +771,31 @@ export const openApiDocument = {
         },
       },
     },
-    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/restore": {
-      post: {
-        tags: ["Tasks"], operationId: "restoreTask", security: authenticated,
-        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("taskId"), { name: "If-Match", in: "header", required: true, schema: { type: "string", pattern: '^"[1-9]\\d*"$' } }],
-        responses: { "204": response("Task restored"), "409": errorResponse("Task version conflict"), "428": errorResponse("Task version is required"), ...commonErrors },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/restore":
+      {
+        post: {
+          tags: ["Tasks"],
+          operationId: "restoreTask",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+            {
+              name: "If-Match",
+              in: "header",
+              required: true,
+              schema: { type: "string", pattern: '^"[1-9]\\d*"$' },
+            },
+          ],
+          responses: {
+            "204": response("Task restored"),
+            "409": errorResponse("Task version conflict"),
+            "428": errorResponse("Task version is required"),
+            ...commonErrors,
+          },
+        },
       },
-    },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/comments":
       {
         get: {
@@ -800,6 +858,72 @@ export const openApiDocument = {
             uuidPath("commentId"),
           ],
           responses: { "204": response("Comment deleted"), ...commonErrors },
+        },
+      },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/checklist":
+      {
+        get: {
+          tags: ["Checklists"],
+          operationId: "listTaskChecklistItems",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+          ],
+          responses: {
+            "200": response("Task checklist", "TaskChecklistListResponse"),
+            ...commonErrors,
+          },
+        },
+        post: {
+          tags: ["Checklists"],
+          operationId: "createTaskChecklistItem",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+          ],
+          requestBody: requestBody("CreateTaskChecklistItemRequest"),
+          responses: {
+            "201": response("Checklist item created", "TaskChecklistResponse"),
+            ...commonErrors,
+          },
+        },
+      },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/checklist/{itemId}":
+      {
+        patch: {
+          tags: ["Checklists"],
+          operationId: "updateTaskChecklistItem",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+            uuidPath("itemId"),
+          ],
+          requestBody: requestBody("UpdateTaskChecklistItemRequest"),
+          responses: {
+            "200": response("Checklist item updated", "TaskChecklistResponse"),
+            ...commonErrors,
+          },
+        },
+        delete: {
+          tags: ["Checklists"],
+          operationId: "deleteTaskChecklistItem",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+            uuidPath("itemId"),
+          ],
+          responses: {
+            "204": response("Checklist item deleted"),
+            ...commonErrors,
+          },
         },
       },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/activity":

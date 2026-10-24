@@ -8,12 +8,15 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import {
   ApiClientError,
   createTaskComment,
+  createTaskChecklistItem,
   deleteTask,
   deleteTaskComment,
+  deleteTaskChecklistItem,
   getCurrentUser,
   getProject,
   getTask,
   getTaskLabels,
+  getTaskChecklist,
   getWorkspaceLabels,
   getWorkspace,
   getTaskActivity,
@@ -21,6 +24,7 @@ import {
   getWorkspaceMembers,
   updateTask,
   updateTaskComment,
+  updateTaskChecklistItem,
   replaceTaskLabels,
 } from "@/shared/lib/api-client";
 import type {
@@ -28,6 +32,7 @@ import type {
   Project,
   TaskActivityEvent,
   TaskComment,
+  TaskChecklistItem,
   TaskPriority,
   WorkspaceRole,
   Label,
@@ -54,6 +59,11 @@ export function TaskDetail() {
   const [role, setRole] = useState<WorkspaceRole>();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
+  const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
+  const [checklistProgress, setChecklistProgress] = useState({
+    completed: 0,
+    total: 0,
+  });
   const [commentsPageInfo, setCommentsPageInfo] = useState<PageInfo>();
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
   const [activityPageInfo, setActivityPageInfo] = useState<PageInfo>();
@@ -62,10 +72,15 @@ export function TaskDetail() {
   const [isSavingLabels, setIsSavingLabels] = useState(false);
   const [error, setError] = useState<string>();
   const [commentError, setCommentError] = useState<string>();
+  const [checklistError, setChecklistError] = useState<string>();
   const [editError, setEditError] = useState<string>();
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isSubmittingChecklistItem, setIsSubmittingChecklistItem] =
+    useState(false);
+  const [isSavingChecklistItemId, setIsSavingChecklistItemId] =
+    useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [isSavingCommentId, setIsSavingCommentId] = useState<string>();
   const [isDeletingTask, setIsDeletingTask] = useState(false);
@@ -85,6 +100,7 @@ export function TaskDetail() {
         taskLabelsResponse,
         workspaceResponse,
         projectResponse,
+        checklistResponse,
       ] = await Promise.all([
         getTask(params.workspaceId, params.projectId, params.taskId),
         getWorkspaceMembers(params.workspaceId),
@@ -99,6 +115,7 @@ export function TaskDetail() {
         getTaskLabels(params.workspaceId, params.projectId, params.taskId),
         getWorkspace(params.workspaceId),
         getProject(params.workspaceId, params.projectId),
+        getTaskChecklist(params.workspaceId, params.projectId, params.taskId),
       ]);
 
       setTask(taskResponse.task);
@@ -114,6 +131,8 @@ export function TaskDetail() {
       setWorkspaceLabels(workspaceLabelsResponse.labels);
       setTaskLabels(taskLabelsResponse.labels);
       setRole(workspaceResponse.workspace.role);
+      setChecklistItems(checklistResponse.items);
+      setChecklistProgress(checklistResponse.progress);
     } catch (caughtError) {
       if (
         caughtError instanceof ApiClientError &&
@@ -176,6 +195,16 @@ export function TaskDetail() {
     );
     setActivity(response.events);
     setActivityPageInfo(response.pageInfo);
+  }
+
+  async function loadChecklist() {
+    const response = await getTaskChecklist(
+      params.workspaceId,
+      params.projectId,
+      params.taskId,
+    );
+    setChecklistItems(response.items);
+    setChecklistProgress(response.progress);
   }
 
   async function onChangeCommentsPage(offset: number) {
@@ -317,6 +346,80 @@ export function TaskDetail() {
       );
     } finally {
       setIsSubmittingComment(false);
+    }
+  }
+
+  async function onChecklistSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setChecklistError(undefined);
+    setIsSubmittingChecklistItem(true);
+    const form = event.currentTarget;
+    const content = String(new FormData(form).get("content") ?? "");
+
+    try {
+      await createTaskChecklistItem(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        { content },
+      );
+      await loadChecklist();
+      form.reset();
+    } catch (caughtError) {
+      setChecklistError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to add the checklist item.",
+      );
+    } finally {
+      setIsSubmittingChecklistItem(false);
+    }
+  }
+
+  async function onChecklistItemCompletionChange(item: TaskChecklistItem) {
+    setChecklistError(undefined);
+    setIsSavingChecklistItemId(item.id);
+
+    try {
+      await updateTaskChecklistItem(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        item.id,
+        { isCompleted: !item.isCompleted },
+      );
+      await loadChecklist();
+    } catch (caughtError) {
+      setChecklistError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the checklist item.",
+      );
+    } finally {
+      setIsSavingChecklistItemId(undefined);
+    }
+  }
+
+  async function onChecklistItemDelete(itemId: string) {
+    setChecklistError(undefined);
+    setIsSavingChecklistItemId(itemId);
+
+    try {
+      await deleteTaskChecklistItem(
+        params.workspaceId,
+        params.projectId,
+        params.taskId,
+        itemId,
+      );
+      await loadChecklist();
+    } catch (caughtError) {
+      setChecklistError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete the checklist item.",
+      );
+    } finally {
+      setIsSavingChecklistItemId(undefined);
     }
   }
 
@@ -607,6 +710,88 @@ export function TaskDetail() {
           )}
 
           <section
+            aria-labelledby="checklist-title"
+            className={styles.taskSection}
+          >
+            <div className={styles.sectionHeading}>
+              <h2 id="checklist-title">Checklist</h2>
+              <span className={styles.checklistProgress}>
+                {checklistProgress.completed}/{checklistProgress.total} complete
+              </span>
+            </div>
+            {canUpdateTask ? (
+              <form
+                className={styles.checklistForm}
+                onSubmit={onChecklistSubmit}
+              >
+                <label className={styles.srOnly} htmlFor="checklist-content">
+                  New checklist item
+                </label>
+                <input
+                  id="checklist-content"
+                  maxLength={500}
+                  name="content"
+                  placeholder="Add a checklist item"
+                  required
+                />
+                <button
+                  className={styles.secondaryButton}
+                  disabled={isSubmittingChecklistItem}
+                  type="submit"
+                >
+                  {isSubmittingChecklistItem ? "Adding" : "Add item"}
+                </button>
+              </form>
+            ) : null}
+            {checklistError ? (
+              <p className={styles.formError} role="alert">
+                {checklistError}
+              </p>
+            ) : null}
+            {checklistItems.length ? (
+              <ol className={styles.checklistItems}>
+                {checklistItems.map((item) => (
+                  <li key={item.id}>
+                    <label
+                      className={
+                        item.isCompleted
+                          ? styles.checklistItemCompleted
+                          : undefined
+                      }
+                    >
+                      <input
+                        checked={item.isCompleted}
+                        disabled={
+                          !canUpdateTask || isSavingChecklistItemId === item.id
+                        }
+                        onChange={() =>
+                          void onChecklistItemCompletionChange(item)
+                        }
+                        type="checkbox"
+                      />
+                      <span>{item.content}</span>
+                    </label>
+                    {canUpdateTask ? (
+                      <button
+                        aria-label={`Delete checklist item: ${item.content}`}
+                        className={styles.commentActionDanger}
+                        disabled={isSavingChecklistItemId === item.id}
+                        onClick={() => void onChecklistItemDelete(item.id)}
+                        title="Delete checklist item"
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" size={15} />
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className={styles.emptyState}>No checklist items yet.</p>
+            )}
+          </section>
+
+          <section
             aria-labelledby="comments-title"
             className={styles.taskSection}
           >
@@ -781,8 +966,28 @@ function DetailPagination({
           : `${pageInfo.offset + 1}-${Math.min(pageInfo.offset + pageInfo.limit, pageInfo.total)} of ${pageInfo.total}`}
       </span>
       <div>
-        <button aria-label={`Previous ${label}`} className={styles.iconButton} disabled={pageInfo.offset === 0} onClick={() => void onChange(Math.max(0, pageInfo.offset - pageInfo.limit))} title="Previous page" type="button"><ChevronLeft aria-hidden="true" size={16} /></button>
-        <button aria-label={`Next ${label}`} className={styles.iconButton} disabled={!pageInfo.hasNextPage} onClick={() => void onChange(pageInfo.offset + pageInfo.limit)} title="Next page" type="button"><ChevronRight aria-hidden="true" size={16} /></button>
+        <button
+          aria-label={`Previous ${label}`}
+          className={styles.iconButton}
+          disabled={pageInfo.offset === 0}
+          onClick={() =>
+            void onChange(Math.max(0, pageInfo.offset - pageInfo.limit))
+          }
+          title="Previous page"
+          type="button"
+        >
+          <ChevronLeft aria-hidden="true" size={16} />
+        </button>
+        <button
+          aria-label={`Next ${label}`}
+          className={styles.iconButton}
+          disabled={!pageInfo.hasNextPage}
+          onClick={() => void onChange(pageInfo.offset + pageInfo.limit)}
+          title="Next page"
+          type="button"
+        >
+          <ChevronRight aria-hidden="true" size={16} />
+        </button>
       </div>
     </nav>
   );

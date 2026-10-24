@@ -4,6 +4,7 @@ export * from "./project-statuses.js";
 export * from "./projects.js";
 export * from "./sessions.js";
 export * from "./task-activity-events.js";
+export * from "./task-checklist-items.js";
 export * from "./task-comments.js";
 export * from "./tasks.js";
 export * from "./users.js";

@@ -721,6 +721,59 @@
   padding: 0 7px;
   width: 120px;
 }
+.checklistForm {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.checklistForm input {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  flex: 1;
+  min-width: 0;
+  padding: 0 11px;
+}
+.checklistProgress {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.checklistItems {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+.checklistItems li {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.checklistItems label {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  min-width: 0;
+}
+.checklistItems input {
+  accent-color: var(--brand);
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+.checklistItems span {
+  overflow-wrap: anywhere;
+}
+.checklistItemCompleted span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
 .commentList,
 .activityList {
   display: grid;
