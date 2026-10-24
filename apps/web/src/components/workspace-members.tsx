@@ -65,10 +65,10 @@ export function WorkspaceMembers() {
         const [currentUserResponse, membersResponse, invitationsResponse] =
           await Promise.all([
             getCurrentUser(),
-          getWorkspaceMembers(params.workspaceId),
-          canManageMembers
-            ? getWorkspaceInvitations(params.workspaceId)
-            : Promise.resolve(undefined),
+            getWorkspaceMembers(params.workspaceId),
+            canManageMembers
+              ? getWorkspaceInvitations(params.workspaceId)
+              : Promise.resolve(undefined),
           ]);
 
         if (!active) return;
@@ -317,7 +317,7 @@ export function WorkspaceMembers() {
             <label>
               <span>Role</span>
               <select defaultValue="member" name="role">
-                {assignableRoles.map((role) => (
+                {rolesForInvitation(workspace?.role).map((role) => (
                   <option key={role} value={role}>
                     {role}
                   </option>
@@ -494,4 +494,10 @@ function rolesForMember(
   }
 
   return assignableRoles;
+}
+
+function rolesForInvitation(role: Workspace["role"] | undefined) {
+  return role === "admin"
+    ? assignableRoles.filter((assignableRole) => assignableRole !== "admin")
+    : assignableRoles;
 }
