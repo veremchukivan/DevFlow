@@ -11,6 +11,7 @@ import {
   deleteTask,
   deleteTaskComment,
   getCurrentUser,
+  getProject,
   getTask,
   getTaskLabels,
   getWorkspaceLabels,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/api-client";
 import type {
   Task,
+  Project,
   TaskActivityEvent,
   TaskComment,
   TaskPriority,
@@ -45,6 +47,7 @@ export function TaskDetail() {
   }>();
   const router = useRouter();
   const [task, setTask] = useState<Task>();
+  const [project, setProject] = useState<Project>();
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [role, setRole] = useState<WorkspaceRole>();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
@@ -77,6 +80,7 @@ export function TaskDetail() {
         workspaceLabelsResponse,
         taskLabelsResponse,
         workspaceResponse,
+        projectResponse,
       ] = await Promise.all([
         getTask(params.workspaceId, params.projectId, params.taskId),
         getWorkspaceMembers(params.workspaceId),
@@ -86,9 +90,11 @@ export function TaskDetail() {
         getWorkspaceLabels(params.workspaceId),
         getTaskLabels(params.workspaceId, params.projectId, params.taskId),
         getWorkspace(params.workspaceId),
+        getProject(params.workspaceId, params.projectId),
       ]);
 
       setTask(taskResponse.task);
+      setProject(projectResponse.project);
       setMembers(
         membersResponse.members.filter((member) => member.status === "active"),
       );
@@ -149,6 +155,7 @@ export function TaskDetail() {
     const form = new FormData(event.currentTarget);
     const description = String(form.get("description") ?? "").trim();
     const assigneeUserId = String(form.get("assigneeUserId") ?? "");
+    const statusId = String(form.get("statusId") ?? "");
 
     try {
       const response = await updateTask(
@@ -160,6 +167,7 @@ export function TaskDetail() {
           description: description || null,
           dueDate: String(form.get("dueDate") ?? "") || null,
           priority: form.get("priority") as TaskPriority,
+          ...(statusId ? { statusId } : {}),
           title: String(form.get("title") ?? ""),
         },
         task.version,
@@ -417,6 +425,16 @@ export function TaskDetail() {
                   {priorities.map((priority) => (
                     <option key={priority} value={priority}>
                       {priority}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select defaultValue={task.statusId} name="statusId">
+                  {project?.statuses.map((status) => (
+                    <option key={status.id} value={status.id}>
+                      {status.name}
                     </option>
                   ))}
                 </select>
