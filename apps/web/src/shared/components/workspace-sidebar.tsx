@@ -5,9 +5,13 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { getWorkspaces } from "@/shared/lib/api-client";
+import {
+  getApiAssetUrl,
+  getProjects,
+  getWorkspaces,
+} from "@/shared/lib/api-client";
 import { subscribeToWorkspaceChanges } from "@/shared/lib/workspace-events";
-import type { Workspace } from "@devflow/shared";
+import type { ProjectSummary, Workspace } from "@devflow/shared";
 
 import styles from "./workspace-sidebar.module.css";
 
@@ -15,6 +19,7 @@ export function WorkspaceSidebar() {
   const pathname = usePathname();
   const params = useParams<{ workspaceId?: string }>();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -42,6 +47,26 @@ export function WorkspaceSidebar() {
   const activeWorkspace = workspaces.find(
     (workspace) => workspace.id === params.workspaceId,
   );
+
+  useEffect(() => {
+    if (!activeWorkspace) {
+      setProjects([]);
+      return;
+    }
+
+    let active = true;
+    void getProjects(activeWorkspace.id)
+      .then((response) => {
+        if (active) setProjects(response.projects);
+      })
+      .catch(() => {
+        if (active) setProjects([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeWorkspace]);
 
   return (
     <aside className={styles.sidebar}>
@@ -100,6 +125,38 @@ export function WorkspaceSidebar() {
           </>
         ) : null}
       </nav>
+      {activeWorkspace ? (
+        <nav aria-label="Projects" className={styles.projectsNavigation}>
+          <p>Projects</p>
+          {projects.length ? (
+            projects.map((project) => {
+              const href = `/workspaces/${activeWorkspace.id}/projects/${project.id}`;
+              return (
+                <Link
+                  aria-current={pathname === href ? "page" : undefined}
+                  className={styles.projectLink}
+                  href={href}
+                  key={project.id}
+                >
+                  <span className={styles.projectIcon}>
+                    {project.iconUrl ? (
+                      <img
+                        alt=""
+                        src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                      />
+                    ) : (
+                      project.key.slice(0, 1)
+                    )}
+                  </span>
+                  <span>{project.name}</span>
+                </Link>
+              );
+            })
+          ) : (
+            <p className={styles.emptyProjects}>No projects yet</p>
+          )}
+        </nav>
+      ) : null}
     </aside>
   );
 }
