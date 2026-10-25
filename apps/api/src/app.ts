@@ -22,6 +22,7 @@ import { taskActivityRouter } from "./modules/task-activity/task-activity.routes
 import { taskAttachmentsRouter } from "./modules/task-attachments/task-attachments.routes.js";
 import { taskChecklistsRouter } from "./modules/task-checklists/task-checklists.routes.js";
 import { taskCommentsRouter } from "./modules/task-comments/task-comments.routes.js";
+import { taskRelationsRouter } from "./modules/task-relations/task-relations.routes.js";
 import { tasksRouter } from "./modules/tasks/tasks.routes.js";
 import {
   publicInvitationsRouter,
@@ -96,6 +97,10 @@ export function createApp() {
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/attachments",
     taskAttachmentsRouter,
+  );
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/relations",
+    taskRelationsRouter,
   );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/sprints",

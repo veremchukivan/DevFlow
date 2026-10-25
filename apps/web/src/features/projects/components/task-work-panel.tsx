@@ -4,6 +4,7 @@ import {
   Check,
   ClipboardList,
   Download,
+  Link2,
   MessageSquare,
   Pencil,
   Paperclip,
@@ -21,15 +22,18 @@ import {
   ApiClientError,
   createTaskChecklistItem,
   createTaskComment,
+  createTaskRelation,
   deleteTaskAttachment,
   deleteTaskChecklistItem,
   deleteTaskComment,
+  deleteTaskRelation,
   getCurrentUser,
   getTaskActivity,
   getTaskAttachments,
   getTaskAttachmentDownloadUrl,
   getTaskChecklist,
   getTaskComments,
+  getTaskRelations,
   updateTaskChecklistItem,
   updateTaskComment,
   uploadTaskAttachment,
@@ -40,6 +44,8 @@ import type {
   TaskAttachment,
   TaskChecklistItem,
   TaskComment,
+  TaskRelation,
+  TaskRelationType,
   WorkspaceRole,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
@@ -49,10 +55,12 @@ import styles from "./task-work-panel.module.css";
 type ActivityTab = "comments" | "history";
 
 export function TaskWorkPanel({
+  availableRelatedTasks,
   role,
   task,
   workspaceId,
 }: {
+  availableRelatedTasks: Task[];
   role: WorkspaceRole | undefined;
   task: Task;
   workspaceId: string;
@@ -61,6 +69,7 @@ export function TaskWorkPanel({
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [relations, setRelations] = useState<TaskRelation[]>([]);
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -72,6 +81,8 @@ export function TaskWorkPanel({
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isDeletingAttachmentId, setIsDeletingAttachmentId] =
     useState<string>();
+  const [isCreatingRelation, setIsCreatingRelation] = useState(false);
+  const [isDeletingRelationId, setIsDeletingRelationId] = useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [error, setError] = useState<string>();
   const canUpdateTask = role ? can(role, "task:update") : false;
@@ -90,18 +101,21 @@ export function TaskWorkPanel({
         checklistResponse,
         activityResponse,
         attachmentsResponse,
+        relationsResponse,
         userResponse,
       ] = await Promise.all([
         getTaskComments(workspaceId, task.projectId, task.id, { limit: 25 }),
         getTaskChecklist(workspaceId, task.projectId, task.id),
         getTaskActivity(workspaceId, task.projectId, task.id, { limit: 25 }),
         getTaskAttachments(workspaceId, task.projectId, task.id),
+        getTaskRelations(workspaceId, task.projectId, task.id),
         getCurrentUser(),
       ]);
       setComments(commentsResponse.comments);
       setChecklistItems(checklistResponse.items);
       setActivity(activityResponse.events);
       setAttachments(attachmentsResponse.attachments);
+      setRelations(relationsResponse.relations);
       setCurrentUserId(userResponse.user.id);
     } catch (caughtError) {
       setError(
@@ -166,6 +180,52 @@ export function TaskWorkPanel({
       task.id,
     );
     setAttachments(response.attachments);
+  }
+
+  async function refreshRelations() {
+    const response = await getTaskRelations(
+      workspaceId,
+      task.projectId,
+      task.id,
+    );
+    setRelations(response.relations);
+  }
+
+  async function onRelationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setError(undefined);
+    setIsCreatingRelation(true);
+    try {
+      await createTaskRelation(workspaceId, task.projectId, task.id, {
+        relationType: form.get("relationType") as TaskRelationType,
+        targetTaskId: String(form.get("targetTaskId") ?? ""),
+      });
+      await refreshRelations();
+      event.currentTarget.reset();
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to create task relation."));
+    } finally {
+      setIsCreatingRelation(false);
+    }
+  }
+
+  async function onRelationDelete(relationId: string) {
+    setError(undefined);
+    setIsDeletingRelationId(relationId);
+    try {
+      await deleteTaskRelation(
+        workspaceId,
+        task.projectId,
+        task.id,
+        relationId,
+      );
+      await refreshRelations();
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to delete task relation."));
+    } finally {
+      setIsDeletingRelationId(undefined);
+    }
   }
 
   async function onAttachmentChange(event: ChangeEvent<HTMLInputElement>) {
@@ -453,6 +513,87 @@ export function TaskWorkPanel({
       </section>
 
       <section
+        className={styles.relationsSection}
+        aria-labelledby="relations-title"
+      >
+        <div className={styles.sectionHeading}>
+          <div>
+            <h3 id="relations-title">Linked work items</h3>
+            <p>Dependencies and related tasks</p>
+          </div>
+          <Link2 aria-hidden="true" size={18} />
+        </div>
+        {canUpdateTask ? (
+          <form
+            className={styles.relationForm}
+            onSubmit={(event) => void onRelationSubmit(event)}
+          >
+            <label className={styles.srOnly} htmlFor="relation-type">
+              Relation type
+            </label>
+            <select
+              defaultValue="relates_to"
+              id="relation-type"
+              name="relationType"
+            >
+              <option value="blocks">Blocks</option>
+              <option value="relates_to">Relates to</option>
+              <option value="duplicates">Duplicates</option>
+            </select>
+            <label className={styles.srOnly} htmlFor="relation-target">
+              Related task
+            </label>
+            <select id="relation-target" name="targetTaskId" required>
+              <option value="">Choose a task</option>
+              {availableRelatedTasks
+                .filter((candidate) => candidate.id !== task.id)
+                .map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.key}: {candidate.title}
+                  </option>
+                ))}
+            </select>
+            <button disabled={isCreatingRelation} type="submit">
+              {isCreatingRelation ? "Linking" : "Link"}
+            </button>
+          </form>
+        ) : null}
+        {isLoading ? (
+          <p className={styles.empty}>Loading linked items…</p>
+        ) : null}
+        {!isLoading && relations.length === 0 ? (
+          <p className={styles.empty}>No linked work items yet.</p>
+        ) : null}
+        {relations.length ? (
+          <ul className={styles.relationList}>
+            {relations.map((relation) => (
+              <li key={relation.id}>
+                <span className={styles.relationType}>
+                  {formatRelationType(relation.relationType)}
+                </span>
+                <div>
+                  <strong>{relation.task.key}</strong>
+                  <span>{relation.task.title}</span>
+                </div>
+                {canUpdateTask ? (
+                  <button
+                    aria-label={`Remove relation to ${relation.task.key}`}
+                    className={styles.deleteButton}
+                    disabled={isDeletingRelationId === relation.id}
+                    onClick={() => void onRelationDelete(relation.id)}
+                    title="Remove task relation"
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" size={15} />
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <section
         className={styles.activitySection}
         aria-labelledby="activity-title"
       >
@@ -666,4 +807,8 @@ function formatDateTime(value: string) {
 function formatFileSize(sizeBytes: number) {
   if (sizeBytes < 1024 * 1024) return `${Math.ceil(sizeBytes / 1024)} KB`;
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatRelationType(relationType: TaskRelation["relationType"]) {
+  return relationType.replaceAll("_", " ");
 }

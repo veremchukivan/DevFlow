@@ -2245,7 +2245,12 @@ function TaskEditorModal({
             />
           </label>
         </aside>
-        <TaskWorkPanel role={role} task={task} workspaceId={workspaceId} />
+        <TaskWorkPanel
+          availableRelatedTasks={availableParentTasks}
+          role={role}
+          task={task}
+          workspaceId={workspaceId}
+        />
         <div className={styles.formActions}>
           <button
             className={styles.primaryButton}

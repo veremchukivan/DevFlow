@@ -7,6 +7,7 @@ import {
   updateLabelRequestSchema,
   createTaskCommentRequestSchema,
   createTaskChecklistItemRequestSchema,
+  createTaskRelationRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
   emailVerificationTokenRequestSchema,
@@ -39,6 +40,7 @@ import {
   taskCommentResponseSchema,
   taskChecklistListResponseSchema,
   taskChecklistResponseSchema,
+  taskRelationListResponseSchema,
   updateTaskCommentRequestSchema,
   updateTaskChecklistItemRequestSchema,
   taskResponseSchema,
@@ -76,6 +78,7 @@ import {
   type CreateTaskRequest,
   type CreateTaskCommentRequest,
   type CreateTaskChecklistItemRequest,
+  type CreateTaskRelationRequest,
   type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
   type ProjectSprintListResponse,
@@ -90,6 +93,7 @@ import {
   type TaskCommentResponse,
   type TaskChecklistListResponse,
   type TaskChecklistResponse,
+  type TaskRelationListResponse,
   type UpdateTaskCommentRequest,
   type UpdateTaskChecklistItemRequest,
   type TaskPriority,
@@ -982,6 +986,45 @@ export function deleteTaskAttachment(
 ): Promise<void> {
   return requestNoContent(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function getTaskRelations(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskRelationListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/relations`,
+    { method: "GET" },
+    taskRelationListResponseSchema,
+  );
+}
+
+export function createTaskRelation(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: CreateTaskRelationRequest,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/relations`,
+    {
+      body: JSON.stringify(createTaskRelationRequestSchema.parse(input)),
+      method: "POST",
+    },
+  );
+}
+
+export function deleteTaskRelation(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  relationId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/relations/${relationId}`,
     { method: "DELETE" },
   );
 }

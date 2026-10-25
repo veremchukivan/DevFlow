@@ -8,6 +8,7 @@
 
 .checklistSection,
 .attachmentsSection,
+.relationsSection,
 .activitySection {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -162,6 +163,84 @@
 
 .attachmentActions a:hover {
   color: var(--brand);
+}
+
+.relationForm {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(120px, 0.55fr) minmax(0, 1fr) auto;
+  margin-top: 16px;
+}
+
+.relationForm select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+  padding: 0 9px;
+}
+
+.relationForm button {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.relationForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.relationList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.relationList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 9px 10px;
+}
+
+.relationType {
+  background: #edf3ff;
+  border-radius: 999px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 7px;
+  text-transform: capitalize;
+}
+
+.relationList strong,
+.relationList span:not(.relationType) {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.relationList strong {
+  font-size: 14px;
+}
+
+.relationList span:not(.relationType) {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
 }
 
 .checklist,
@@ -355,5 +434,9 @@
   .inlineForm {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .relationForm {
+    grid-template-columns: 1fr;
   }
 }

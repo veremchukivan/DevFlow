@@ -134,6 +134,13 @@
       "when": 1792948540324,
       "tag": "0018_stormy_puck",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792948887184,
+      "tag": "0019_supreme_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

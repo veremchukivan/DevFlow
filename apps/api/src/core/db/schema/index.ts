@@ -8,6 +8,7 @@ export * from "./task-activity-events.js";
 export * from "./task-attachments.js";
 export * from "./task-checklist-items.js";
 export * from "./task-comments.js";
+export * from "./task-relations.js";
 export * from "./tasks.js";
 export * from "./users.js";
 export * from "./workspace-invitations.js";
