@@ -141,6 +141,13 @@
       "when": 1792948887184,
       "tag": "0019_supreme_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792949142310,
+      "tag": "0020_eminent_silverclaw",
+      "breakpoints": true
     }
   ]
 }

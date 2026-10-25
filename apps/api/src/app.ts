@@ -16,6 +16,7 @@ import { openApiRouter } from "./core/openapi/openapi.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { labelsRouter } from "./modules/labels/labels.routes.js";
+import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
 import { projectsRouter } from "./modules/projects/projects.routes.js";
 import { projectSprintsRouter } from "./modules/project-sprints/project-sprints.routes.js";
 import { taskActivityRouter } from "./modules/task-activity/task-activity.routes.js";
@@ -74,6 +75,7 @@ export function createApp() {
   app.use("/openapi.json", openApiRouter);
 
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/notifications", notificationsRouter);
   app.use("/api/v1/invitations", publicInvitationsRouter);
   app.use("/api/v1/workspaces", workspacesRouter);
   app.use("/api/v1/workspaces/:workspaceId/labels", labelsRouter);

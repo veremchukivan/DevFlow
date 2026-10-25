@@ -13,6 +13,7 @@ import {
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
+  notificationListResponseSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
   registerRequestSchema,
@@ -59,6 +60,7 @@ import {
   type ChangePasswordRequest,
   type HealthResponse,
   type LoginRequest,
+  type NotificationListResponse,
   type RegisterRequest,
   type CreateWorkspaceRequest,
   type UpdateWorkspaceRequest,
@@ -287,6 +289,20 @@ export async function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
+}
+
+export function getNotifications(): Promise<NotificationListResponse> {
+  return request(
+    "/api/v1/notifications?limit=12&offset=0",
+    { method: "GET" },
+    notificationListResponseSchema,
+  );
+}
+
+export function markNotificationRead(notificationId: string): Promise<void> {
+  return requestNoContent(`/api/v1/notifications/${notificationId}/read`, {
+    method: "POST",
+  });
 }
 
 export function updateProfile(

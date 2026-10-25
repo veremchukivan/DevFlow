@@ -8,6 +8,7 @@ import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
+import { notifyTaskAssigned } from "../notifications/notifications.service.js";
 import { canCreateTask, canDeleteTask, canUpdateTask } from "./tasks.policy.js";
 import { findProjectSprint } from "../project-sprints/project-sprints.repository.js";
 import {
@@ -92,11 +93,21 @@ export async function createTask(input: {
     workspaceId: input.workspaceId,
   });
 
-  return {
+  const createdTask = {
     ...task,
     projectKey: project.key,
     status,
   };
+  await notifyTaskAssigned({
+    actorUserId: input.userId,
+    projectId: input.projectId,
+    recipientUserId: createdTask.assigneeUserId,
+    taskId: createdTask.id,
+    taskKey: `${project.key}-${createdTask.number}`,
+    taskTitle: createdTask.title,
+    workspaceId: input.workspaceId,
+  });
+  return createdTask;
 }
 
 export async function listTasks(input: {
@@ -213,7 +224,7 @@ export async function updateTask(input: {
     }
   }
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const updatedTask = await updateTaskInProject(
       {
         assigneeUserId: input.input.assigneeUserId,
@@ -261,6 +272,21 @@ export async function updateTask(input: {
 
     return updatedTaskWithRelations;
   });
+  if (
+    input.input.assigneeUserId !== undefined &&
+    input.input.assigneeUserId !== existingTask.assigneeUserId
+  ) {
+    await notifyTaskAssigned({
+      actorUserId: input.userId,
+      projectId: input.projectId,
+      recipientUserId: result.assigneeUserId,
+      taskId: result.id,
+      taskKey: `${existingTask.projectKey}-${result.number}`,
+      taskTitle: result.title,
+      workspaceId: input.workspaceId,
+    });
+  }
+  return result;
 }
 
 export async function deleteTask(input: {
