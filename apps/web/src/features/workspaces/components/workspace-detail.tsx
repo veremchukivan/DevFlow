@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  LayoutDashboard,
+} from "lucide-react";
 
 import {
   ApiClientError,
@@ -14,11 +20,18 @@ import {
   getApiAssetUrl,
   getWorkspace,
   getWorkspaceLabels,
+  getTasks,
   updateWorkspace,
   updateWorkspaceLabel,
 } from "@/shared/lib/api-client";
 import { notifyWorkspacesChanged } from "@/shared/lib/workspace-events";
-import { can, type Label, type ProjectSummary, type Workspace } from "@devflow/shared";
+import {
+  can,
+  type Label,
+  type ProjectSummary,
+  type Task,
+  type Workspace,
+} from "@devflow/shared";
 import styles from "@/shared/styles/ui.module.css";
 
 export function WorkspaceDetail() {
@@ -27,6 +40,9 @@ export function WorkspaceDetail() {
   const workspaceId = params.workspaceId;
   const [workspace, setWorkspace] = useState<Workspace>();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [tasksByProject, setTasksByProject] = useState<Record<string, Task[]>>(
+    {},
+  );
   const [labels, setLabels] = useState<Label[]>([]);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string>();
@@ -46,7 +62,16 @@ export function WorkspaceDetail() {
       getProjects(workspaceId),
       getWorkspaceLabels(workspaceId),
     ])
-      .then(([workspaceResponse, projectResponse, labelResponse]) => {
+      .then(async ([workspaceResponse, projectResponse, labelResponse]) => {
+        const taskResponses = await Promise.all(
+          projectResponse.projects.map(
+            async (project) =>
+              [
+                project.id,
+                (await getTasks(workspaceId, project.id, { limit: 100 })).tasks,
+              ] as const,
+          ),
+        );
         if (!active) {
           return;
         }
@@ -54,6 +79,7 @@ export function WorkspaceDetail() {
         setWorkspace(workspaceResponse.workspace);
         setProjects(projectResponse.projects);
         setLabels(labelResponse.labels);
+        setTasksByProject(Object.fromEntries(taskResponses));
       })
       .catch((caughtError: unknown) => {
         if (
@@ -236,6 +262,20 @@ export function WorkspaceDetail() {
   const canDeleteWorkspace = can(workspace.role, "workspace:delete");
   const canCreateProjects = can(workspace.role, "project:create");
   const canManageLabels = can(workspace.role, "task:create");
+  const workspaceTasks = Object.values(tasksByProject).flat();
+  const completedTasks = workspaceTasks.filter(
+    (task) => task.status.category === "done",
+  );
+  const openTasks = workspaceTasks.filter(
+    (task) => task.status.category !== "done",
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueTasks = openTasks.filter(
+    (task) => task.dueDate && task.dueDate < today,
+  );
+  const completionRate = workspaceTasks.length
+    ? Math.round((completedTasks.length / workspaceTasks.length) * 100)
+    : 0;
 
   return (
     <main className={styles.workspaceHome}>
@@ -312,6 +352,44 @@ export function WorkspaceDetail() {
       ) : null}
 
       <section
+        className={styles.workspaceDashboard}
+        aria-labelledby="dashboard-title"
+      >
+        <div className={styles.sectionHeading}>
+          <div>
+            <h2 id="dashboard-title">Dashboard</h2>
+            <p>Current delivery health for {workspace.name}.</p>
+          </div>
+          <LayoutDashboard
+            aria-hidden="true"
+            className={styles.workspaceDashboardIcon}
+            size={21}
+          />
+        </div>
+        <div className={styles.workspaceMetrics}>
+          <article className={styles.workspaceMetric}>
+            <CheckCircle2 aria-hidden="true" size={19} />
+            <span>Completion rate</span>
+            <strong>{completionRate}%</strong>
+          </article>
+          <article className={styles.workspaceMetric}>
+            <Clock3 aria-hidden="true" size={19} />
+            <span>Open tasks</span>
+            <strong>{openTasks.length}</strong>
+          </article>
+          <article className={styles.workspaceMetric}>
+            <AlertTriangle aria-hidden="true" size={19} />
+            <span>Overdue</span>
+            <strong>{overdueTasks.length}</strong>
+          </article>
+        </div>
+        <p className={styles.workspaceDashboardSummary}>
+          {projects.length} projects · {workspaceTasks.length} tasks ·{" "}
+          {completedTasks.length} completed
+        </p>
+      </section>
+
+      <section
         className={styles.workspaceSection}
         aria-labelledby="projects-title"
       >
@@ -383,7 +461,10 @@ export function WorkspaceDetail() {
               >
                 <span className={styles.projectListIcon}>
                   {project.iconUrl ? (
-                    <img alt="" src={getApiAssetUrl(project.iconUrl) ?? undefined} />
+                    <img
+                      alt=""
+                      src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                    />
                   ) : (
                     project.key.slice(0, 1)
                   )}

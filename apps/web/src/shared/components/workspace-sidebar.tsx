@@ -64,14 +64,6 @@ export function WorkspaceSidebar() {
 
       <nav aria-label="Workspace navigation" className={styles.navigation}>
         <Link
-          aria-current={pathname === "/dashboard" ? "page" : undefined}
-          className={styles.navigationLink}
-          href="/dashboard"
-        >
-          <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
-          Dashboard
-        </Link>
-        <Link
           aria-current={pathname === "/workspaces" ? "page" : undefined}
           className={styles.navigationLink}
           href="/workspaces"
@@ -90,8 +82,8 @@ export function WorkspaceSidebar() {
               className={styles.navigationLink}
               href={`/workspaces/${activeWorkspace.id}`}
             >
-              <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
-              Projects
+              <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
+              Dashboard
             </Link>
             <Link
               aria-current={

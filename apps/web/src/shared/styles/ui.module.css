@@ -248,6 +248,52 @@
   margin-top: 42px;
   padding-top: 26px;
 }
+.workspaceDashboard {
+  background: #f5f8fa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 34px;
+  padding: 22px;
+}
+.workspaceDashboard .sectionHeading {
+  align-items: flex-start;
+}
+.workspaceDashboardIcon {
+  color: var(--brand);
+}
+.workspaceMetrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 20px;
+}
+.workspaceMetric {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: grid;
+  min-height: 112px;
+  padding: 15px;
+}
+.workspaceMetric svg {
+  color: var(--brand);
+}
+.workspaceMetric span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+.workspaceMetric strong {
+  font-size: 25px;
+  margin-top: 2px;
+}
+.workspaceDashboardSummary {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 18px 0 0;
+}
 .sectionHeading {
   align-items: center;
   display: flex;
@@ -1444,6 +1490,9 @@
   .taskForm,
   .taskFilters {
     align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+  .workspaceMetrics {
     grid-template-columns: 1fr;
   }
   .projectDescription,
