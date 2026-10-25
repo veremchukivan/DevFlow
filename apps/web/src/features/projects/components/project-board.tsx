@@ -66,6 +66,7 @@ import type {
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
 import { Modal } from "@/shared/components/modal";
+import { TaskWorkPanel } from "./task-work-panel";
 import styles from "@/shared/styles/ui.module.css";
 
 type BoardFilters = {
@@ -1199,8 +1200,10 @@ export function ProjectBoard() {
           onClose={() => setSelectedTask(undefined)}
           onSubmit={onTaskEditorSubmit}
           project={project}
+          role={role}
           sprints={sprints}
           task={selectedTask}
+          workspaceId={workspaceId}
         />
       ) : null}
       {showProjectSettings ? (
@@ -2091,8 +2094,10 @@ function TaskEditorModal({
   onClose,
   onSubmit,
   project,
+  role,
   sprints,
   task,
+  workspaceId,
 }: {
   isSaving: boolean;
   labels: Label[];
@@ -2100,8 +2105,10 @@ function TaskEditorModal({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   project: Project;
+  role: WorkspaceRole | undefined;
   sprints: ProjectSprint[];
   task: Task;
+  workspaceId: string;
 }) {
   return (
     <Modal isOpen onClose={onClose} title={`${task.key} details`} width="wide">
@@ -2217,6 +2224,7 @@ function TaskEditorModal({
             />
           </label>
         </aside>
+        <TaskWorkPanel role={role} task={task} workspaceId={workspaceId} />
         <div className={styles.formActions}>
           <button
             className={styles.primaryButton}
