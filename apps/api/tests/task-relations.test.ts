@@ -64,6 +64,24 @@ describe("Task relation integration tests", () => {
       .send({ relationType: "blocks", targetTaskId: targetTask.id });
     expect(created.status).toBe(201);
 
+    const activity = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${sourceTask.id}/activity`,
+      )
+      .set("Cookie", owner.cookie);
+    expect(activity.status).toBe(200);
+    expect(activity.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({
+            relationType: "blocks",
+            targetTaskId: targetTask.id,
+          }),
+          eventType: "task_relation_added",
+        }),
+      ]),
+    );
+
     const sourceRelations = await request(app)
       .get(basePath)
       .set("Cookie", owner.cookie);

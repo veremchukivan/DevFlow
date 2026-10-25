@@ -5,6 +5,7 @@ import {
   saveTaskAttachment,
 } from "../../core/uploads/images.js";
 import { canUpdateTask } from "../tasks/tasks.policy.js";
+import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   createTaskAttachment,
   deleteTaskAttachment,
@@ -32,7 +33,7 @@ export async function addAttachment(
   await requireTaskUpdateAccess(input);
   const storageKey = await saveTaskAttachment(input.file);
   try {
-    return await createTaskAttachment({
+    const attachment = await createTaskAttachment({
       mimeType: input.file.mimetype,
       originalFilename: normalizeFilename(input.file.originalname),
       projectId: input.projectId,
@@ -42,6 +43,15 @@ export async function addAttachment(
       uploadedByUserId: input.userId,
       workspaceId: input.workspaceId,
     });
+    await recordTaskActivity({
+      actorUserId: input.userId,
+      data: { filename: attachment.originalFilename },
+      eventType: "task_attachment_added",
+      projectId: input.projectId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId,
+    });
+    return attachment;
   } catch (error) {
     await deleteStoredFile(storageKey);
     throw error;
@@ -56,6 +66,14 @@ export async function removeAttachment(
   if (!attachment) {
     throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
   }
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: { filename: attachment.originalFilename },
+    eventType: "task_attachment_removed",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
   await deleteStoredFile(attachment.storageKey);
 }
 

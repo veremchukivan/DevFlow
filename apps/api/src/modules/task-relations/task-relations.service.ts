@@ -2,6 +2,7 @@ import type { CreateTaskRelationRequest } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
 import { canUpdateTask } from "../tasks/tasks.policy.js";
+import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   createTaskRelation,
   deleteTaskRelation,
@@ -62,7 +63,7 @@ export async function addRelation(
     );
   }
 
-  return createTaskRelation({
+  const relation = await createTaskRelation({
     createdByUserId: input.userId,
     relationType: input.input.relationType,
     sourceProjectId: input.projectId,
@@ -71,6 +72,20 @@ export async function addRelation(
     targetTaskId: target.id,
     workspaceId: input.workspaceId,
   });
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: {
+      relationType: input.input.relationType,
+      targetTaskId: target.id,
+      targetTaskKey: `${target.projectKey}-${target.number}`,
+      targetTaskTitle: target.title,
+    },
+    eventType: "task_relation_added",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
+  return relation;
 }
 
 export async function removeRelation(
@@ -85,6 +100,14 @@ export async function removeRelation(
       "Task relation not found",
     );
   }
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: { relationId: relation.id },
+    eventType: "task_relation_removed",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
 }
 
 async function requireTaskReadAccess(input: TaskRelationScope) {

@@ -66,7 +66,13 @@ export async function findTaskInWorkspace(input: {
   workspaceId: string;
 }) {
   const [task] = await db
-    .select({ id: tasks.id, projectId: tasks.projectId })
+    .select({
+      id: tasks.id,
+      number: tasks.number,
+      projectId: tasks.projectId,
+      projectKey: projects.key,
+      title: tasks.title,
+    })
     .from(tasks)
     .innerJoin(
       projects,

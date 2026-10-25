@@ -61,6 +61,20 @@ describe("Task attachment integration tests", () => {
     expect(uploaded.body.attachment.mimeType).toBe("image/png");
     const attachmentId = uploaded.body.attachment.id;
 
+    const activityPath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/activity`;
+    const afterUpload = await request(app)
+      .get(activityPath)
+      .set("Cookie", owner.cookie);
+    expect(afterUpload.status).toBe(200);
+    expect(afterUpload.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ filename: "plan.png" }),
+          eventType: "task_attachment_added",
+        }),
+      ]),
+    );
+
     const listed = await request(app)
       .get(basePath)
       .set("Cookie", viewer.cookie);
@@ -82,5 +96,17 @@ describe("Task attachment integration tests", () => {
       .delete(`${basePath}/${attachmentId}`)
       .set("Cookie", owner.cookie);
     expect(removed.status).toBe(204);
+
+    const afterRemoval = await request(app)
+      .get(activityPath)
+      .set("Cookie", owner.cookie);
+    expect(afterRemoval.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ filename: "plan.png" }),
+          eventType: "task_attachment_removed",
+        }),
+      ]),
+    );
   });
 });

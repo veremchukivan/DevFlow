@@ -4,7 +4,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
-  uuid
+  uuid,
 } from "drizzle-orm/pg-core";
 
 import { createdAtColumn } from "./_common.js";
@@ -19,7 +19,11 @@ export const taskActivityEventTypeEnum = pgEnum("task_activity_event_type", [
   "task_restored",
   "task_comment_created",
   "task_comment_updated",
-  "task_comment_deleted"
+  "task_comment_deleted",
+  "task_attachment_added",
+  "task_attachment_removed",
+  "task_relation_added",
+  "task_relation_removed",
 ]);
 
 export const taskActivityEvents = pgTable(
@@ -32,26 +36,26 @@ export const taskActivityEvents = pgTable(
     projectId: uuid("project_id").notNull(),
     taskId: uuid("task_id").notNull(),
     actorUserId: uuid("actor_user_id").references(() => users.id, {
-      onDelete: "set null"
+      onDelete: "set null",
     }),
     eventType: taskActivityEventTypeEnum("event_type").notNull(),
     data: jsonb("data").$type<Record<string, unknown>>().notNull(),
-    createdAt: createdAtColumn()
+    createdAt: createdAtColumn(),
   },
   (table) => [
     foreignKey({
       columns: [table.workspaceId, table.projectId, table.taskId],
       foreignColumns: [tasks.workspaceId, tasks.projectId, tasks.id],
-      name: "task_activity_events_task_fk"
+      name: "task_activity_events_task_fk",
     }).onDelete("cascade"),
     index("task_activity_events_task_created_at_idx").on(
       table.workspaceId,
       table.projectId,
       table.taskId,
-      table.createdAt
+      table.createdAt,
     ),
-    index("task_activity_events_actor_user_id_idx").on(table.actorUserId)
-  ]
+    index("task_activity_events_actor_user_id_idx").on(table.actorUserId),
+  ],
 );
 
 export type TaskActivityEvent = typeof taskActivityEvents.$inferSelect;

@@ -826,8 +826,21 @@ function describeActivity(event: TaskActivityEvent) {
     task_comment_created: "added a comment",
     task_comment_updated: "updated a comment",
     task_comment_deleted: "deleted a comment",
+    task_attachment_added: `uploaded ${activityValue(event, "filename", "a file")}`,
+    task_attachment_removed: `removed ${activityValue(event, "filename", "a file")}`,
+    task_relation_added: `linked ${activityValue(event, "targetTaskKey", "a task")}`,
+    task_relation_removed: "removed a task link",
   };
   return `${actor} ${descriptions[event.eventType]}`;
+}
+
+function activityValue(
+  event: TaskActivityEvent,
+  key: string,
+  fallback: string,
+) {
+  const value = event.data[key];
+  return typeof value === "string" && value ? value : fallback;
 }
 
 function formatDateTime(value: string) {
