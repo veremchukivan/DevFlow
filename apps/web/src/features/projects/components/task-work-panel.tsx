@@ -28,12 +28,14 @@ import {
   deleteTaskComment,
   deleteTaskRelation,
   getCurrentUser,
+  getProjects,
   getTaskActivity,
   getTaskAttachments,
   getTaskAttachmentDownloadUrl,
   getTaskChecklist,
   getTaskComments,
   getTaskRelations,
+  getTasks,
   updateTaskChecklistItem,
   updateTaskComment,
   uploadTaskAttachment,
@@ -70,6 +72,9 @@ export function TaskWorkPanel({
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [relations, setRelations] = useState<TaskRelation[]>([]);
+  const [relatedTaskOptions, setRelatedTaskOptions] = useState<Task[]>(
+    availableRelatedTasks,
+  );
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -131,6 +136,34 @@ export function TaskWorkPanel({
   useEffect(() => {
     void loadWork();
   }, [loadWork]);
+
+  useEffect(() => {
+    let active = true;
+
+    void getProjects(workspaceId)
+      .then(async ({ projects }) => {
+        const responses = await Promise.all(
+          projects.map((project) =>
+            getTasks(workspaceId, project.id, {
+              limit: 100,
+              sortBy: "number",
+              sortOrder: "asc",
+            }),
+          ),
+        );
+        if (active)
+          setRelatedTaskOptions(
+            responses.flatMap((response) => response.tasks),
+          );
+      })
+      .catch(() => {
+        if (active) setRelatedTaskOptions(availableRelatedTasks);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [availableRelatedTasks, workspaceId]);
 
   async function refreshActivity() {
     const response = await getTaskActivity(
@@ -545,7 +578,7 @@ export function TaskWorkPanel({
             </label>
             <select id="relation-target" name="targetTaskId" required>
               <option value="">Choose a task</option>
-              {availableRelatedTasks
+              {relatedTaskOptions
                 .filter((candidate) => candidate.id !== task.id)
                 .map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
