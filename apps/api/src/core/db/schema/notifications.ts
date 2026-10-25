@@ -15,6 +15,7 @@ import { workspaces } from "./workspaces.js";
 
 export const notificationTypeEnum = pgEnum("notification_type", [
   "task_assigned",
+  "task_commented",
 ]);
 
 export const notifications = pgTable(

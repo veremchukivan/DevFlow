@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import { pageInfoSchema, paginationQuerySchema } from "./pagination.js";
 
-export const notificationTypeSchema = z.enum(["task_assigned"]);
+export const notificationTypeSchema = z.enum([
+  "task_assigned",
+  "task_commented",
+]);
 
 export const notificationSchema = z.object({
   actor: z.object({ displayName: z.string(), id: z.uuid() }).nullable(),

@@ -71,4 +71,30 @@ describe("Notification integration tests", () => {
       .set("Cookie", member.cookie);
     expect(marked.status).toBe(204);
   });
+
+  it("notifies an assignee about a new comment from another member", async () => {
+    const task = await createTestTask(
+      app,
+      owner.cookie,
+      workspace.id,
+      project.id,
+      { assigneeUserId: member.user.id, title: "Comment notification task" },
+    );
+    const commented = await request(app)
+      .post(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/comments`,
+      )
+      .set("Cookie", owner.cookie)
+      .send({ body: "Please review this task." });
+    expect(commented.status).toBe(201);
+
+    const listed = await request(app)
+      .get("/api/v1/notifications")
+      .set("Cookie", member.cookie);
+    expect(listed.body.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ taskId: task.id, type: "task_commented" }),
+      ]),
+    );
+  });
 });

@@ -16,7 +16,7 @@ export async function findActiveWorkspaceMembership(input: {
   const [membership] = await db
     .select({
       role: workspaceMembers.role,
-      workspaceId: workspaceMembers.workspaceId
+      workspaceId: workspaceMembers.workspaceId,
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
@@ -25,8 +25,8 @@ export async function findActiveWorkspaceMembership(input: {
         eq(workspaceMembers.userId, input.userId),
         eq(workspaceMembers.workspaceId, input.workspaceId),
         eq(workspaceMembers.status, "active"),
-        isNull(workspaces.deletedAt)
-      )
+        isNull(workspaces.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -40,17 +40,21 @@ export async function findTaskInProject(input: {
 }) {
   const [task] = await db
     .select({
+      assigneeUserId: tasks.assigneeUserId,
       id: tasks.id,
+      number: tasks.number,
+      projectKey: projects.key,
       projectId: tasks.projectId,
-      workspaceId: tasks.workspaceId
+      title: tasks.title,
+      workspaceId: tasks.workspaceId,
     })
     .from(tasks)
     .innerJoin(
       projects,
       and(
         eq(projects.id, tasks.projectId),
-        eq(projects.workspaceId, tasks.workspaceId)
-      )
+        eq(projects.workspaceId, tasks.workspaceId),
+      ),
     )
     .where(
       and(
@@ -58,8 +62,8 @@ export async function findTaskInProject(input: {
         eq(tasks.projectId, input.projectId),
         eq(tasks.workspaceId, input.workspaceId),
         isNull(projects.deletedAt),
-        isNull(tasks.deletedAt)
-      )
+        isNull(tasks.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -74,13 +78,13 @@ export async function createTaskComment(
     taskId: string;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const [comment] = await executor
     .insert(taskComments)
     .values(input)
     .returning({
-      id: taskComments.id
+      id: taskComments.id,
     });
 
   if (!comment) {
@@ -92,9 +96,9 @@ export async function createTaskComment(
       commentId: comment.id,
       projectId: input.projectId,
       taskId: input.taskId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     },
-    executor
+    executor,
   );
 }
 
@@ -108,7 +112,7 @@ export async function listTaskComments(input: {
     eq(taskComments.projectId, input.projectId),
     eq(taskComments.taskId, input.taskId),
     eq(taskComments.workspaceId, input.workspaceId),
-    isNull(taskComments.deletedAt)
+    isNull(taskComments.deletedAt),
   );
 
   const [totalRow] = await db
@@ -132,7 +136,7 @@ export async function findTaskCommentById(
     taskId: string;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const [comment] = await taskCommentSelect(executor)
     .where(
@@ -141,8 +145,8 @@ export async function findTaskCommentById(
         eq(taskComments.projectId, input.projectId),
         eq(taskComments.taskId, input.taskId),
         eq(taskComments.workspaceId, input.workspaceId),
-        isNull(taskComments.deletedAt)
-      )
+        isNull(taskComments.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -157,13 +161,13 @@ export async function updateTaskComment(
     taskId: string;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const [comment] = await executor
     .update(taskComments)
     .set({
       body: input.body,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     })
     .where(
       and(
@@ -171,11 +175,11 @@ export async function updateTaskComment(
         eq(taskComments.projectId, input.projectId),
         eq(taskComments.taskId, input.taskId),
         eq(taskComments.workspaceId, input.workspaceId),
-        isNull(taskComments.deletedAt)
-      )
+        isNull(taskComments.deletedAt),
+      ),
     )
     .returning({
-      id: taskComments.id
+      id: taskComments.id,
     });
 
   if (!comment) {
@@ -192,14 +196,14 @@ export async function softDeleteTaskComment(
     taskId: string;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const now = new Date();
   const [comment] = await executor
     .update(taskComments)
     .set({
       deletedAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
     .where(
       and(
@@ -207,11 +211,11 @@ export async function softDeleteTaskComment(
         eq(taskComments.projectId, input.projectId),
         eq(taskComments.taskId, input.taskId),
         eq(taskComments.workspaceId, input.workspaceId),
-        isNull(taskComments.deletedAt)
-      )
+        isNull(taskComments.deletedAt),
+      ),
     )
     .returning({
-      id: taskComments.id
+      id: taskComments.id,
     });
 
   return comment;
@@ -229,11 +233,11 @@ function taskCommentSelect(executor: DbExecutor = db) {
       projectId: taskComments.projectId,
       taskId: taskComments.taskId,
       updatedAt: taskComments.updatedAt,
-      workspaceId: taskComments.workspaceId
+      workspaceId: taskComments.workspaceId,
     })
     .from(taskComments)
     .leftJoin(
       users,
-      and(eq(users.id, taskComments.authorUserId), isNull(users.deletedAt))
+      and(eq(users.id, taskComments.authorUserId), isNull(users.deletedAt)),
     );
 }

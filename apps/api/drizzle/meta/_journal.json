@@ -148,6 +148,13 @@
       "when": 1792949142310,
       "tag": "0020_eminent_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792949310177,
+      "tag": "0021_glossy_kate_bishop",
+      "breakpoints": true
     }
   ]
 }

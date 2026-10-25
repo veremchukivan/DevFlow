@@ -136,9 +136,10 @@ export function SiteHeader({ user }: { user: AuthUser }) {
                           type="button"
                         >
                           <strong>
-                            {notification.actor?.displayName ??
-                              "A workspace member"}{" "}
-                            assigned you
+                            {notificationMessage(
+                              notification.type,
+                              notification.actor?.displayName,
+                            )}
                           </strong>
                           <span>
                             {notification.taskKey}: {notification.taskTitle}
@@ -179,4 +180,14 @@ export function SiteHeader({ user }: { user: AuthUser }) {
       </div>
     </header>
   );
+}
+
+function notificationMessage(
+  type: "task_assigned" | "task_commented",
+  actorName: string | undefined,
+) {
+  const actor = actorName ?? "A workspace member";
+  return type === "task_commented"
+    ? `${actor} commented on a task`
+    : `${actor} assigned you a task`;
 }

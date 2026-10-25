@@ -26,6 +26,24 @@ export async function notifyTaskAssigned(input: {
   });
 }
 
+export async function notifyTaskCommented(input: {
+  actorUserId: string;
+  projectId: string;
+  recipientUserId: string | null;
+  taskId: string;
+  taskKey: string;
+  taskTitle: string;
+  workspaceId: string;
+}) {
+  if (!input.recipientUserId || input.recipientUserId === input.actorUserId)
+    return;
+  await createNotification({
+    ...input,
+    recipientUserId: input.recipientUserId,
+    type: "task_commented",
+  });
+}
+
 export async function getNotifications(input: {
   pagination: PaginationQuery & { unreadOnly?: boolean };
   userId: string;

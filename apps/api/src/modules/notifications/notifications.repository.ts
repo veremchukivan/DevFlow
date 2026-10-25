@@ -14,7 +14,7 @@ export async function createNotification(input: {
   taskId: string;
   taskKey: string;
   taskTitle: string;
-  type: "task_assigned";
+  type: "task_assigned" | "task_commented";
   workspaceId: string;
 }) {
   await db.insert(notifications).values(input);
