@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { type DragEvent, type FormEvent, useEffect, useState } from "react";
+import {
+  type DragEvent,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useState,
+} from "react";
 import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   CornerDownLeft,
+  GripVertical,
   LayoutGrid,
   List,
   MoreHorizontal,
@@ -74,6 +81,27 @@ type BoardFilters = {
 };
 
 type ProjectView = "board" | "list";
+type BoardColumnSize = "fixed" | "flexible";
+type BoardScrolling = "column" | "board";
+type TaskCardField =
+  "assignee" | "dueDate" | "labels" | "priority" | "taskKey" | "taskType";
+
+const taskCardFields: Array<{ id: TaskCardField; label: string }> = [
+  { id: "assignee", label: "Assignee" },
+  { id: "dueDate", label: "Due date" },
+  { id: "labels", label: "Labels" },
+  { id: "priority", label: "Priority" },
+  { id: "taskKey", label: "Work item key" },
+  { id: "taskType", label: "Work type" },
+];
+const defaultTaskCardFields: TaskCardField[] = [
+  "assignee",
+  "dueDate",
+  "labels",
+  "priority",
+  "taskKey",
+  "taskType",
+];
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
 const taskTypes: TaskType[] = ["task", "bug", "feature", "story"];
@@ -119,6 +147,13 @@ export function ProjectBoard() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showBoardSettings, setShowBoardSettings] = useState(false);
   const [showAddColumn, setShowAddColumn] = useState(false);
+  const [columnSize, setColumnSize] = useState<BoardColumnSize>("flexible");
+  const [boardScrolling, setBoardScrolling] = useState<BoardScrolling>("board");
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [hideDoneTasks, setHideDoneTasks] = useState(false);
+  const [visibleTaskFields, setVisibleTaskFields] = useState<TaskCardField[]>(
+    defaultTaskCardFields,
+  );
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
@@ -131,7 +166,13 @@ export function ProjectBoard() {
   const [view, setView] = useState<ProjectView>("board");
   const [error, setError] = useState<string>();
   const [draggedTaskId, setDraggedTaskId] = useState<string>();
+  const [draggedStatusId, setDraggedStatusId] = useState<string>();
   const [dropStatusId, setDropStatusId] = useState<string>();
+  const [resizingColumn, setResizingColumn] = useState<{
+    id: string;
+    startWidth: number;
+    startX: number;
+  }>();
   const [showArchived, setShowArchived] = useState(false);
   const canCreateTasks = role ? can(role, "task:create") : false;
   const canUpdateTasks = role ? can(role, "task:update") : false;
@@ -157,6 +198,36 @@ export function ProjectBoard() {
     sortBy !== "number",
     sortOrder !== "asc",
   ].filter(Boolean).length;
+
+  useEffect(() => {
+    if (!resizingColumn) return;
+    const activeResize = resizingColumn;
+
+    function onPointerMove(event: PointerEvent) {
+      const nextWidth = Math.max(
+        240,
+        Math.min(
+          640,
+          activeResize.startWidth + event.clientX - activeResize.startX,
+        ),
+      );
+      setColumnWidths((current) => ({
+        ...current,
+        [activeResize.id]: nextWidth,
+      }));
+    }
+
+    function onPointerUp() {
+      setResizingColumn(undefined);
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [resizingColumn]);
 
   useEffect(() => {
     let active = true;
@@ -342,11 +413,15 @@ export function ProjectBoard() {
       statuses[currentIndex]!,
     ];
 
-    setError(undefined);
+    await onReorderStatuses(statuses.map((status) => status.id));
+  }
+
+  async function onReorderStatuses(statusIds: string[]) {
     setIsReorderingStatuses(true);
+    setError(undefined);
     try {
       const response = await reorderProjectStatuses(workspaceId, projectId, {
-        statusIds: statuses.map((status) => status.id),
+        statusIds,
       });
       setProject(response.project);
     } catch (caughtError) {
@@ -358,6 +433,41 @@ export function ProjectBoard() {
     } finally {
       setIsReorderingStatuses(false);
     }
+  }
+
+  async function onDropStatus(statusId: string) {
+    if (!project || !draggedStatusId || draggedStatusId === statusId) return;
+
+    const statusIds = project.statuses.map((status) => status.id);
+    const sourceIndex = statusIds.indexOf(draggedStatusId);
+    const targetIndex = statusIds.indexOf(statusId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    statusIds.splice(sourceIndex, 1);
+    statusIds.splice(statusIds.indexOf(statusId), 0, draggedStatusId);
+    await onReorderStatuses(statusIds);
+  }
+
+  function onColumnResizeStart(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    statusId: string,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    setColumnSize("fixed");
+    setResizingColumn({
+      id: statusId,
+      startWidth: columnWidths[statusId] ?? 320,
+      startX: event.clientX,
+    });
+  }
+
+  function toggleVisibleTaskField(field: TaskCardField) {
+    setVisibleTaskFields((current) =>
+      current.includes(field)
+        ? current.filter((item) => item !== field)
+        : [...current, field],
+    );
   }
 
   async function onCreateTask(event: FormEvent<HTMLFormElement>) {
@@ -1204,6 +1314,81 @@ export function ProjectBoard() {
           title="Board settings"
           width="wide"
         >
+          <section className={styles.viewSettingsSection}>
+            <h2>View settings</h2>
+            <label className={styles.viewSettingsSelect}>
+              <span>Hide completed work items</span>
+              <select
+                onChange={(event) =>
+                  setHideDoneTasks(event.target.value === "hide")
+                }
+                value={hideDoneTasks ? "hide" : "show"}
+              >
+                <option value="show">Show all work items</option>
+                <option value="hide">Hide completed work items</option>
+              </select>
+            </label>
+            <fieldset className={styles.viewSettingsFieldset}>
+              <legend>Column size</legend>
+              <p>
+                Flexible columns fill the board. Fixed columns keep their width.
+              </p>
+              <div className={styles.segmentedControl}>
+                <button
+                  aria-pressed={columnSize === "fixed"}
+                  onClick={() => setColumnSize("fixed")}
+                  type="button"
+                >
+                  Fixed
+                </button>
+                <button
+                  aria-pressed={columnSize === "flexible"}
+                  onClick={() => setColumnSize("flexible")}
+                  type="button"
+                >
+                  Flexible
+                </button>
+              </div>
+            </fieldset>
+            <fieldset className={styles.viewSettingsFieldset}>
+              <legend>Scrolling</legend>
+              <p>
+                Choose whether long boards scroll as one surface or inside each
+                column.
+              </p>
+              <div className={styles.segmentedControl}>
+                <button
+                  aria-pressed={boardScrolling === "column"}
+                  onClick={() => setBoardScrolling("column")}
+                  type="button"
+                >
+                  Within columns
+                </button>
+                <button
+                  aria-pressed={boardScrolling === "board"}
+                  onClick={() => setBoardScrolling("board")}
+                  type="button"
+                >
+                  Whole board
+                </button>
+              </div>
+            </fieldset>
+            <fieldset className={styles.viewSettingsFieldset}>
+              <legend>Show fields on cards</legend>
+              <div className={styles.fieldToggleList}>
+                {taskCardFields.map((field) => (
+                  <label key={field.id}>
+                    <input
+                      checked={visibleTaskFields.includes(field.id)}
+                      onChange={() => toggleVisibleTaskField(field.id)}
+                      type="checkbox"
+                    />
+                    <span>{field.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </section>
           <section
             className={styles.boardSettingsSection}
             aria-labelledby="statuses-title"
@@ -1569,10 +1754,17 @@ export function ProjectBoard() {
       ) : null}
 
       {view === "board" ? (
-        <section aria-label="Tasks" className={styles.taskBoard}>
+        <section
+          aria-label="Tasks"
+          className={styles.taskBoard}
+          data-column-size={columnSize}
+          data-scrolling={boardScrolling}
+        >
           {project.statuses.map((status) => {
             const statusTasks = tasks.filter(
-              (task) => task.statusId === status.id,
+              (task) =>
+                task.statusId === status.id &&
+                (!hideDoneTasks || status.category !== "done"),
             );
             return (
               <section
@@ -1581,10 +1773,51 @@ export function ProjectBoard() {
                 onDragEnter={() => setDropStatusId(status.id)}
                 onDragLeave={() => setDropStatusId(undefined)}
                 onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => void onDropTask(event, status.id)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (
+                    event.dataTransfer.getData("application/x-devflow-status")
+                  ) {
+                    void onDropStatus(status.id);
+                    return;
+                  }
+                  void onDropTask(event, status.id);
+                }}
+                style={
+                  columnSize === "fixed"
+                    ? { flexBasis: `${columnWidths[status.id] ?? 320}px` }
+                    : undefined
+                }
               >
-                <header className={styles.taskColumnHeader}>
+                <header
+                  className={styles.taskColumnHeader}
+                  draggable={canUpdateProject}
+                  onDragEnd={() => {
+                    setDraggedStatusId(undefined);
+                    setDropStatusId(undefined);
+                  }}
+                  onDragStart={(event) => {
+                    if (!canUpdateProject) return;
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData(
+                      "application/x-devflow-status",
+                      status.id,
+                    );
+                    setDraggedStatusId(status.id);
+                  }}
+                  title={
+                    canUpdateProject ? "Drag to reorder this column" : undefined
+                  }
+                >
                   <div>
+                    {canUpdateProject ? (
+                      <GripVertical
+                        aria-hidden="true"
+                        className={styles.columnDragHandle}
+                        size={17}
+                        strokeWidth={1.8}
+                      />
+                    ) : null}
                     <span
                       aria-hidden="true"
                       className={styles.statusDot}
@@ -1611,17 +1844,33 @@ export function ProjectBoard() {
                       }}
                       key={task.id}
                     >
-                      <div className={styles.taskCardMeta}>
-                        <span>
-                          {task.key}{" "}
-                          <span className={styles.taskType}>{task.type}</span>
-                        </span>
-                        <span
-                          className={`${styles.priority} ${priorityStyles[task.priority]}`}
-                        >
-                          {task.priority}
-                        </span>
-                      </div>
+                      {visibleTaskFields.includes("taskKey") ||
+                      visibleTaskFields.includes("taskType") ||
+                      visibleTaskFields.includes("priority") ? (
+                        <div className={styles.taskCardMeta}>
+                          <span>
+                            {visibleTaskFields.includes("taskKey")
+                              ? task.key
+                              : null}
+                            {visibleTaskFields.includes("taskKey") &&
+                            visibleTaskFields.includes("taskType")
+                              ? " "
+                              : null}
+                            {visibleTaskFields.includes("taskType") ? (
+                              <span className={styles.taskType}>
+                                {task.type}
+                              </span>
+                            ) : null}
+                          </span>
+                          {visibleTaskFields.includes("priority") ? (
+                            <span
+                              className={`${styles.priority} ${priorityStyles[task.priority]}`}
+                            >
+                              {task.priority}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <h3>
                         <button
                           className={styles.taskTitleButton}
@@ -1631,7 +1880,8 @@ export function ProjectBoard() {
                         </button>
                       </h3>
                       {task.description ? <p>{task.description}</p> : null}
-                      {task.labels.length ? (
+                      {visibleTaskFields.includes("labels") &&
+                      task.labels.length ? (
                         <div className={styles.taskLabels}>
                           {task.labels.map((label) => (
                             <span
@@ -1643,8 +1893,14 @@ export function ProjectBoard() {
                           ))}
                         </div>
                       ) : null}
-                      {task.dueDate ? (
+                      {visibleTaskFields.includes("dueDate") && task.dueDate ? (
                         <p className={styles.taskDueDate}>Due {task.dueDate}</p>
+                      ) : null}
+                      {visibleTaskFields.includes("assignee") &&
+                      task.assignee ? (
+                        <p className={styles.taskAssignee}>
+                          {task.assignee.displayName}
+                        </p>
                       ) : null}
                       <TaskControls
                         onUpdateTask={onUpdateTask}
@@ -1661,7 +1917,8 @@ export function ProjectBoard() {
                       />
                     </article>
                   ))}
-                  {statusTasks.length === 0 ? (
+                  {statusTasks.length === 0 &&
+                  (!hideDoneTasks || status.category !== "done") ? (
                     <p className={styles.taskColumnEmpty}>No tasks</p>
                   ) : null}
                   {showTaskForm && draftStatusId === status.id ? (
@@ -1675,7 +1932,8 @@ export function ProjectBoard() {
                       onSubmit={onCreateTask}
                       statusId={status.id}
                     />
-                  ) : canCreateTasks ? (
+                  ) : canCreateTasks &&
+                    (!hideDoneTasks || status.category !== "done") ? (
                     <button
                       aria-label={`Create task in ${status.name}`}
                       className={styles.taskQuickAdd}
@@ -1691,6 +1949,17 @@ export function ProjectBoard() {
                     </button>
                   ) : null}
                 </div>
+                {canUpdateProject ? (
+                  <button
+                    aria-label={`Resize ${status.name} column`}
+                    className={styles.columnResizeHandle}
+                    onPointerDown={(event) =>
+                      onColumnResizeStart(event, status.id)
+                    }
+                    title="Drag to resize column"
+                    type="button"
+                  />
+                ) : null}
               </section>
             );
           })}

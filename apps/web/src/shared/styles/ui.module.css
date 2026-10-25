@@ -476,6 +476,84 @@
   display: grid;
   gap: 14px;
 }
+.viewSettingsSection {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 22px;
+  padding-bottom: 28px;
+}
+.viewSettingsSection h2,
+.viewSettingsFieldset legend {
+  font-size: 18px;
+  margin: 0;
+}
+.viewSettingsSelect,
+.viewSettingsFieldset {
+  border: 0;
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+}
+.viewSettingsSelect > span,
+.viewSettingsFieldset legend {
+  font-weight: 700;
+}
+.viewSettingsSelect select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+}
+.viewSettingsFieldset p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: -3px 0 0;
+}
+.segmentedControl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.segmentedControl button {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  color: var(--muted);
+  font: inherit;
+  min-height: 42px;
+}
+.segmentedControl button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.segmentedControl button + button {
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+}
+.segmentedControl button[aria-pressed="true"] {
+  background: #e6f3f1;
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+.fieldToggleList {
+  display: grid;
+  gap: 8px;
+}
+.fieldToggleList label {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+  min-height: 28px;
+}
+.fieldToggleList input {
+  accent-color: var(--brand);
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
 .boardSettingsSection .sectionHeading {
   margin-bottom: 4px;
 }
@@ -595,6 +673,15 @@
   overflow-x: auto;
   padding-bottom: 8px;
 }
+.taskBoard[data-column-size="fixed"] .taskColumn {
+  flex-grow: 0;
+}
+.taskBoard[data-scrolling="column"] .taskList {
+  max-height: calc(100vh - 410px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
 .taskTable {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -669,6 +756,7 @@
   flex: 1 0 264px;
   min-width: 0;
   padding: 16px;
+  position: relative;
 }
 .addColumnButton {
   align-items: center;
@@ -697,10 +785,47 @@
   justify-content: space-between;
   padding: 4px 4px 14px;
 }
+.taskColumnHeader[draggable="true"] {
+  cursor: grab;
+}
+.taskColumnHeader[draggable="true"]:active {
+  cursor: grabbing;
+}
 .taskColumnHeader div {
   align-items: center;
   display: flex;
   gap: 8px;
+}
+.columnDragHandle {
+  color: #8a98aa;
+  flex: 0 0 auto;
+}
+.columnResizeHandle {
+  background: transparent;
+  border: 0;
+  bottom: 0;
+  cursor: col-resize;
+  padding: 0;
+  position: absolute;
+  right: -7px;
+  top: 0;
+  width: 14px;
+  z-index: 2;
+}
+.columnResizeHandle::after {
+  background: transparent;
+  border-radius: 2px;
+  content: "";
+  height: 40px;
+  position: absolute;
+  right: 5px;
+  top: calc(50% - 20px);
+  transition: background 120ms ease;
+  width: 3px;
+}
+.columnResizeHandle:hover::after,
+.columnResizeHandle:focus-visible::after {
+  background: var(--brand);
 }
 .taskColumnHeader h2 {
   color: #526176;
@@ -743,6 +868,12 @@
   border-radius: 8px;
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
   padding: 16px;
+}
+.taskAssignee {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin: 10px 0 0;
 }
 .taskCard:not([draggable="true"]),
 .taskCard[draggable="true"] {
