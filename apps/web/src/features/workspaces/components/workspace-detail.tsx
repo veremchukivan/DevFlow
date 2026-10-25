@@ -13,21 +13,16 @@ import {
 import {
   ApiClientError,
   createProject,
-  createWorkspaceLabel,
-  deleteWorkspaceLabel,
   deleteWorkspace,
   getProjects,
   getApiAssetUrl,
   getWorkspace,
-  getWorkspaceLabels,
   getTasks,
   updateWorkspace,
-  updateWorkspaceLabel,
 } from "@/shared/lib/api-client";
 import { notifyWorkspacesChanged } from "@/shared/lib/workspace-events";
 import {
   can,
-  type Label,
   type ProjectSummary,
   type Task,
   type Workspace,
@@ -43,10 +38,6 @@ export function WorkspaceDetail() {
   const [tasksByProject, setTasksByProject] = useState<Record<string, Task[]>>(
     {},
   );
-  const [labels, setLabels] = useState<Label[]>([]);
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
-  const [editingLabelId, setEditingLabelId] = useState<string>();
-  const [isSavingLabel, setIsSavingLabel] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -57,12 +48,8 @@ export function WorkspaceDetail() {
   useEffect(() => {
     let active = true;
 
-    void Promise.all([
-      getWorkspace(workspaceId),
-      getProjects(workspaceId),
-      getWorkspaceLabels(workspaceId),
-    ])
-      .then(async ([workspaceResponse, projectResponse, labelResponse]) => {
+    void Promise.all([getWorkspace(workspaceId), getProjects(workspaceId)])
+      .then(async ([workspaceResponse, projectResponse]) => {
         const taskResponses = await Promise.all(
           projectResponse.projects.map(
             async (project) =>
@@ -78,7 +65,6 @@ export function WorkspaceDetail() {
 
         setWorkspace(workspaceResponse.workspace);
         setProjects(projectResponse.projects);
-        setLabels(labelResponse.labels);
         setTasksByProject(Object.fromEntries(taskResponses));
       })
       .catch((caughtError: unknown) => {
@@ -131,70 +117,6 @@ export function WorkspaceDetail() {
       );
     } finally {
       setIsCreatingProject(false);
-    }
-  }
-
-  async function onCreateLabel(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(undefined);
-    setIsCreatingLabel(true);
-    const form = new FormData(event.currentTarget);
-    try {
-      const response = await createWorkspaceLabel(workspaceId, {
-        name: String(form.get("name") ?? ""),
-        color: String(form.get("color") ?? "#2764ee"),
-      });
-      setLabels((current) => [...current, response.label]);
-      event.currentTarget.reset();
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof ApiClientError
-          ? caughtError.message
-          : "Unable to create label.",
-      );
-    } finally {
-      setIsCreatingLabel(false);
-    }
-  }
-
-  async function onDeleteLabel(labelId: string) {
-    try {
-      await deleteWorkspaceLabel(workspaceId, labelId);
-      setLabels((current) => current.filter((label) => label.id !== labelId));
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof ApiClientError
-          ? caughtError.message
-          : "Unable to delete label.",
-      );
-    }
-  }
-
-  async function onUpdateLabel(
-    event: FormEvent<HTMLFormElement>,
-    labelId: string,
-  ) {
-    event.preventDefault();
-    setError(undefined);
-    setIsSavingLabel(true);
-    const form = new FormData(event.currentTarget);
-    try {
-      const response = await updateWorkspaceLabel(workspaceId, labelId, {
-        name: String(form.get("name") ?? ""),
-        color: String(form.get("color") ?? ""),
-      });
-      setLabels((current) =>
-        current.map((label) => (label.id === labelId ? response.label : label)),
-      );
-      setEditingLabelId(undefined);
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof ApiClientError
-          ? caughtError.message
-          : "Unable to update label.",
-      );
-    } finally {
-      setIsSavingLabel(false);
     }
   }
 
@@ -261,7 +183,6 @@ export function WorkspaceDetail() {
   const canUpdateWorkspace = can(workspace.role, "workspace:update");
   const canDeleteWorkspace = can(workspace.role, "workspace:delete");
   const canCreateProjects = can(workspace.role, "project:create");
-  const canManageLabels = can(workspace.role, "task:create");
   const workspaceTasks = Object.values(tasksByProject).flat();
   const completedTasks = workspaceTasks.filter(
     (task) => task.status.category === "done",
@@ -477,105 +398,6 @@ export function WorkspaceDetail() {
             ))}
           </div>
         )}
-      </section>
-      <section
-        className={styles.workspaceSection}
-        aria-labelledby="labels-title"
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2 id="labels-title">Labels</h2>
-            <p>Reusable labels for tasks in this workspace.</p>
-          </div>
-        </div>
-        {canManageLabels ? (
-          <form className={styles.projectForm} onSubmit={onCreateLabel}>
-            <label>
-              <span>Name</span>
-              <input maxLength={80} minLength={1} name="name" required />
-            </label>
-            <label>
-              <span>Color</span>
-              <input
-                defaultValue="#2764ee"
-                name="color"
-                pattern="#[0-9A-Fa-f]{6}"
-                required
-              />
-            </label>
-            <div className={styles.formActions}>
-              <button
-                className={styles.primaryButton}
-                disabled={isCreatingLabel}
-                type="submit"
-              >
-                {isCreatingLabel ? "Creating" : "Add label"}
-              </button>
-            </div>
-          </form>
-        ) : null}
-        <div className={styles.labelPicker}>
-          {labels.map((label) => (
-            <div key={label.id}>
-              {editingLabelId === label.id && canManageLabels ? (
-                <form
-                  className={styles.inlineLabelForm}
-                  onSubmit={(event) => void onUpdateLabel(event, label.id)}
-                >
-                  <input
-                    defaultValue={label.name}
-                    maxLength={80}
-                    name="name"
-                    required
-                  />
-                  <input
-                    defaultValue={label.color}
-                    name="color"
-                    pattern="#[0-9A-Fa-f]{6}"
-                    required
-                  />
-                  <button
-                    className={styles.secondaryButton}
-                    disabled={isSavingLabel}
-                    type="submit"
-                  >
-                    Save
-                  </button>
-                  <button
-                    className={styles.textButton}
-                    onClick={() => setEditingLabelId(undefined)}
-                    type="button"
-                  >
-                    Cancel
-                  </button>
-                </form>
-              ) : (
-                <>
-                  <span style={{ backgroundColor: label.color }} />
-                  {label.name}
-                  {canManageLabels ? (
-                    <>
-                      <button
-                        className={styles.textButton}
-                        onClick={() => setEditingLabelId(label.id)}
-                        type="button"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className={styles.textButton}
-                        onClick={() => void onDeleteLabel(label.id)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </>
-                  ) : null}
-                </>
-              )}
-            </div>
-          ))}
-        </div>
       </section>
     </main>
   );
