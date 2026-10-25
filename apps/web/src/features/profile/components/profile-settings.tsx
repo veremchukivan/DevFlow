@@ -1,15 +1,29 @@
 "use client";
 
-import { CheckCircle2, KeyRound, LogOut, UserRound } from "lucide-react";
+import {
+  Bot,
+  CheckCircle2,
+  CircleDollarSign,
+  CreditCard,
+  Database,
+  Download,
+  KeyRound,
+  LogOut,
+  Mail,
+  ShieldCheck,
+  TerminalSquare,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 
 import {
   ApiClientError,
   changePassword,
-  getCurrentUser,
   deleteProfileAvatar,
   getApiAssetUrl,
+  getCurrentUser,
   logout,
   resendEmailVerification,
   updateProfile,
@@ -20,9 +34,27 @@ import type { AuthUser } from "@devflow/shared";
 
 import styles from "./profile-settings.module.css";
 
+type SettingsSection =
+  "profile" | "security" | "billing" | "setup" | "ai" | "data";
+
+const navigation: Array<{
+  icon: LucideIcon;
+  id: SettingsSection;
+  label: string;
+}> = [
+  { icon: UserRound, id: "profile", label: "Profile" },
+  { icon: ShieldCheck, id: "security", label: "Security" },
+  { icon: CreditCard, id: "billing", label: "Billing" },
+  { icon: TerminalSquare, id: "setup", label: "Setup" },
+  { icon: Bot, id: "ai", label: "AI" },
+  { icon: Database, id: "data", label: "Data" },
+];
+
 export function ProfileSettings() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser>();
+  const [activeSection, setActiveSection] =
+    useState<SettingsSection>("profile");
   const [error, setError] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -34,37 +66,34 @@ export function ProfileSettings() {
 
   useEffect(() => {
     let active = true;
-
     void getCurrentUser()
-      .then((response) => {
-        if (active) setUser(response.user);
-      })
-      .catch((caughtError: unknown) => {
-        if (active) {
-          setError(toMessage(caughtError, "Unable to load your profile."));
-        }
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-
+      .then((response) => active && setUser(response.user))
+      .catch(
+        (caughtError: unknown) =>
+          active &&
+          setError(toMessage(caughtError, "Unable to load your profile.")),
+      )
+      .finally(() => active && setIsLoading(false));
     return () => {
       active = false;
     };
   }, []);
 
-  async function onProfileSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function clearNotices() {
     setError(undefined);
     setMessage(undefined);
+  }
+
+  async function onProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    clearNotices();
     setIsSavingProfile(true);
-
-    const displayName = String(
-      new FormData(event.currentTarget).get("displayName") ?? "",
-    );
-
     try {
-      const response = await updateProfile({ displayName });
+      const response = await updateProfile({
+        displayName: String(
+          new FormData(event.currentTarget).get("displayName") ?? "",
+        ),
+      });
       setUser(response.user);
       notifyUserChanged(response.user);
       setMessage("Profile saved.");
@@ -78,8 +107,7 @@ export function ProfileSettings() {
   async function onAvatarChange(event: FormEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     if (!file) return;
-    setError(undefined);
-    setMessage(undefined);
+    clearNotices();
     setIsSavingAvatar(true);
     try {
       const response = await uploadProfileAvatar(file);
@@ -95,8 +123,7 @@ export function ProfileSettings() {
   }
 
   async function onAvatarRemove() {
-    setError(undefined);
-    setMessage(undefined);
+    clearNotices();
     setIsSavingAvatar(true);
     try {
       const response = await deleteProfileAvatar();
@@ -112,17 +139,13 @@ export function ProfileSettings() {
 
   async function onPasswordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(undefined);
-    setMessage(undefined);
+    clearNotices();
     const form = new FormData(event.currentTarget);
     const newPassword = String(form.get("newPassword") ?? "");
-    const confirmation = String(form.get("confirmation") ?? "");
-
-    if (newPassword !== confirmation) {
+    if (newPassword !== String(form.get("confirmation") ?? "")) {
       setError("New password and confirmation must match.");
       return;
     }
-
     setIsChangingPassword(true);
     try {
       await changePassword({
@@ -149,8 +172,7 @@ export function ProfileSettings() {
   }
 
   async function onResendVerification() {
-    setError(undefined);
-    setMessage(undefined);
+    clearNotices();
     setIsResendingVerification(true);
     try {
       await resendEmailVerification();
@@ -162,75 +184,173 @@ export function ProfileSettings() {
     }
   }
 
-  if (isLoading) return <main className={styles.loading}>Loading profile</main>;
+  function onExportData() {
+    if (!user) return;
+    const file = new Blob(
+      [JSON.stringify({ exportedAt: new Date().toISOString(), user }, null, 2)],
+      { type: "application/json" },
+    );
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.download = "devflow-account-summary.json";
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+    setMessage("Account summary downloaded.");
+  }
 
-  if (!user) {
+  if (isLoading) return <main className={styles.loading}>Loading profile</main>;
+  if (!user)
     return (
       <main className={styles.loading}>
         {error ?? "Profile is unavailable."}
       </main>
     );
-  }
+
+  const section = navigation.find((item) => item.id === activeSection)!;
+  const SectionIcon = section.icon;
 
   return (
     <main className={styles.page}>
-      <header className={styles.heading}>
-        <div>
-          <p className={styles.eyebrow}>Account</p>
-          <h1>Profile settings</h1>
-          <p>Manage the details associated with your DevFlow account.</p>
-        </div>
-        <div className={styles.avatarActions}>
-          <span aria-label={user.displayName} className={styles.avatar}>
-            {user.avatarUrl ? (
-              <img alt="" src={getApiAssetUrl(user.avatarUrl) ?? undefined} />
-            ) : (
-              initials(user.displayName)
-            )}
-          </span>
-          <label className={styles.secondaryButton}>
-            {isSavingAvatar ? "Uploading" : "Change photo"}
-            <input
-              accept="image/jpeg,image/png,image/webp"
-              disabled={isSavingAvatar}
-              onChange={(event) => void onAvatarChange(event)}
-              type="file"
-            />
-          </label>
-          {user.avatarUrl ? (
-            <button
-              className={styles.photoRemoveButton}
-              disabled={isSavingAvatar}
-              onClick={() => void onAvatarRemove()}
-              type="button"
-            >
-              Remove
-            </button>
-          ) : null}
-        </div>
-      </header>
-
-      {error ? (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      ) : null}
-      {message ? (
-        <p className={styles.success} role="status">
-          <CheckCircle2 aria-hidden="true" size={17} />
-          {message}
-        </p>
-      ) : null}
-
-      <section className={styles.section} aria-labelledby="personal-title">
-        <div className={styles.sectionIntro}>
-          <UserRound aria-hidden="true" size={19} />
+      <aside className={styles.sidebar}>
+        <div className={styles.accountSummary}>
+          <Avatar user={user} />
           <div>
-            <h2 id="personal-title">Personal details</h2>
-            <p>This is how teammates see you in a workspace.</p>
+            <strong>{user.displayName}</strong>
+            <span>{user.email}</span>
           </div>
         </div>
-        <form className={styles.form} onSubmit={onProfileSubmit}>
+        <nav aria-label="Account settings" className={styles.navigation}>
+          <p>Settings</p>
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                aria-current={activeSection === item.id ? "page" : undefined}
+                className={
+                  activeSection === item.id
+                    ? styles.activeNavItem
+                    : styles.navItem
+                }
+                key={item.id}
+                onClick={() => {
+                  clearNotices();
+                  setActiveSection(item.id);
+                }}
+                type="button"
+              >
+                <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+        <button
+          className={styles.signOutButton}
+          disabled={isSigningOut}
+          onClick={() => void onSignOut()}
+          type="button"
+        >
+          <LogOut aria-hidden="true" size={18} strokeWidth={1.8} />
+          {isSigningOut ? "Signing out" : "Sign out"}
+        </button>
+      </aside>
+      <section className={styles.content}>
+        <header className={styles.heading}>
+          <SectionIcon aria-hidden="true" size={22} strokeWidth={1.8} />
+          <div>
+            <h1>{section.label}</h1>
+            <p>{sectionDescription(activeSection)}</p>
+          </div>
+        </header>
+        {error ? (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+        {message ? (
+          <p className={styles.success} role="status">
+            <CheckCircle2 aria-hidden="true" size={17} />
+            {message}
+          </p>
+        ) : null}
+        {activeSection === "profile" ? (
+          <ProfilePanel
+            isResendingVerification={isResendingVerification}
+            isSavingAvatar={isSavingAvatar}
+            isSavingProfile={isSavingProfile}
+            onAvatarChange={onAvatarChange}
+            onAvatarRemove={onAvatarRemove}
+            onProfileSubmit={onProfileSubmit}
+            onResendVerification={onResendVerification}
+            user={user}
+          />
+        ) : null}
+        {activeSection === "security" ? (
+          <SecurityPanel
+            isChangingPassword={isChangingPassword}
+            onPasswordSubmit={onPasswordSubmit}
+          />
+        ) : null}
+        {activeSection === "billing" ? <BillingPanel /> : null}
+        {activeSection === "setup" ? <SetupPanel /> : null}
+        {activeSection === "ai" ? <AiPanel /> : null}
+        {activeSection === "data" ? (
+          <DataPanel onExport={onExportData} />
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
+function ProfilePanel(props: {
+  isResendingVerification: boolean;
+  isSavingAvatar: boolean;
+  isSavingProfile: boolean;
+  onAvatarChange: (event: FormEvent<HTMLInputElement>) => Promise<void>;
+  onAvatarRemove: () => Promise<void>;
+  onProfileSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onResendVerification: () => Promise<void>;
+  user: AuthUser;
+}) {
+  const { user } = props;
+  return (
+    <>
+      <section className={styles.card}>
+        <CardHeading
+          icon={UserRound}
+          subtitle="Your display name and avatar"
+          title="Profile"
+        />
+        <form
+          className={styles.form}
+          onSubmit={(event) => void props.onProfileSubmit(event)}
+        >
+          <div className={styles.photoField}>
+            <Avatar large user={user} />
+            <div>
+              <label className={styles.secondaryButton}>
+                {props.isSavingAvatar ? "Uploading" : "Change photo"}
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={props.isSavingAvatar}
+                  onChange={(event) => void props.onAvatarChange(event)}
+                  type="file"
+                />
+              </label>
+              {user.avatarUrl ? (
+                <button
+                  className={styles.textButton}
+                  disabled={props.isSavingAvatar}
+                  onClick={() => void props.onAvatarRemove()}
+                  type="button"
+                >
+                  Remove photo
+                </button>
+              ) : null}
+              <p>PNG, JPEG or WebP. Maximum 2 MB.</p>
+            </div>
+          </div>
           <label>
             <span>Display name</span>
             <input
@@ -241,118 +361,257 @@ export function ProfileSettings() {
               required
             />
           </label>
-          <label>
-            <span>Email address</span>
-            <input disabled value={user.email} readOnly />
-            <small>Email changes are not available yet.</small>
-          </label>
           <div className={styles.formFooter}>
-            <p
-              className={
-                user.isEmailVerified ? styles.verified : styles.unverified
-              }
-            >
-              {user.isEmailVerified ? "Email verified" : "Email not verified"}
-            </p>
-            {!user.isEmailVerified ? (
-              <button
-                className={styles.secondaryButton}
-                disabled={isResendingVerification}
-                onClick={() => void onResendVerification()}
-                type="button"
-              >
-                {isResendingVerification ? "Sending" : "Resend verification"}
-              </button>
-            ) : null}
+            <span />
             <button
               className={styles.primaryButton}
-              disabled={isSavingProfile}
+              disabled={props.isSavingProfile}
               type="submit"
             >
-              {isSavingProfile ? "Saving" : "Save changes"}
+              {props.isSavingProfile ? "Saving" : "Save changes"}
             </button>
           </div>
         </form>
       </section>
-
-      <section className={styles.section} aria-labelledby="security-title">
-        <div className={styles.sectionIntro}>
-          <KeyRound aria-hidden="true" size={19} />
-          <div>
-            <h2 id="security-title">Password</h2>
-            <p>Choose a new password to protect your account.</p>
-          </div>
+      <section className={styles.card}>
+        <CardHeading
+          icon={Mail}
+          subtitle="Your email address for notifications and login"
+          title="Email"
+        />
+        <div className={styles.infoRow}>
+          <span>{user.email}</span>
+          <strong
+            className={
+              user.isEmailVerified ? styles.verified : styles.unverified
+            }
+          >
+            {user.isEmailVerified ? "Verified" : "Not verified"}
+          </strong>
         </div>
-        <form className={styles.form} onSubmit={onPasswordSubmit}>
-          <label>
-            <span>Current password</span>
-            <input
-              autoComplete="current-password"
-              maxLength={256}
-              name="currentPassword"
-              required
-              type="password"
-            />
-          </label>
-          <label>
-            <span>New password</span>
-            <input
-              autoComplete="new-password"
-              maxLength={256}
-              minLength={8}
-              name="newPassword"
-              required
-              type="password"
-            />
-          </label>
-          <label>
-            <span>Confirm new password</span>
-            <input
-              autoComplete="new-password"
-              maxLength={256}
-              minLength={8}
-              name="confirmation"
-              required
-              type="password"
-            />
-          </label>
-          <div className={styles.formFooter}>
-            <p>Changing your password signs you out on every device.</p>
-            <button
-              className={styles.secondaryButton}
-              disabled={isChangingPassword}
-              type="submit"
-            >
-              {isChangingPassword ? "Updating" : "Update password"}
-            </button>
-          </div>
-        </form>
+        {!user.isEmailVerified ? (
+          <button
+            className={styles.secondaryButton}
+            disabled={props.isResendingVerification}
+            onClick={() => void props.onResendVerification()}
+            type="button"
+          >
+            {props.isResendingVerification ? "Sending" : "Resend verification"}
+          </button>
+        ) : null}
       </section>
-
-      <section
-        className={`${styles.section} ${styles.signOutSection}`}
-        aria-labelledby="sign-out-title"
-      >
-        <div className={styles.sectionIntro}>
-          <LogOut aria-hidden="true" size={19} />
-          <div>
-            <h2 id="sign-out-title">Sign out</h2>
-            <p>End this session on the current device.</p>
-          </div>
-        </div>
-        <button
-          className={styles.signOutButton}
-          disabled={isSigningOut}
-          onClick={onSignOut}
-          type="button"
-        >
-          {isSigningOut ? "Signing out" : "Sign out"}
-        </button>
-      </section>
-    </main>
+    </>
   );
 }
 
+function SecurityPanel(props: {
+  isChangingPassword: boolean;
+  onPasswordSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+}) {
+  return (
+    <section className={styles.card}>
+      <CardHeading
+        icon={KeyRound}
+        subtitle="Changing your password signs you out on every device"
+        title="Password"
+      />
+      <form
+        className={styles.form}
+        onSubmit={(event) => void props.onPasswordSubmit(event)}
+      >
+        <label>
+          <span>Current password</span>
+          <input
+            autoComplete="current-password"
+            maxLength={256}
+            name="currentPassword"
+            required
+            type="password"
+          />
+        </label>
+        <label>
+          <span>New password</span>
+          <input
+            autoComplete="new-password"
+            maxLength={256}
+            minLength={8}
+            name="newPassword"
+            required
+            type="password"
+          />
+        </label>
+        <label>
+          <span>Confirm new password</span>
+          <input
+            autoComplete="new-password"
+            maxLength={256}
+            minLength={8}
+            name="confirmation"
+            required
+            type="password"
+          />
+        </label>
+        <div className={styles.formFooter}>
+          <span />
+          <button
+            className={styles.primaryButton}
+            disabled={props.isChangingPassword}
+            type="submit"
+          >
+            {props.isChangingPassword ? "Updating" : "Update password"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function BillingPanel() {
+  return (
+    <>
+      <section className={styles.card}>
+        <CardHeading
+          icon={CircleDollarSign}
+          subtitle="Your current subscription"
+          title="Current plan"
+        />
+        <div className={styles.planRow}>
+          <strong>Free</strong>
+          <span>Core workspace and project features</span>
+          <span>EUR 0 / month</span>
+        </div>
+      </section>
+      <section className={styles.card}>
+        <CardHeading
+          icon={CreditCard}
+          subtitle="Plans and payments will appear here when subscriptions are enabled"
+          title="Upgrade your plan"
+        />
+        <p className={styles.mutedCopy}>
+          DevFlow is currently available on the Free plan. Billing is not
+          connected yet, so no payment details are collected or stored.
+        </p>
+      </section>
+    </>
+  );
+}
+function SetupPanel() {
+  return (
+    <section className={styles.card}>
+      <CardHeading
+        icon={TerminalSquare}
+        subtitle="Connect developer tools to DevFlow"
+        title="Developer setup"
+      />
+      <EmptyPanel icon={TerminalSquare} text="Integrations are being prepared">
+        When the integration API is ready, setup instructions and client
+        connections will be managed from this page.
+      </EmptyPanel>
+    </section>
+  );
+}
+function AiPanel() {
+  return (
+    <section className={styles.card}>
+      <CardHeading
+        icon={Bot}
+        subtitle="Configure AI features for your account"
+        title="AI"
+      />
+      <EmptyPanel icon={Bot} text="AI settings are not available yet">
+        Provider keys are never requested or stored in the browser. This section
+        will be connected after encrypted server-side storage is implemented.
+      </EmptyPanel>
+    </section>
+  );
+}
+function DataPanel(props: { onExport: () => void }) {
+  return (
+    <>
+      <section className={styles.card}>
+        <CardHeading
+          icon={Download}
+          subtitle="Download a copy of your current account information"
+          title="Export data"
+        />
+        <button
+          className={styles.secondaryButton}
+          onClick={props.onExport}
+          type="button"
+        >
+          <Download aria-hidden="true" size={17} />
+          Download account summary
+        </button>
+        <p className={styles.mutedCopy}>
+          The file includes profile information currently loaded in DevFlow.
+          Full workspace exports will be added with a dedicated server endpoint.
+        </p>
+      </section>
+      <section className={`${styles.card} ${styles.dangerCard}`}>
+        <CardHeading
+          icon={Database}
+          subtitle="Account deletion needs a server-side confirmation flow"
+          title="Delete account"
+        />
+        <p className={styles.mutedCopy}>
+          This action is intentionally unavailable until we can safely remove or
+          transfer workspace ownership and project data.
+        </p>
+      </section>
+    </>
+  );
+}
+
+function CardHeading({
+  icon: Icon,
+  subtitle,
+  title,
+}: {
+  icon: LucideIcon;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <div className={styles.cardHeading}>
+      <Icon aria-hidden="true" size={20} strokeWidth={1.8} />
+      <div>
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+function EmptyPanel({
+  children,
+  icon: Icon,
+  text,
+}: {
+  children: string;
+  icon: LucideIcon;
+  text: string;
+}) {
+  return (
+    <div className={styles.emptyPanel}>
+      <Icon aria-hidden="true" size={23} />
+      <strong>{text}</strong>
+      <p>{children}</p>
+    </div>
+  );
+}
+function Avatar({ large = false, user }: { large?: boolean; user: AuthUser }) {
+  return (
+    <span
+      aria-label={user.displayName}
+      className={large ? styles.largeAvatar : styles.avatar}
+    >
+      {user.avatarUrl ? (
+        <img alt="" src={getApiAssetUrl(user.avatarUrl) ?? undefined} />
+      ) : (
+        initials(user.displayName)
+      )}
+    </span>
+  );
+}
 function initials(displayName: string) {
   return displayName
     .split(/\s+/)
@@ -362,7 +621,16 @@ function initials(displayName: string) {
     .join("")
     .toUpperCase();
 }
-
+function sectionDescription(section: SettingsSection) {
+  return {
+    profile: "Your profile, photo and email address",
+    security: "Password and account protection",
+    billing: "Plan and subscription information",
+    setup: "Developer tools and integrations",
+    ai: "AI provider preferences",
+    data: "Export and account data controls",
+  }[section];
+}
 function toMessage(error: unknown, fallback: string) {
   return error instanceof ApiClientError ? error.message : fallback;
 }
