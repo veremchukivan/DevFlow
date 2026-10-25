@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, LogOut, Plus } from "lucide-react";
 import Link from "next/link";
 
@@ -24,11 +24,31 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
+  const refreshNotifications = useCallback(async () => {
+    try {
+      setNotifications(await getNotifications());
+    } catch {
+      // A temporary network failure must not disrupt the rest of the header.
+    }
+  }, []);
+
   useEffect(() => {
-    void getNotifications()
-      .then(setNotifications)
-      .catch(() => undefined);
-  }, [pathname]);
+    void refreshNotifications();
+  }, [pathname, refreshNotifications]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshNotifications();
+      }
+    }, 30_000);
+    const onFocus = () => void refreshNotifications();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshNotifications]);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
