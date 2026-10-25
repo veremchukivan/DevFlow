@@ -199,6 +199,7 @@ function toTaskDto(task: {
   id: string;
   labels?: Array<{ id: string; name: string; color: string }>;
   number: number;
+  parentTaskId: string | null;
   priority: "low" | "medium" | "high" | "urgent";
   projectId: string;
   projectKey: string;
@@ -240,6 +241,7 @@ function toTaskDto(task: {
     labels: task.labels ?? [],
     key: `${task.projectKey}-${task.number}`,
     number: task.number,
+    parentTaskId: task.parentTaskId,
     priority: task.priority,
     projectId: task.projectId,
     reporter:

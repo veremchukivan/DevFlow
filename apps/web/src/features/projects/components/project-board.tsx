@@ -860,6 +860,7 @@ export function ProjectBoard() {
     const form = new FormData(event.currentTarget);
     const assigneeUserId = String(form.get("assigneeUserId") ?? "");
     const dueDate = String(form.get("dueDate") ?? "");
+    const parentTaskId = String(form.get("parentTaskId") ?? "");
     const sprintId = String(form.get("sprintId") ?? "");
     const description = String(form.get("description") ?? "").trim();
 
@@ -872,6 +873,7 @@ export function ProjectBoard() {
           assigneeUserId: assigneeUserId || null,
           description: description || null,
           dueDate: dueDate || null,
+          parentTaskId: parentTaskId || null,
           priority: form.get("priority") as TaskPriority,
           sprintId: sprintId || null,
           statusId: String(form.get("statusId")),
@@ -1194,6 +1196,7 @@ export function ProjectBoard() {
       ) : null}
       {selectedTask ? (
         <TaskEditorModal
+          availableParentTasks={tasks}
           isSaving={updatingTaskId === selectedTask.id}
           labels={labels}
           members={members}
@@ -2088,6 +2091,7 @@ function formatSprintPeriod(startDate: string | null, endDate: string | null) {
 }
 
 function TaskEditorModal({
+  availableParentTasks,
   isSaving,
   labels,
   members,
@@ -2099,6 +2103,7 @@ function TaskEditorModal({
   task,
   workspaceId,
 }: {
+  availableParentTasks: Task[];
   isSaving: boolean;
   labels: Label[];
   members: WorkspaceMember[];
@@ -2213,6 +2218,22 @@ function TaskEditorModal({
                   {sprint.name} ({sprint.status})
                 </option>
               ))}
+            </select>
+          </label>
+          <label>
+            <span>Parent task</span>
+            <select defaultValue={task.parentTaskId ?? ""} name="parentTaskId">
+              <option value="">No parent task</option>
+              {availableParentTasks
+                .filter(
+                  (candidate) =>
+                    candidate.id !== task.id && !candidate.parentTaskId,
+                )
+                .map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.key}: {candidate.title}
+                  </option>
+                ))}
             </select>
           </label>
           <label>

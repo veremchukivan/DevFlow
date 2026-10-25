@@ -61,6 +61,13 @@ export async function createTask(input: {
       workspaceId: input.workspaceId,
     });
   }
+  if (input.input.parentTaskId) {
+    await requireParentTask({
+      parentTaskId: input.input.parentTaskId,
+      projectId: input.projectId,
+      workspaceId: input.workspaceId,
+    });
+  }
 
   // createTaskWithNextNumber uses SELECT FOR UPDATE on the project row, which
   // serialises concurrent task creation for the same project and makes a
@@ -74,6 +81,7 @@ export async function createTask(input: {
     assigneeUserId: input.input.assigneeUserId,
     description: input.input.description,
     dueDate: input.input.dueDate,
+    parentTaskId: input.input.parentTaskId,
     priority: input.input.priority,
     projectId: input.projectId,
     reporterUserId: input.userId,
@@ -188,6 +196,22 @@ export async function updateTask(input: {
   }
   if (input.input.sprintId)
     await requireProjectSprint({ ...input, sprintId: input.input.sprintId });
+  if (input.input.parentTaskId !== undefined) {
+    if (input.input.parentTaskId === input.taskId) {
+      throw new AppError(
+        400,
+        "TASK_PARENT_INVALID",
+        "A task cannot be its own parent",
+      );
+    }
+    if (input.input.parentTaskId) {
+      await requireParentTask({
+        parentTaskId: input.input.parentTaskId,
+        projectId: input.projectId,
+        workspaceId: input.workspaceId,
+      });
+    }
+  }
 
   return db.transaction(async (tx) => {
     const updatedTask = await updateTaskInProject(
@@ -195,6 +219,7 @@ export async function updateTask(input: {
         assigneeUserId: input.input.assigneeUserId,
         description: input.input.description,
         dueDate: input.input.dueDate,
+        parentTaskId: input.input.parentTaskId,
         priority: input.input.priority,
         projectId: input.projectId,
         statusId: input.input.statusId,
@@ -441,6 +466,34 @@ async function requireProjectSprint(input: {
       400,
       "TASK_SPRINT_INVALID",
       "Sprint must belong to this project",
+    );
+  }
+}
+
+async function requireParentTask(input: {
+  parentTaskId: string;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const parentTask = await findTaskInProject({
+    projectId: input.projectId,
+    taskId: input.parentTaskId,
+    workspaceId: input.workspaceId,
+  });
+
+  if (!parentTask) {
+    throw new AppError(
+      400,
+      "TASK_PARENT_INVALID",
+      "Parent task must belong to this project",
+    );
+  }
+
+  if (parentTask.parentTaskId) {
+    throw new AppError(
+      400,
+      "TASK_PARENT_NESTING_NOT_SUPPORTED",
+      "A subtask cannot have its own subtasks",
     );
   }
 }

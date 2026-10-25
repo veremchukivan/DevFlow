@@ -146,6 +146,7 @@ export async function createTaskWithNextNumber(input: {
   assigneeUserId?: string;
   description?: string;
   dueDate?: string;
+  parentTaskId?: string;
   priority?: TaskPriority;
   sprintId?: string;
   type?: TaskType;
@@ -184,6 +185,7 @@ export async function createTaskWithNextNumber(input: {
 
     const values = {
       number: nextNumber?.value ?? 1,
+      ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
       projectId: input.projectId,
       reporterUserId: input.reporterUserId,
       statusId: input.statusId,
@@ -402,6 +404,7 @@ export async function updateTaskInProject(
     assigneeUserId?: string | null;
     description?: string | null;
     dueDate?: string | null;
+    parentTaskId?: string | null;
     priority?: TaskPriority;
     projectId: string;
     statusId?: string;
@@ -510,6 +513,7 @@ function taskSelect(executor: DbExecutor = db) {
       dueDate: tasks.dueDate,
       id: tasks.id,
       number: tasks.number,
+      parentTaskId: tasks.parentTaskId,
       priority: tasks.priority,
       projectId: tasks.projectId,
       projectKey: projects.key,
@@ -570,6 +574,7 @@ function toTaskUpdateValues(input: {
   assigneeUserId?: string | null;
   description?: string | null;
   dueDate?: string | null;
+  parentTaskId?: string | null;
   priority?: TaskPriority;
   statusId?: string;
   sprintId?: string | null;
@@ -580,6 +585,7 @@ function toTaskUpdateValues(input: {
     assigneeUserId?: string | null;
     description?: string | null;
     dueDate?: string | null;
+    parentTaskId?: string | null;
     priority?: TaskPriority;
     statusId?: string;
     sprintId?: string | null;
@@ -600,6 +606,10 @@ function toTaskUpdateValues(input: {
 
   if (input.dueDate !== undefined) {
     values.dueDate = input.dueDate;
+  }
+
+  if (input.parentTaskId !== undefined) {
+    values.parentTaskId = input.parentTaskId;
   }
 
   // Use strict undefined check (not falsy) so that valid enum values such as

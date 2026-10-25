@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   check,
   date,
   foreignKey,
@@ -43,6 +44,10 @@ export const tasks = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     projectId: uuid("project_id").notNull(),
     number: integer("number").notNull(),
+    parentTaskId: uuid("parent_task_id").references(
+      (): AnyPgColumn => tasks.id,
+      { onDelete: "restrict" },
+    ),
     statusId: uuid("status_id").notNull(),
     sprintId: uuid("sprint_id"),
     type: taskTypeEnum("type").notNull().default("task"),
@@ -103,6 +108,11 @@ export const tasks = pgTable(
       table.workspaceId,
       table.projectId,
       table.sprintId,
+    ),
+    index("tasks_project_parent_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.parentTaskId,
     ),
     index("tasks_project_deleted_at_idx").on(
       table.workspaceId,
