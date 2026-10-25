@@ -64,15 +64,20 @@ export function WorkspaceSidebar() {
 
       <nav aria-label="Workspace navigation" className={styles.navigation}>
         <Link
+          aria-current={pathname === "/dashboard" ? "page" : undefined}
           className={styles.navigationLink}
-          href={
-            activeWorkspace
-              ? `/workspaces/${activeWorkspace.id}`
-              : "/workspaces"
-          }
+          href="/dashboard"
         >
           <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
-          Overview
+          Dashboard
+        </Link>
+        <Link
+          aria-current={pathname === "/workspaces" ? "page" : undefined}
+          className={styles.navigationLink}
+          href="/workspaces"
+        >
+          <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
+          Workspaces
         </Link>
         {activeWorkspace ? (
           <>

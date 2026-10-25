@@ -32,7 +32,11 @@ export function SiteHeader({ user }: { user: AuthUser }) {
       <div className={styles.content}>
         <div className={styles.mobileBrand}>DevFlow</div>
         <div className={styles.breadcrumb}>
-          {pathname === "/workspaces" ? "Workspaces" : "Project workspace"}
+          {pathname === "/dashboard"
+            ? "Dashboard"
+            : pathname === "/workspaces"
+              ? "Workspaces"
+              : "Project workspace"}
         </div>
         <div className={styles.userMenu}>
           <Link className={styles.createButton} href="/workspaces">
