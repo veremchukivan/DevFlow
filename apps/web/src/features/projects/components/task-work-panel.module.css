@@ -7,6 +7,7 @@
 }
 
 .checklistSection,
+.attachmentsSection,
 .activitySection {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -80,6 +81,87 @@
 .editCommentForm button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+.uploadButton {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 16px;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.uploadButton:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.uploadButton input {
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.attachmentList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.attachmentList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 9px 10px;
+}
+
+.attachmentList strong,
+.attachmentList span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.attachmentList strong {
+  font-size: 14px;
+}
+
+.attachmentList span {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.attachmentActions {
+  align-items: center;
+  display: flex;
+  gap: 3px;
+}
+
+.attachmentActions a {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.attachmentActions a:hover {
+  color: var(--brand);
 }
 
 .checklist,

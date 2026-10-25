@@ -3,28 +3,41 @@
 import {
   Check,
   ClipboardList,
+  Download,
   MessageSquare,
   Pencil,
+  Paperclip,
   Trash2,
 } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import {
   ApiClientError,
   createTaskChecklistItem,
   createTaskComment,
+  deleteTaskAttachment,
   deleteTaskChecklistItem,
   deleteTaskComment,
   getCurrentUser,
   getTaskActivity,
+  getTaskAttachments,
+  getTaskAttachmentDownloadUrl,
   getTaskChecklist,
   getTaskComments,
   updateTaskChecklistItem,
   updateTaskComment,
+  uploadTaskAttachment,
 } from "@/shared/lib/api-client";
 import type {
   Task,
   TaskActivityEvent,
+  TaskAttachment,
   TaskChecklistItem,
   TaskComment,
   WorkspaceRole,
@@ -47,6 +60,7 @@ export function TaskWorkPanel({
   const [activeTab, setActiveTab] = useState<ActivityTab>("comments");
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -55,6 +69,9 @@ export function TaskWorkPanel({
     useState(false);
   const [isSavingItemId, setIsSavingItemId] = useState<string>();
   const [isSavingCommentId, setIsSavingCommentId] = useState<string>();
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [isDeletingAttachmentId, setIsDeletingAttachmentId] =
+    useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [error, setError] = useState<string>();
   const canUpdateTask = role ? can(role, "task:update") : false;
@@ -72,16 +89,19 @@ export function TaskWorkPanel({
         commentsResponse,
         checklistResponse,
         activityResponse,
+        attachmentsResponse,
         userResponse,
       ] = await Promise.all([
         getTaskComments(workspaceId, task.projectId, task.id, { limit: 25 }),
         getTaskChecklist(workspaceId, task.projectId, task.id),
         getTaskActivity(workspaceId, task.projectId, task.id, { limit: 25 }),
+        getTaskAttachments(workspaceId, task.projectId, task.id),
         getCurrentUser(),
       ]);
       setComments(commentsResponse.comments);
       setChecklistItems(checklistResponse.items);
       setActivity(activityResponse.events);
+      setAttachments(attachmentsResponse.attachments);
       setCurrentUserId(userResponse.user.id);
     } catch (caughtError) {
       setError(
@@ -137,6 +157,50 @@ export function TaskWorkPanel({
       task.id,
     );
     setChecklistItems(response.items);
+  }
+
+  async function refreshAttachments() {
+    const response = await getTaskAttachments(
+      workspaceId,
+      task.projectId,
+      task.id,
+    );
+    setAttachments(response.attachments);
+  }
+
+  async function onAttachmentChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+
+    setError(undefined);
+    setIsUploadingAttachment(true);
+    try {
+      await uploadTaskAttachment(workspaceId, task.projectId, task.id, file);
+      await refreshAttachments();
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to upload attachment."));
+    } finally {
+      event.currentTarget.value = "";
+      setIsUploadingAttachment(false);
+    }
+  }
+
+  async function onAttachmentDelete(attachmentId: string) {
+    setError(undefined);
+    setIsDeletingAttachmentId(attachmentId);
+    try {
+      await deleteTaskAttachment(
+        workspaceId,
+        task.projectId,
+        task.id,
+        attachmentId,
+      );
+      await refreshAttachments();
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to delete attachment."));
+    } finally {
+      setIsDeletingAttachmentId(undefined);
+    }
   }
 
   async function onChecklistCompletionChange(item: TaskChecklistItem) {
@@ -312,6 +376,79 @@ export function TaskWorkPanel({
               </li>
             ))}
           </ol>
+        ) : null}
+      </section>
+
+      <section
+        className={styles.attachmentsSection}
+        aria-labelledby="attachments-title"
+      >
+        <div className={styles.sectionHeading}>
+          <div>
+            <h3 id="attachments-title">Attachments</h3>
+            <p>PDF, PNG, JPEG, or WebP up to 10 MB</p>
+          </div>
+          <Paperclip aria-hidden="true" size={18} />
+        </div>
+        {canUpdateTask ? (
+          <label className={styles.uploadButton}>
+            <input
+              accept="application/pdf,image/jpeg,image/png,image/webp"
+              disabled={isUploadingAttachment}
+              onChange={(event) => void onAttachmentChange(event)}
+              type="file"
+            />
+            {isUploadingAttachment ? "Uploading" : "Upload file"}
+          </label>
+        ) : null}
+        {isLoading ? (
+          <p className={styles.empty}>Loading attachments…</p>
+        ) : null}
+        {!isLoading && attachments.length === 0 ? (
+          <p className={styles.empty}>No attachments yet.</p>
+        ) : null}
+        {attachments.length ? (
+          <ul className={styles.attachmentList}>
+            {attachments.map((attachment) => (
+              <li key={attachment.id}>
+                <div>
+                  <strong>{attachment.originalFilename}</strong>
+                  <span>
+                    {formatFileSize(attachment.sizeBytes)} ·{" "}
+                    {attachment.uploadedBy?.displayName ?? "Former member"}
+                  </span>
+                </div>
+                <div className={styles.attachmentActions}>
+                  <a
+                    aria-label={`Download ${attachment.originalFilename}`}
+                    href={
+                      getTaskAttachmentDownloadUrl(
+                        workspaceId,
+                        task.projectId,
+                        task.id,
+                        attachment.id,
+                      ) ?? undefined
+                    }
+                    title="Download attachment"
+                  >
+                    <Download aria-hidden="true" size={16} />
+                  </a>
+                  {canUpdateTask ? (
+                    <button
+                      aria-label={`Delete ${attachment.originalFilename}`}
+                      className={styles.deleteButton}
+                      disabled={isDeletingAttachmentId === attachment.id}
+                      onClick={() => void onAttachmentDelete(attachment.id)}
+                      title="Delete attachment"
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" size={15} />
+                    </button>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : null}
       </section>
 
@@ -524,4 +661,9 @@ function formatDateTime(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) return `${Math.ceil(sizeBytes / 1024)} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }

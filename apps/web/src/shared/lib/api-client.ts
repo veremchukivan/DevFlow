@@ -33,6 +33,8 @@ import {
   projectResponseSchema,
   taskListResponseSchema,
   taskActivityEventListResponseSchema,
+  taskAttachmentListResponseSchema,
+  taskAttachmentResponseSchema,
   taskCommentListResponseSchema,
   taskCommentResponseSchema,
   taskChecklistListResponseSchema,
@@ -82,6 +84,8 @@ import {
   type ProjectResponse,
   type TaskListResponse,
   type TaskActivityEventListResponse,
+  type TaskAttachmentListResponse,
+  type TaskAttachmentResponse,
   type TaskCommentListResponse,
   type TaskCommentResponse,
   type TaskChecklistListResponse,
@@ -940,6 +944,56 @@ export function getTaskActivity(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/activity?limit=${pagination.limit ?? 25}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     taskActivityEventListResponseSchema,
+  );
+}
+
+export function getTaskAttachments(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskAttachmentListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/attachments`,
+    { method: "GET" },
+    taskAttachmentListResponseSchema,
+  );
+}
+
+export function uploadTaskAttachment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  file: File,
+): Promise<TaskAttachmentResponse> {
+  const form = new FormData();
+  form.set("file", file);
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/attachments`,
+    { body: form, method: "POST" },
+    taskAttachmentResponseSchema,
+  );
+}
+
+export function deleteTaskAttachment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  attachmentId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function getTaskAttachmentDownloadUrl(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  attachmentId: string,
+) {
+  return getApiAssetUrl(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}/download`,
   );
 }
 

@@ -5,6 +5,7 @@ export * from "./project-sprints.js";
 export * from "./projects.js";
 export * from "./sessions.js";
 export * from "./task-activity-events.js";
+export * from "./task-attachments.js";
 export * from "./task-checklist-items.js";
 export * from "./task-comments.js";
 export * from "./tasks.js";
