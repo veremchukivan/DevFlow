@@ -39,6 +39,7 @@ import {
   getProject,
   getProjectActivity,
   getProjectViewPreferences,
+  getCurrentUser,
   getProjectSprints,
   getTask,
   getTasks,
@@ -146,6 +147,7 @@ export function ProjectBoard() {
   const [labels, setLabels] = useState<Label[]>([]);
   const [labelId, setLabelId] = useState("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>();
   const [role, setRole] = useState<WorkspaceRole>();
   const [assigneeUserId, setAssigneeUserId] = useState("");
   const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
@@ -255,6 +257,7 @@ export function ProjectBoard() {
       getWorkspace(workspaceId),
       getProjectSprints(workspaceId, projectId),
       getProjectViewPreferences(workspaceId, projectId),
+      getCurrentUser(),
     ])
       .then(
         async ([
@@ -264,6 +267,7 @@ export function ProjectBoard() {
           workspaceResponse,
           sprintsResponse,
           preferencesResponse,
+          currentUserResponse,
         ]) => {
           if (!active) return;
           const activeSprint = sprintsResponse.sprints.find(
@@ -288,6 +292,7 @@ export function ProjectBoard() {
             ),
           );
           setRole(workspaceResponse.workspace.role);
+          setCurrentUserId(currentUserResponse.user.id);
           setActivityLimit(preferencesResponse.preferences.activityLimit);
           setBoardScrolling(preferencesResponse.preferences.boardScrolling);
           setColumnSize(preferencesResponse.preferences.columnSize);
@@ -502,6 +507,38 @@ export function ProjectBoard() {
     setFilters(nextFilters);
     await loadTasks(nextFilters);
     setShowFilters(false);
+  }
+
+  async function onQuickFilter(filter: "mine" | "overdue" | "today") {
+    const nextAssigneeUserId =
+      filter === "mine" && currentUserId
+        ? assigneeUserId === currentUserId
+          ? ""
+          : currentUserId
+        : assigneeUserId;
+    const nextDue =
+      filter === "mine"
+        ? due
+        : due === filter
+          ? ""
+          : (filter as "overdue" | "today");
+    const nextFilters = {
+      ...(search.trim() ? { search: search.trim() } : {}),
+      ...(priority ? { priority } : {}),
+      ...(labelId ? { labelId } : {}),
+      ...(nextAssigneeUserId
+        ? { assigneeUserId: nextAssigneeUserId as string | "none" }
+        : {}),
+      ...(nextDue ? { due: nextDue } : {}),
+      ...(showArchived ? { archived: true } : {}),
+      sprintId: selectedSprintId,
+      sortBy,
+      sortOrder,
+    };
+    setAssigneeUserId(nextAssigneeUserId);
+    setDue(nextDue);
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
   }
 
   async function onRestoreTask(task: Task) {
@@ -1820,6 +1857,37 @@ export function ProjectBoard() {
         >
           <Search aria-hidden="true" size={17} strokeWidth={1.8} />
         </button>
+        <div className={styles.quickFilters} aria-label="Quick filters">
+          <button
+            aria-pressed={Boolean(
+              currentUserId && assigneeUserId === currentUserId,
+            )}
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing || !currentUserId}
+            onClick={() => void onQuickFilter("mine")}
+            type="button"
+          >
+            My tasks
+          </button>
+          <button
+            aria-pressed={due === "overdue"}
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing}
+            onClick={() => void onQuickFilter("overdue")}
+            type="button"
+          >
+            Overdue
+          </button>
+          <button
+            aria-pressed={due === "today"}
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing}
+            onClick={() => void onQuickFilter("today")}
+            type="button"
+          >
+            Today
+          </button>
+        </div>
         <button
           className={styles.secondaryButton}
           onClick={() => setShowFilters(true)}

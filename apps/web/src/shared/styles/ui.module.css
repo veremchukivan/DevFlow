@@ -760,6 +760,21 @@
   display: inline-flex;
   gap: 7px;
 }
+.quickFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quickFilters button {
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.quickFilters button[aria-pressed="true"] {
+  background: #e6f0fb;
+  border-color: var(--brand);
+  color: var(--brand);
+}
 .taskForm,
 .taskFilters {
   align-items: end;
