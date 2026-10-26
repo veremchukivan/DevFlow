@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   type DragEvent,
   type FormEvent,
@@ -36,6 +36,7 @@ import {
   deleteProjectStatus,
   getProject,
   getProjectSprints,
+  getTask,
   getTasks,
   getWorkspaceLabels,
   getWorkspaceMembers,
@@ -116,8 +117,10 @@ const priorityStyles: Record<TaskPriority, string> = {
 
 export function ProjectBoard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams<{ projectId: string; workspaceId: string }>();
   const { projectId, workspaceId } = params;
+  const taskIdFromUrl = searchParams.get("taskId");
   const [project, setProject] = useState<Project>();
   const [sprints, setSprints] = useState<ProjectSprint[]>([]);
   const [selectedSprintId, setSelectedSprintId] = useState<string | "backlog">(
@@ -291,6 +294,32 @@ export function ProjectBoard() {
       active = false;
     };
   }, [projectId, router, workspaceId]);
+
+  useEffect(() => {
+    if (!taskIdFromUrl) return;
+    let active = true;
+
+    void getTask(workspaceId, projectId, taskIdFromUrl)
+      .then((response) => {
+        if (active) setSelectedTask(response.task);
+      })
+      .catch(() => {
+        if (active) setError("Unable to open this task.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [projectId, taskIdFromUrl, workspaceId]);
+
+  function closeTaskEditor() {
+    setSelectedTask(undefined);
+    if (taskIdFromUrl) {
+      router.replace(`/workspaces/${workspaceId}/projects/${projectId}`, {
+        scroll: false,
+      });
+    }
+  }
 
   async function loadTasks(nextFilters: BoardFilters, offset = 0) {
     setError(undefined);
@@ -1200,7 +1229,7 @@ export function ProjectBoard() {
           isSaving={updatingTaskId === selectedTask.id}
           labels={labels}
           members={members}
-          onClose={() => setSelectedTask(undefined)}
+          onClose={closeTaskEditor}
           onSubmit={onTaskEditorSubmit}
           project={project}
           role={role}
