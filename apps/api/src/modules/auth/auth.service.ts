@@ -17,12 +17,15 @@ import {
   createUserWithDefaultWorkspace,
   consumeEmailVerificationToken,
   consumePasswordResetToken,
+  deleteOtherSessionsForUser,
+  deleteSessionForUser,
   deleteSessionByTokenHash,
   ensureDefaultWorkspaceForUser,
   findUserPasswordById,
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
   findUserAvatarById,
+  listActiveSessionsForUser,
   replaceEmailVerificationToken,
   replacePasswordResetToken,
   touchSession,
@@ -135,6 +138,48 @@ export async function getCurrentUser(sessionToken: string) {
 
 export async function logout(sessionToken: string) {
   await deleteSessionByTokenHash(hashSessionToken(sessionToken));
+}
+
+export async function listAccountSessions(input: {
+  sessionToken: string;
+  userId: string;
+}) {
+  const currentTokenHash = hashSessionToken(input.sessionToken);
+  const sessions = await listActiveSessionsForUser(input.userId);
+
+  return sessions.map((session) => ({
+    ...session,
+    current: session.tokenHash === currentTokenHash,
+  }));
+}
+
+export async function revokeAccountSession(input: {
+  sessionId: string;
+  sessionToken: string;
+  userId: string;
+}) {
+  const session = await deleteSessionForUser({
+    sessionId: input.sessionId,
+    userId: input.userId,
+  });
+
+  if (!session) {
+    throw new AppError(404, "SESSION_NOT_FOUND", "Session was not found");
+  }
+
+  return {
+    current: session.tokenHash === hashSessionToken(input.sessionToken),
+  };
+}
+
+export async function revokeOtherAccountSessions(input: {
+  sessionToken: string;
+  userId: string;
+}) {
+  await deleteOtherSessionsForUser({
+    tokenHash: hashSessionToken(input.sessionToken),
+    userId: input.userId,
+  });
 }
 
 export async function updateProfile(

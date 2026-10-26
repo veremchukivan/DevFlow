@@ -1,4 +1,6 @@
 import {
+  accountSessionListResponseSchema,
+  accountSessionParamsSchema,
   emailVerificationTokenRequestSchema,
   changePasswordRequestSchema,
   loginRequestSchema,
@@ -32,6 +34,9 @@ import {
   updateProfile,
   updateProfileAvatar,
   removeProfileAvatar,
+  listAccountSessions,
+  revokeAccountSession,
+  revokeOtherAccountSessions,
   verifyEmail,
 } from "./auth.service.js";
 
@@ -80,7 +85,10 @@ authRouter.put(
     if (!req.file) {
       throw new AppError(400, "IMAGE_REQUIRED", "Choose an image to upload");
     }
-    const user = await updateProfileAvatar(getAuthenticatedUser(req).id, req.file);
+    const user = await updateProfileAvatar(
+      getAuthenticatedUser(req).id,
+      req.file,
+    );
     res.json(toAuthResponse(user));
   },
 );
@@ -88,6 +96,61 @@ authRouter.put(
 authRouter.delete("/profile/avatar", requireAuth, async (req, res) => {
   const user = await removeProfileAvatar(getAuthenticatedUser(req).id);
   res.json(toAuthResponse(user));
+});
+
+authRouter.get("/sessions", requireAuth, async (req, res) => {
+  const token = getSessionToken(req);
+  if (!token) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  const sessions = await listAccountSessions({
+    sessionToken: token,
+    userId: getAuthenticatedUser(req).id,
+  });
+
+  res.json(
+    accountSessionListResponseSchema.parse({
+      sessions: sessions.map((session) => ({
+        ...session,
+        createdAt: session.createdAt.toISOString(),
+        expiresAt: session.expiresAt.toISOString(),
+        lastSeenAt: session.lastSeenAt.toISOString(),
+      })),
+    }),
+  );
+});
+
+authRouter.delete("/sessions/:sessionId", requireAuth, async (req, res) => {
+  const input = accountSessionParamsSchema.parse(req.params);
+  const token = getSessionToken(req);
+  if (!token) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  const result = await revokeAccountSession({
+    sessionId: input.sessionId,
+    sessionToken: token,
+    userId: getAuthenticatedUser(req).id,
+  });
+
+  if (result.current) {
+    clearSessionCookie(res);
+  }
+  res.status(204).send();
+});
+
+authRouter.post("/sessions/revoke-others", requireAuth, async (req, res) => {
+  const token = getSessionToken(req);
+  if (!token) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  await revokeOtherAccountSessions({
+    sessionToken: token,
+    userId: getAuthenticatedUser(req).id,
+  });
+  res.status(204).send();
 });
 
 authRouter.post(

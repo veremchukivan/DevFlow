@@ -269,6 +269,54 @@
   justify-content: space-between;
   margin-top: 4px;
 }
+.sessionToolbar {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.sessionToolbar p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  max-width: 420px;
+}
+.sessionList {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+.sessionList li {
+  align-items: center;
+  background: #f6f8fa;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 13px 15px;
+}
+.sessionList li > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.sessionList strong {
+  font-size: 14px;
+}
+.sessionList span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .infoRow,
 .planRow {
   align-items: center;

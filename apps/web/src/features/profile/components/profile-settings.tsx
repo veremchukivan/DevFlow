@@ -23,14 +23,17 @@ import {
   changePassword,
   deleteProfileAvatar,
   getApiAssetUrl,
+  getAccountSessions,
   getCurrentUser,
   logout,
   resendEmailVerification,
+  revokeAccountSession,
+  revokeOtherAccountSessions,
   updateProfile,
   uploadProfileAvatar,
 } from "@/shared/lib/api-client";
 import { notifyUserChanged } from "@/shared/lib/user-events";
-import type { AuthUser } from "@devflow/shared";
+import type { AccountSession, AuthUser } from "@devflow/shared";
 
 import styles from "./profile-settings.module.css";
 
@@ -63,6 +66,10 @@ export function ProfileSettings() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isRevokingOtherSessions, setIsRevokingOtherSessions] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState<string>();
+  const [sessions, setSessions] = useState<AccountSession[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -78,6 +85,25 @@ export function ProfileSettings() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeSection !== "security") return;
+
+    let active = true;
+    setIsLoadingSessions(true);
+    void getAccountSessions()
+      .then((response) => active && setSessions(response.sessions))
+      .catch(
+        (caughtError: unknown) =>
+          active &&
+          setError(toMessage(caughtError, "Unable to load active sessions.")),
+      )
+      .finally(() => active && setIsLoadingSessions(false));
+
+    return () => {
+      active = false;
+    };
+  }, [activeSection]);
 
   function clearNotices() {
     setError(undefined);
@@ -181,6 +207,39 @@ export function ProfileSettings() {
       setError(toMessage(caughtError, "Unable to send verification email."));
     } finally {
       setIsResendingVerification(false);
+    }
+  }
+
+  async function onRevokeSession(session: AccountSession) {
+    clearNotices();
+    setRevokingSessionId(session.id);
+    try {
+      await revokeAccountSession(session.id);
+      if (session.current) {
+        router.replace("/login?reason=session-ended");
+        router.refresh();
+        return;
+      }
+      setSessions((current) => current.filter(({ id }) => id !== session.id));
+      setMessage("Session signed out.");
+    } catch (caughtError) {
+      setError(toMessage(caughtError, "Unable to end this session."));
+    } finally {
+      setRevokingSessionId(undefined);
+    }
+  }
+
+  async function onRevokeOtherSessions() {
+    clearNotices();
+    setIsRevokingOtherSessions(true);
+    try {
+      await revokeOtherAccountSessions();
+      setSessions((current) => current.filter((session) => session.current));
+      setMessage("Other sessions have been signed out.");
+    } catch (caughtError) {
+      setError(toMessage(caughtError, "Unable to end other sessions."));
+    } finally {
+      setIsRevokingOtherSessions(false);
     }
   }
 
@@ -289,7 +348,13 @@ export function ProfileSettings() {
         {activeSection === "security" ? (
           <SecurityPanel
             isChangingPassword={isChangingPassword}
+            isLoadingSessions={isLoadingSessions}
+            isRevokingOtherSessions={isRevokingOtherSessions}
+            onRevokeOtherSessions={onRevokeOtherSessions}
+            onRevokeSession={onRevokeSession}
             onPasswordSubmit={onPasswordSubmit}
+            revokingSessionId={revokingSessionId}
+            sessions={sessions}
           />
         ) : null}
         {activeSection === "billing" ? <BillingPanel /> : null}
@@ -406,64 +471,145 @@ function ProfilePanel(props: {
 
 function SecurityPanel(props: {
   isChangingPassword: boolean;
+  isLoadingSessions: boolean;
+  isRevokingOtherSessions: boolean;
   onPasswordSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onRevokeOtherSessions: () => Promise<void>;
+  onRevokeSession: (session: AccountSession) => Promise<void>;
+  revokingSessionId?: string;
+  sessions: AccountSession[];
 }) {
   return (
-    <section className={styles.card}>
-      <CardHeading
-        icon={KeyRound}
-        subtitle="Changing your password signs you out on every device"
-        title="Password"
-      />
-      <form
-        className={styles.form}
-        onSubmit={(event) => void props.onPasswordSubmit(event)}
-      >
-        <label>
-          <span>Current password</span>
-          <input
-            autoComplete="current-password"
-            maxLength={256}
-            name="currentPassword"
-            required
-            type="password"
-          />
-        </label>
-        <label>
-          <span>New password</span>
-          <input
-            autoComplete="new-password"
-            maxLength={256}
-            minLength={8}
-            name="newPassword"
-            required
-            type="password"
-          />
-        </label>
-        <label>
-          <span>Confirm new password</span>
-          <input
-            autoComplete="new-password"
-            maxLength={256}
-            minLength={8}
-            name="confirmation"
-            required
-            type="password"
-          />
-        </label>
-        <div className={styles.formFooter}>
-          <span />
+    <>
+      <section className={styles.card}>
+        <CardHeading
+          icon={KeyRound}
+          subtitle="Changing your password signs you out on every device"
+          title="Password"
+        />
+        <form
+          className={styles.form}
+          onSubmit={(event) => void props.onPasswordSubmit(event)}
+        >
+          <label>
+            <span>Current password</span>
+            <input
+              autoComplete="current-password"
+              maxLength={256}
+              name="currentPassword"
+              required
+              type="password"
+            />
+          </label>
+          <label>
+            <span>New password</span>
+            <input
+              autoComplete="new-password"
+              maxLength={256}
+              minLength={8}
+              name="newPassword"
+              required
+              type="password"
+            />
+          </label>
+          <label>
+            <span>Confirm new password</span>
+            <input
+              autoComplete="new-password"
+              maxLength={256}
+              minLength={8}
+              name="confirmation"
+              required
+              type="password"
+            />
+          </label>
+          <div className={styles.formFooter}>
+            <span />
+            <button
+              className={styles.primaryButton}
+              disabled={props.isChangingPassword}
+              type="submit"
+            >
+              {props.isChangingPassword ? "Updating" : "Update password"}
+            </button>
+          </div>
+        </form>
+      </section>
+      <section className={styles.card}>
+        <CardHeading
+          icon={ShieldCheck}
+          subtitle="Review devices that are currently signed in to your account"
+          title="Active sessions"
+        />
+        <div className={styles.sessionToolbar}>
+          <p>End access on a lost or unrecognised device straight away.</p>
           <button
-            className={styles.primaryButton}
-            disabled={props.isChangingPassword}
-            type="submit"
+            className={styles.secondaryButton}
+            disabled={
+              props.isRevokingOtherSessions ||
+              !props.sessions.some((session) => !session.current)
+            }
+            onClick={() => void props.onRevokeOtherSessions()}
+            type="button"
           >
-            {props.isChangingPassword ? "Updating" : "Update password"}
+            {props.isRevokingOtherSessions
+              ? "Signing out"
+              : "Sign out other devices"}
           </button>
         </div>
-      </form>
-    </section>
+        {props.isLoadingSessions ? (
+          <p className={styles.mutedCopy}>Loading active sessions…</p>
+        ) : props.sessions.length === 0 ? (
+          <p className={styles.mutedCopy}>No active sessions were found.</p>
+        ) : (
+          <ul className={styles.sessionList}>
+            {props.sessions.map((session) => (
+              <li key={session.id}>
+                <div>
+                  <strong>{getSessionDeviceName(session.userAgent)}</strong>
+                  <span>
+                    {session.current
+                      ? "This device"
+                      : `Last active ${formatDateTime(session.lastSeenAt)}`}
+                    {session.ipAddress ? ` · ${session.ipAddress}` : ""}
+                  </span>
+                </div>
+                <button
+                  className={styles.textButton}
+                  disabled={props.revokingSessionId === session.id}
+                  onClick={() => void props.onRevokeSession(session)}
+                  type="button"
+                >
+                  {props.revokingSessionId === session.id
+                    ? "Signing out"
+                    : session.current
+                      ? "Sign out"
+                      : "End session"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </>
   );
+}
+
+function getSessionDeviceName(userAgent: string | null) {
+  if (!userAgent) return "Unknown device";
+  if (/iPhone|iPad/i.test(userAgent)) return "Apple mobile device";
+  if (/Android/i.test(userAgent)) return "Android device";
+  if (/Windows/i.test(userAgent)) return "Windows device";
+  if (/Macintosh|Mac OS X/i.test(userAgent)) return "Mac";
+  if (/Linux/i.test(userAgent)) return "Linux device";
+  return "Browser session";
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function BillingPanel() {

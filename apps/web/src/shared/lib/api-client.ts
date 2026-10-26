@@ -1,5 +1,6 @@
 import {
   authResponseSchema,
+  accountSessionListResponseSchema,
   acceptInvitationResponseSchema,
   labelListResponseSchema,
   labelResponseSchema,
@@ -52,6 +53,7 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type AccountSessionListResponse,
   type AcceptInvitationResponse,
   type LabelListResponse,
   type LabelResponse,
@@ -289,6 +291,26 @@ export async function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
+}
+
+export function getAccountSessions(): Promise<AccountSessionListResponse> {
+  return request(
+    "/api/v1/auth/sessions",
+    { method: "GET" },
+    accountSessionListResponseSchema,
+  );
+}
+
+export function revokeAccountSession(sessionId: string): Promise<void> {
+  return requestNoContent(`/api/v1/auth/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+}
+
+export function revokeOtherAccountSessions(): Promise<void> {
+  return requestNoContent("/api/v1/auth/sessions/revoke-others", {
+    method: "POST",
+  });
 }
 
 export function getNotifications(): Promise<NotificationListResponse> {

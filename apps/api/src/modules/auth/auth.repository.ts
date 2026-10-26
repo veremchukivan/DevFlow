@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lte, ne } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { authTokens } from "../../core/db/schema/auth-tokens.js";
@@ -177,6 +177,50 @@ export async function deleteSessionByTokenHash(tokenHash: string) {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
 
+export async function listActiveSessionsForUser(userId: string) {
+  return db
+    .select({
+      createdAt: sessions.createdAt,
+      expiresAt: sessions.expiresAt,
+      id: sessions.id,
+      ipAddress: sessions.ipAddress,
+      lastSeenAt: sessions.lastSeenAt,
+      tokenHash: sessions.tokenHash,
+      userAgent: sessions.userAgent,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, new Date())))
+    .orderBy(desc(sessions.lastSeenAt));
+}
+
+export async function deleteSessionForUser(input: {
+  sessionId: string;
+  userId: string;
+}) {
+  const [session] = await db
+    .delete(sessions)
+    .where(
+      and(eq(sessions.id, input.sessionId), eq(sessions.userId, input.userId)),
+    )
+    .returning({ tokenHash: sessions.tokenHash });
+
+  return session ?? null;
+}
+
+export async function deleteOtherSessionsForUser(input: {
+  tokenHash: string;
+  userId: string;
+}) {
+  await db
+    .delete(sessions)
+    .where(
+      and(
+        eq(sessions.userId, input.userId),
+        ne(sessions.tokenHash, input.tokenHash),
+      ),
+    );
+}
+
 export async function updateUserDisplayName(
   userId: string,
   displayName: string,
@@ -198,7 +242,10 @@ export async function updateUserDisplayName(
   return user ?? null;
 }
 
-export async function updateUserAvatar(userId: string, avatarUrl: string | null) {
+export async function updateUserAvatar(
+  userId: string,
+  avatarUrl: string | null,
+) {
   const [user] = await db
     .update(users)
     .set({ avatarUrl, updatedAt: new Date() })
