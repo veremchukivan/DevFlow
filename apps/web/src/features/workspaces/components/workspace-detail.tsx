@@ -91,6 +91,39 @@ export function WorkspaceDetail() {
     };
   }, [router, workspaceId]);
 
+  useEffect(() => {
+    if (!projects.length) return;
+    let active = true;
+
+    async function refreshTaskStatistics() {
+      try {
+        const responses = await Promise.all(
+          projects.map(async (project) => [
+            project.id,
+            (await getTasks(workspaceId, project.id, { limit: 100 })).tasks,
+          ]),
+        );
+        if (active) setTasksByProject(Object.fromEntries(responses));
+      } catch {
+        // Keep the most recent dashboard values during a transient failure.
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshTaskStatistics();
+      }
+    }, 15_000);
+    const onFocus = () => void refreshTaskStatistics();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [projects, workspaceId]);
+
   async function onCreateProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(undefined);
