@@ -193,6 +193,7 @@ export function ProjectBoard() {
   const [showArchived, setShowArchived] = useState(false);
   const createTaskInFlight = useRef(false);
   const columnWidthsRef = useRef<Record<string, number>>({});
+  const ignoreTaskClickRef = useRef(false);
   const canCreateTasks = role ? can(role, "task:create") : false;
   const canUpdateTasks = role ? can(role, "task:update") : false;
   const canDeleteTasks = role ? can(role, "task:delete") : false;
@@ -2124,14 +2125,21 @@ export function ProjectBoard() {
                     <article
                       className={`${styles.taskCard} card shadow-sm`}
                       draggable={canUpdateTasks}
-                      onClick={() => setSelectedTask(task)}
+                      onClick={() => {
+                        if (ignoreTaskClickRef.current) return;
+                        setSelectedTask(task);
+                      }}
                       onDragEnd={() => {
                         setDraggedTaskId(undefined);
                         setDropStatusId(undefined);
+                        window.setTimeout(() => {
+                          ignoreTaskClickRef.current = false;
+                        }, 0);
                       }}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
                         event.dataTransfer.setData("text/plain", task.id);
+                        ignoreTaskClickRef.current = true;
                         setDraggedTaskId(task.id);
                       }}
                       key={task.id}
