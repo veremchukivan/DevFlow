@@ -1080,19 +1080,6 @@
   border-color: var(--brand);
   box-shadow: 0 0 0 2px rgb(37 99 235 / 18%);
 }
-.taskCardSelection {
-  display: inline-flex;
-  left: 10px;
-  position: absolute;
-  top: 10px;
-  z-index: 2;
-}
-.taskCardSelection input {
-  cursor: pointer;
-  height: 16px;
-  margin: 0;
-  width: 16px;
-}
 .bulkTaskActions {
   align-items: center;
   background: #eff6ff;
@@ -1112,29 +1099,7 @@
 .bulkTaskActions select {
   min-width: 125px;
 }
-.taskCardActions {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-}
-.taskCardMenuButton {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 5px;
-  color: var(--muted);
-  display: inline-flex;
-  height: 28px;
-  justify-content: center;
-  padding: 0;
-  width: 28px;
-}
-.taskCardMenuButton:hover,
-.taskCardMenuButton[aria-expanded="true"] {
-  background: #e8eef8;
-  color: var(--ink);
-}
-.taskCardMenu {
+.taskContextMenu {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -1142,12 +1107,10 @@
   display: grid;
   min-width: 145px;
   padding: 5px;
-  position: absolute;
-  right: 0;
-  top: 32px;
-  z-index: 3;
+  position: fixed;
+  z-index: 20;
 }
-.taskCardMenu button {
+.taskContextMenu button {
   align-items: center;
   background: transparent;
   border: 0;
@@ -1160,11 +1123,25 @@
   padding: 8px;
   text-align: left;
 }
-.taskCardMenu button:hover {
+.taskContextMenu button:hover {
   background: #f1f5f9;
 }
-.taskCardMenu .taskCardArchiveAction {
+.taskContextMenu .taskCardArchiveAction {
   color: #b42318;
+}
+.taskContextMoveGroup {
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: grid;
+  margin: 4px 0;
+  padding: 5px 0;
+}
+.taskContextMoveGroup > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  text-transform: uppercase;
 }
 .taskAssignee {
   color: var(--muted);

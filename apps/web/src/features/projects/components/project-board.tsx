@@ -28,6 +28,7 @@ import {
   Settings,
   SlidersHorizontal,
   UserRound,
+  X,
 } from "lucide-react";
 
 import {
@@ -177,8 +178,13 @@ export function ProjectBoard() {
     defaultTaskCardFields,
   );
   const [showProjectMenu, setShowProjectMenu] = useState(false);
-  const [taskMenuId, setTaskMenuId] = useState<string>();
+  const [taskContextMenu, setTaskContextMenu] = useState<{
+    task: Task;
+    x: number;
+    y: number;
+  }>();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
@@ -341,6 +347,20 @@ export function ProjectBoard() {
       active = false;
     };
   }, [projectId, router, workspaceId]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setTaskContextMenu(undefined);
+      if (isMultiSelectMode) {
+        setIsMultiSelectMode(false);
+        setSelectedTaskIds([]);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMultiSelectMode]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -581,7 +601,7 @@ export function ProjectBoard() {
     if (!window.confirm(`Archive “${task.title}”?`)) return;
     try {
       await deleteTask(workspaceId, projectId, task.id, task.version);
-      setTaskMenuId(undefined);
+      setTaskContextMenu(undefined);
       await loadTasks(filters, pageInfo?.offset);
     } catch (caughtError) {
       setError(
@@ -599,7 +619,7 @@ export function ProjectBoard() {
     ).toString();
     try {
       await navigator.clipboard.writeText(taskUrl);
-      setTaskMenuId(undefined);
+      setTaskContextMenu(undefined);
     } catch {
       setError("Unable to copy the task link.");
     }
@@ -611,6 +631,19 @@ export function ProjectBoard() {
         ? current.filter((id) => id !== taskId)
         : [...current, taskId],
     );
+  }
+
+  function enterMultiSelectMode(taskId: string) {
+    setTaskContextMenu(undefined);
+    setIsMultiSelectMode(true);
+    setSelectedTaskIds((current) =>
+      current.includes(taskId) ? current : [...current, taskId],
+    );
+  }
+
+  function exitMultiSelectMode() {
+    setIsMultiSelectMode(false);
+    setSelectedTaskIds([]);
   }
 
   async function onBulkUpdate(input: UpdateTaskRequest) {
@@ -2183,7 +2216,7 @@ export function ProjectBoard() {
         </p>
       ) : null}
 
-      {selectedTaskIds.length ? (
+      {isMultiSelectMode ? (
         <section
           className={styles.bulkTaskActions}
           aria-label="Bulk task actions"
@@ -2194,7 +2227,7 @@ export function ProjectBoard() {
             <select
               className="form-select form-select-sm"
               defaultValue=""
-              disabled={isBulkUpdating}
+              disabled={isBulkUpdating || selectedTaskIds.length === 0}
               onChange={(event) => {
                 if (event.target.value)
                   void onBulkUpdate({ statusId: event.target.value });
@@ -2214,7 +2247,7 @@ export function ProjectBoard() {
             <select
               className="form-select form-select-sm"
               defaultValue=""
-              disabled={isBulkUpdating}
+              disabled={isBulkUpdating || selectedTaskIds.length === 0}
               onChange={(event) => {
                 if (event.target.value)
                   void onBulkUpdate({
@@ -2236,7 +2269,7 @@ export function ProjectBoard() {
             <select
               className="form-select form-select-sm"
               defaultValue=""
-              disabled={isBulkUpdating}
+              disabled={isBulkUpdating || selectedTaskIds.length === 0}
               onChange={(event) => {
                 if (event.target.value)
                   void onBulkUpdate({
@@ -2258,12 +2291,79 @@ export function ProjectBoard() {
           <button
             className="btn btn-outline-secondary btn-sm"
             disabled={isBulkUpdating}
-            onClick={() => setSelectedTaskIds([])}
+            onClick={exitMultiSelectMode}
             type="button"
           >
-            Clear
+            <X aria-hidden="true" size={16} />
+            Exit selection
           </button>
         </section>
+      ) : null}
+
+      {taskContextMenu ? (
+        <div
+          className={styles.taskContextMenu}
+          role="menu"
+          style={{ left: taskContextMenu.x, top: taskContextMenu.y }}
+        >
+          <button
+            onClick={() => {
+              setSelectedTask(taskContextMenu.task);
+              setTaskContextMenu(undefined);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            Open task
+          </button>
+          <button
+            onClick={() => void copyTaskCardLink(taskContextMenu.task)}
+            role="menuitem"
+            type="button"
+          >
+            <Copy aria-hidden="true" size={15} />
+            Copy link
+          </button>
+          {canUpdateTasks ? (
+            <div className={styles.taskContextMoveGroup}>
+              <span>Move to</span>
+              {project.statuses.map((status) => (
+                <button
+                  key={status.id}
+                  onClick={() => {
+                    void onUpdateTask(taskContextMenu.task, {
+                      statusId: status.id,
+                    });
+                    setTaskContextMenu(undefined);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  {status.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {canUpdateTasks ? (
+            <button
+              onClick={() => enterMultiSelectMode(taskContextMenu.task.id)}
+              role="menuitem"
+              type="button"
+            >
+              Select multiple
+            </button>
+          ) : null}
+          {canDeleteTasks && !showArchived ? (
+            <button
+              className={styles.taskCardArchiveAction}
+              onClick={() => void onArchiveTask(taskContextMenu.task)}
+              role="menuitem"
+              type="button"
+            >
+              Archive task
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {view === "board" ? (
@@ -2354,7 +2454,22 @@ export function ProjectBoard() {
                       draggable={canUpdateTasks}
                       onClick={() => {
                         if (ignoreTaskClickRef.current) return;
+                        setTaskContextMenu(undefined);
+                        if (isMultiSelectMode) {
+                          toggleTaskSelection(task.id);
+                          return;
+                        }
                         setSelectedTask(task);
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        const maxLeft = window.innerWidth - 210;
+                        const maxTop = window.innerHeight - 260;
+                        setTaskContextMenu({
+                          task,
+                          x: Math.max(8, Math.min(event.clientX, maxLeft)),
+                          y: Math.max(8, Math.min(event.clientY, maxTop)),
+                        });
                       }}
                       onDragEnd={() => {
                         setDraggedTaskId(undefined);
@@ -2377,19 +2492,6 @@ export function ProjectBoard() {
                       }}
                       key={task.id}
                     >
-                      {canUpdateTasks ? (
-                        <label className={styles.taskCardSelection}>
-                          <span className={styles.srOnly}>
-                            Select {task.key}
-                          </span>
-                          <input
-                            checked={selectedTaskIds.includes(task.id)}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={() => toggleTaskSelection(task.id)}
-                            type="checkbox"
-                          />
-                        </label>
-                      ) : null}
                       {visibleTaskFields.includes("taskKey") ||
                       visibleTaskFields.includes("taskType") ||
                       visibleTaskFields.includes("priority") ? (
@@ -2423,6 +2525,10 @@ export function ProjectBoard() {
                           className={styles.taskTitleButton}
                           onClick={(event) => {
                             event.stopPropagation();
+                            if (isMultiSelectMode) {
+                              toggleTaskSelection(task.id);
+                              return;
+                            }
                             setSelectedTask(task);
                           }}
                           type="button"
@@ -2430,50 +2536,6 @@ export function ProjectBoard() {
                           {task.title}
                         </button>
                       </h3>
-                      <div className={styles.taskCardActions}>
-                        <button
-                          aria-expanded={taskMenuId === task.id}
-                          aria-label={`Actions for ${task.key}`}
-                          className={styles.taskCardMenuButton}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setTaskMenuId((current) =>
-                              current === task.id ? undefined : task.id,
-                            );
-                          }}
-                          type="button"
-                        >
-                          <MoreHorizontal aria-hidden="true" size={17} />
-                        </button>
-                        {taskMenuId === task.id ? (
-                          <div className={styles.taskCardMenu} role="menu">
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                void copyTaskCardLink(task);
-                              }}
-                              role="menuitem"
-                              type="button"
-                            >
-                              <Copy aria-hidden="true" size={15} />
-                              Copy link
-                            </button>
-                            {canDeleteTasks && !showArchived ? (
-                              <button
-                                className={styles.taskCardArchiveAction}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void onArchiveTask(task);
-                                }}
-                                role="menuitem"
-                                type="button"
-                              >
-                                Archive task
-                              </button>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
                       {task.description ? <p>{task.description}</p> : null}
                       {visibleTaskFields.includes("labels") &&
                       task.labels.length ? (
