@@ -7,6 +7,7 @@ import {
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import {
@@ -112,6 +113,8 @@ const defaultTaskCardFields: TaskCardField[] = [
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
 const taskTypes: TaskType[] = ["task", "bug", "feature", "story"];
 const taskPageSize = 50;
+const defaultActivityLimit = 1;
+const maxActivityLimit = 25;
 const priorityStyles: Record<TaskPriority, string> = {
   high: styles.priorityHigh!,
   low: styles.priorityLow!,
@@ -132,6 +135,7 @@ export function ProjectBoard() {
   );
   const [tasks, setTasks] = useState<Task[]>([]);
   const [recentActivity, setRecentActivity] = useState<TaskActivityEvent[]>([]);
+  const [activityLimit, setActivityLimit] = useState(defaultActivityLimit);
   const [selectedTask, setSelectedTask] = useState<Task>();
   const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [filters, setFilters] = useState<BoardFilters>({});
@@ -183,6 +187,7 @@ export function ProjectBoard() {
     startX: number;
   }>();
   const [showArchived, setShowArchived] = useState(false);
+  const createTaskInFlight = useRef(false);
   const canCreateTasks = role ? can(role, "task:create") : false;
   const canUpdateTasks = role ? can(role, "task:update") : false;
   const canDeleteTasks = role ? can(role, "task:delete") : false;
@@ -247,7 +252,7 @@ export function ProjectBoard() {
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
       getProjectSprints(workspaceId, projectId),
-      getProjectActivity(workspaceId, projectId),
+      getProjectActivity(workspaceId, projectId, { limit: activityLimit }),
     ])
       .then(
         async ([
@@ -301,7 +306,15 @@ export function ProjectBoard() {
     return () => {
       active = false;
     };
-  }, [projectId, router, workspaceId]);
+  }, [activityLimit, projectId, router, workspaceId]);
+
+  useEffect(() => {
+    const storedLimit = window.localStorage.getItem(
+      activityLimitStorageKey(projectId),
+    );
+    if (!storedLimit) return;
+    setActivityLimit(normalizeActivityLimit(Number(storedLimit)));
+  }, [projectId]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -309,7 +322,9 @@ export function ProjectBoard() {
     let active = true;
     async function refreshActivity() {
       try {
-        const response = await getProjectActivity(workspaceId, projectId);
+        const response = await getProjectActivity(workspaceId, projectId, {
+          limit: activityLimit,
+        });
         if (active) setRecentActivity(response.events);
       } catch {
         // The board remains usable if the non-critical activity feed is delayed.
@@ -327,7 +342,7 @@ export function ProjectBoard() {
       window.clearInterval(intervalId);
       window.removeEventListener("focus", onFocus);
     };
-  }, [isLoading, projectId, workspaceId]);
+  }, [activityLimit, isLoading, projectId, workspaceId]);
 
   useEffect(() => {
     if (!taskIdFromUrl) return;
@@ -588,9 +603,13 @@ export function ProjectBoard() {
 
   async function onCreateTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (createTaskInFlight.current) return;
+
+    const formElement = event.currentTarget;
+    createTaskInFlight.current = true;
     setError(undefined);
     setIsCreating(true);
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     try {
       const response = await createTask(workspaceId, projectId, {
         title: String(form.get("title") ?? ""),
@@ -603,11 +622,15 @@ export function ProjectBoard() {
         assigneeUserId: String(form.get("assigneeUserId") ?? "") || undefined,
         dueDate: String(form.get("dueDate") ?? "") || undefined,
       });
-      setTasks((current) => [...current, response.task]);
-      event.currentTarget.reset();
+      setTasks((current) =>
+        current.some((task) => task.id === response.task.id)
+          ? current
+          : [...current, response.task],
+      );
+      formElement.reset();
       setShowTaskForm(false);
       setDraftStatusId(undefined);
-      await loadTasks(filters, pageInfo?.offset);
+      void loadTasks(filters, pageInfo?.offset);
     } catch (caughtError) {
       setError(
         caughtError instanceof ApiClientError
@@ -615,8 +638,18 @@ export function ProjectBoard() {
           : "Unable to create the task. Try again.",
       );
     } finally {
+      createTaskInFlight.current = false;
       setIsCreating(false);
     }
+  }
+
+  function updateActivityLimit(nextLimit: number) {
+    const normalizedLimit = normalizeActivityLimit(nextLimit);
+    setActivityLimit(normalizedLimit);
+    window.localStorage.setItem(
+      activityLimitStorageKey(projectId),
+      String(normalizedLimit),
+    );
   }
 
   async function onCreateSprint(event: FormEvent<HTMLFormElement>) {
@@ -1453,6 +1486,38 @@ export function ProjectBoard() {
                 <option value="hide">Hide completed work items</option>
               </select>
             </label>
+            <label className={styles.viewSettingsSelect}>
+              <span>Recent activity</span>
+              <p>Choose how many of the latest project changes to show.</p>
+              <select
+                className="form-select"
+                onChange={(event) => {
+                  if (event.target.value !== "custom") {
+                    updateActivityLimit(Number(event.target.value));
+                  }
+                }}
+                value={
+                  [1, 3, 5].includes(activityLimit)
+                    ? String(activityLimit)
+                    : "custom"
+                }
+              >
+                <option value="1">One latest action</option>
+                <option value="3">Three latest actions</option>
+                <option value="5">Five latest actions</option>
+                <option value="custom">Custom value below</option>
+              </select>
+              <input
+                className="form-control"
+                max={maxActivityLimit}
+                min={1}
+                onChange={(event) =>
+                  updateActivityLimit(Number(event.target.value))
+                }
+                type="number"
+                value={activityLimit}
+              />
+            </label>
             <fieldset className={styles.viewSettingsFieldset}>
               <legend>Column size</legend>
               <p>
@@ -2168,11 +2233,10 @@ export function ProjectBoard() {
       >
         <div className={`${styles.projectActivityHeading} d-flex`}>
           <h2 id="project-activity-title">Recent activity</h2>
-          {recentActivity.length > 3 ? <span>Latest 3</span> : null}
         </div>
         {recentActivity.length ? (
           <ol className={styles.projectActivityList}>
-            {recentActivity.slice(0, 3).map((event) => (
+            {recentActivity.slice(0, activityLimit).map((event) => (
               <li key={event.id}>
                 <div>
                   <p>
@@ -2252,6 +2316,15 @@ function formatSprintPeriod(startDate: string | null, endDate: string | null) {
   if (startDate) return `Started ${startDate}`;
   if (endDate) return `Ends ${endDate}`;
   return "Dates have not been set";
+}
+
+function activityLimitStorageKey(projectId: string) {
+  return `devflow:project-activity-limit:${projectId}`;
+}
+
+function normalizeActivityLimit(value: number) {
+  if (!Number.isFinite(value)) return defaultActivityLimit;
+  return Math.max(1, Math.min(maxActivityLimit, Math.trunc(value)));
 }
 
 function describeProjectActivity(event: TaskActivityEvent) {
@@ -2572,6 +2645,7 @@ function TaskControls({
         <span className={styles.srOnly}>Status</span>
         <select
           aria-label={`Status for ${task.key}`}
+          className="form-select form-select-sm"
           disabled={!canUpdate || updatingTaskId === task.id}
           onChange={(event) =>
             void onUpdateTask(task, { statusId: event.target.value })
@@ -2589,6 +2663,7 @@ function TaskControls({
         <span className={styles.srOnly}>Priority</span>
         <select
           aria-label={`Priority for ${task.key}`}
+          className="form-select form-select-sm"
           disabled={!canUpdate || updatingTaskId === task.id}
           onChange={(event) =>
             void onUpdateTask(task, {
@@ -2641,6 +2716,7 @@ function QuickTaskForm({
       </label>
       <input
         autoFocus
+        className="form-control"
         id={`task-title-${statusId}`}
         maxLength={200}
         minLength={2}
@@ -2651,7 +2727,7 @@ function QuickTaskForm({
       <div className={styles.quickTaskControls}>
         <label title="Work type">
           <span className={styles.srOnly}>Work type</span>
-          <select defaultValue="task" name="type">
+          <select className="form-select" defaultValue="task" name="type">
             {taskTypes.map((type) => (
               <option key={type} value={type}>
                 {type[0]!.toUpperCase() + type.slice(1)}
@@ -2661,7 +2737,7 @@ function QuickTaskForm({
         </label>
         <label title="Priority">
           <span className={styles.srOnly}>Priority</span>
-          <select defaultValue="medium" name="priority">
+          <select className="form-select" defaultValue="medium" name="priority">
             {priorities.map((priority) => (
               <option key={priority} value={priority}>
                 {priority[0]!.toUpperCase() + priority.slice(1)}
@@ -2672,12 +2748,22 @@ function QuickTaskForm({
         <label className={styles.quickTaskIconField} title="Due date">
           <CalendarDays aria-hidden="true" size={16} />
           <span className={styles.srOnly}>Due date</span>
-          <input aria-label="Due date" name="dueDate" type="date" />
+          <input
+            aria-label="Due date"
+            className="form-control"
+            name="dueDate"
+            type="date"
+          />
         </label>
         <label className={styles.quickTaskIconField} title="Assignee">
           <UserRound aria-hidden="true" size={16} />
           <span className={styles.srOnly}>Assignee</span>
-          <select aria-label="Assignee" defaultValue="" name="assigneeUserId">
+          <select
+            aria-label="Assignee"
+            className="form-select"
+            defaultValue=""
+            name="assigneeUserId"
+          >
             <option value="">Unassigned</option>
             {members.map((member) => (
               <option key={member.userId} value={member.userId}>
@@ -2688,7 +2774,7 @@ function QuickTaskForm({
         </label>
         <button
           aria-label="Create task"
-          className={styles.iconButton}
+          className={`${styles.iconButton} btn btn-outline-primary`}
           disabled={isCreating}
           title="Create task"
           type="submit"
