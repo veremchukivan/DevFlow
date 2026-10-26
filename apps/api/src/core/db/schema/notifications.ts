@@ -3,6 +3,7 @@ import {
   pgEnum,
   pgTable,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -16,6 +17,8 @@ import { workspaces } from "./workspaces.js";
 export const notificationTypeEnum = pgEnum("notification_type", [
   "task_assigned",
   "task_commented",
+  "task_due_today",
+  "task_overdue",
   "task_status_changed",
 ]);
 
@@ -41,6 +44,7 @@ export const notifications = pgTable(
     type: notificationTypeEnum("type").notNull(),
     taskKey: varchar("task_key", { length: 64 }).notNull(),
     taskTitle: varchar("task_title", { length: 200 }).notNull(),
+    dedupeKey: varchar("dedupe_key", { length: 160 }),
     readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: createdAtColumn(),
   },
@@ -52,6 +56,10 @@ export const notifications = pgTable(
     index("notifications_recipient_read_at_idx").on(
       table.recipientUserId,
       table.readAt,
+    ),
+    uniqueIndex("notifications_recipient_dedupe_key_unique").on(
+      table.recipientUserId,
+      table.dedupeKey,
     ),
   ],
 );

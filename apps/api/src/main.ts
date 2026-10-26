@@ -1,19 +1,18 @@
 import { env } from "./config/env.js";
 import { closeDbConnection } from "./core/db/client.js";
-import {
-  closeRedisConnection,
-  connectRedis
-} from "./core/redis/client.js";
+import { closeRedisConnection, connectRedis } from "./core/redis/client.js";
 
 async function start() {
   await connectRedis();
   const { createApp } = await import("./app.js");
-  const { purgeExpiredSessions, scheduleSessionCleanup } = await import(
-    "./modules/auth/session-cleanup.js"
-  );
+  const { purgeExpiredSessions, scheduleSessionCleanup } =
+    await import("./modules/auth/session-cleanup.js");
+  const { scheduleDeadlineNotifications } =
+    await import("./modules/notifications/deadline-notification-scheduler.js");
 
   await purgeExpiredSessions();
   const stopSessionCleanup = scheduleSessionCleanup();
+  const stopDeadlineNotifications = scheduleDeadlineNotifications();
 
   const app = createApp();
   const server = app.listen(env.API_PORT, () => {
@@ -30,6 +29,7 @@ async function start() {
     isShuttingDown = true;
     console.log(`Received ${signal}, shutting down DevFlow API`);
     stopSessionCleanup();
+    stopDeadlineNotifications();
 
     const forceExitTimer = setTimeout(() => {
       console.error("Graceful shutdown timed out, forcing exit");
@@ -44,7 +44,7 @@ async function start() {
 
   async function finishShutdown(
     serverError: Error | undefined,
-    forceExitTimer: NodeJS.Timeout
+    forceExitTimer: NodeJS.Timeout,
   ) {
     clearTimeout(forceExitTimer);
 

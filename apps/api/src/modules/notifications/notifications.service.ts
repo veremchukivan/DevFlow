@@ -4,6 +4,7 @@ import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import {
   createNotification,
+  findDeadlineNotificationCandidates,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -67,6 +68,33 @@ export async function notifyTaskStatusChanged(input: {
     type: "task_status_changed",
     workspaceId: input.workspaceId,
   });
+}
+
+export async function sendDeadlineNotifications(
+  today = new Date().toISOString().slice(0, 10),
+) {
+  const candidates = await findDeadlineNotificationCandidates();
+  let sent = 0;
+
+  for (const task of candidates) {
+    if (!task.assigneeUserId || !task.dueDate || task.dueDate > today) continue;
+
+    const type = task.dueDate === today ? "task_due_today" : "task_overdue";
+    const notification = await createNotification({
+      actorUserId: null,
+      dedupeKey: `deadline:${type}:${task.dueDate}:${task.taskId}`,
+      projectId: task.projectId,
+      recipientUserId: task.assigneeUserId,
+      taskId: task.taskId,
+      taskKey: `${task.projectKey}-${task.taskNumber}`,
+      taskTitle: task.taskTitle,
+      type,
+      workspaceId: task.workspaceId,
+    });
+    if (notification) sent += 1;
+  }
+
+  return sent;
 }
 
 export async function getNotifications(input: {

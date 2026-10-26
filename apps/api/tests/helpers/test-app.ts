@@ -166,6 +166,7 @@ export async function createTestTask(
   overrides?: {
     assigneeUserId?: string;
     description?: string;
+    dueDate?: string;
     parentTaskId?: string;
     priority?: "low" | "medium" | "high" | "urgent";
     sprintId?: string;
@@ -182,6 +183,7 @@ export async function createTestTask(
     .send({
       assigneeUserId: overrides?.assigneeUserId,
       description: overrides?.description,
+      dueDate: overrides?.dueDate,
       parentTaskId: overrides?.parentTaskId,
       priority: overrides?.priority ?? "medium",
       sprintId: overrides?.sprintId,

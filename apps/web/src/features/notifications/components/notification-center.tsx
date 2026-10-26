@@ -111,7 +111,12 @@ export function NotificationCenter() {
 }
 
 function message(
-  type: "task_assigned" | "task_commented" | "task_status_changed",
+  type:
+    | "task_assigned"
+    | "task_commented"
+    | "task_due_today"
+    | "task_overdue"
+    | "task_status_changed",
   actor?: string,
 ) {
   const name = actor ?? "A workspace member";
@@ -119,7 +124,11 @@ function message(
     ? `${name} commented on a task`
     : type === "task_status_changed"
       ? `${name} changed a task status`
-      : `${name} assigned you a task`;
+      : type === "task_due_today"
+        ? "Task is due today"
+        : type === "task_overdue"
+          ? "Task is overdue"
+          : `${name} assigned you a task`;
 }
 function relativeTime(value: string) {
   const minutes = Math.max(

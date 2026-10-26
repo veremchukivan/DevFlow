@@ -1,23 +1,78 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "../../core/db/client.js";
 import { notifications } from "../../core/db/schema/notifications.js";
+import { projectStatuses } from "../../core/db/schema/project-statuses.js";
+import { projects } from "../../core/db/schema/projects.js";
+import { tasks } from "../../core/db/schema/tasks.js";
 import { users } from "../../core/db/schema/users.js";
 
 const actorUsers = alias(users, "notification_actor_users");
 
 export async function createNotification(input: {
-  actorUserId: string;
+  actorUserId: string | null;
+  dedupeKey?: string;
   projectId: string;
   recipientUserId: string;
   taskId: string;
   taskKey: string;
   taskTitle: string;
-  type: "task_assigned" | "task_commented" | "task_status_changed";
+  type:
+    | "task_assigned"
+    | "task_commented"
+    | "task_due_today"
+    | "task_overdue"
+    | "task_status_changed";
   workspaceId: string;
 }) {
-  await db.insert(notifications).values(input);
+  const [notification] = await db
+    .insert(notifications)
+    .values(input)
+    .onConflictDoNothing({
+      target: [notifications.recipientUserId, notifications.dedupeKey],
+    })
+    .returning({ id: notifications.id });
+  return notification;
+}
+
+export async function findDeadlineNotificationCandidates() {
+  return db
+    .select({
+      assigneeUserId: tasks.assigneeUserId,
+      dueDate: tasks.dueDate,
+      projectId: tasks.projectId,
+      projectKey: projects.key,
+      taskId: tasks.id,
+      taskNumber: tasks.number,
+      taskTitle: tasks.title,
+      workspaceId: tasks.workspaceId,
+    })
+    .from(tasks)
+    .innerJoin(
+      projects,
+      and(
+        eq(projects.id, tasks.projectId),
+        eq(projects.workspaceId, tasks.workspaceId),
+      ),
+    )
+    .innerJoin(
+      projectStatuses,
+      and(
+        eq(projectStatuses.id, tasks.statusId),
+        eq(projectStatuses.projectId, tasks.projectId),
+        eq(projectStatuses.workspaceId, tasks.workspaceId),
+      ),
+    )
+    .where(
+      and(
+        isNotNull(tasks.assigneeUserId),
+        isNotNull(tasks.dueDate),
+        isNull(tasks.deletedAt),
+        isNull(projects.deletedAt),
+        ne(projectStatuses.category, "done"),
+      ),
+    );
 }
 
 export async function listNotifications(input: {

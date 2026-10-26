@@ -10,6 +10,7 @@ import {
   createTestWorkspace,
   request,
 } from "./helpers/test-app.js";
+import { sendDeadlineNotifications } from "../src/modules/notifications/notifications.service.js";
 
 const app = createTestApp();
 
@@ -147,6 +148,50 @@ describe("Notification integration tests", () => {
         expect.objectContaining({
           taskId: task.id,
           type: "task_status_changed",
+        }),
+      ]),
+    );
+  });
+
+  it("sends one due-today or overdue notification per assigned task", async () => {
+    const dueToday = await createTestTask(
+      app,
+      owner.cookie,
+      workspace.id,
+      project.id,
+      {
+        assigneeUserId: member.user.id,
+        dueDate: "2030-05-12",
+        title: "Due today notification task",
+      },
+    );
+    const overdue = await createTestTask(
+      app,
+      owner.cookie,
+      workspace.id,
+      project.id,
+      {
+        assigneeUserId: member.user.id,
+        dueDate: "2030-05-11",
+        title: "Overdue notification task",
+      },
+    );
+
+    expect(await sendDeadlineNotifications("2030-05-12")).toBe(2);
+    expect(await sendDeadlineNotifications("2030-05-12")).toBe(0);
+
+    const listed = await request(app)
+      .get("/api/v1/notifications")
+      .set("Cookie", member.cookie);
+    expect(listed.body.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          taskId: dueToday.id,
+          type: "task_due_today",
+        }),
+        expect.objectContaining({
+          taskId: overdue.id,
+          type: "task_overdue",
         }),
       ]),
     );

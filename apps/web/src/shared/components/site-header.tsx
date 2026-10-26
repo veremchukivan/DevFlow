@@ -398,12 +398,19 @@ export function SiteHeader({ user }: { user: AuthUser }) {
 }
 
 function notificationMessage(
-  type: "task_assigned" | "task_commented" | "task_status_changed",
+  type:
+    | "task_assigned"
+    | "task_commented"
+    | "task_due_today"
+    | "task_overdue"
+    | "task_status_changed",
   actorName: string | undefined,
 ) {
   const actor = actorName ?? "A workspace member";
   if (type === "task_commented") return `${actor} commented on a task`;
   if (type === "task_status_changed") return `${actor} changed a task status`;
+  if (type === "task_due_today") return "Task is due today";
+  if (type === "task_overdue") return "Task is overdue";
   return `${actor} assigned you a task`;
 }
 
