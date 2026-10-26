@@ -20,7 +20,10 @@ import {
   getTasks,
   updateWorkspace,
 } from "@/shared/lib/api-client";
-import { notifyWorkspacesChanged } from "@/shared/lib/workspace-events";
+import {
+  notifyProjectsChanged,
+  notifyWorkspacesChanged,
+} from "@/shared/lib/workspace-events";
 import {
   can,
   type ProjectSummary,
@@ -140,6 +143,7 @@ export function WorkspaceDetail() {
         ...(description ? { description } : {}),
       });
       setProjects((current) => [response.project, ...current]);
+      notifyProjectsChanged(workspaceId);
       setShowProjectForm(false);
       event.currentTarget.reset();
     } catch (caughtError) {

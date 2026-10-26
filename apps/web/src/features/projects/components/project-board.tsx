@@ -69,6 +69,7 @@ import type {
 import { can } from "@devflow/shared";
 import { Modal } from "@/shared/components/modal";
 import { TaskWorkPanel } from "./task-work-panel";
+import { notifyProjectsChanged } from "@/shared/lib/workspace-events";
 import styles from "@/shared/styles/ui.module.css";
 
 type BoardFilters = {
@@ -708,6 +709,7 @@ export function ProjectBoard() {
         description: description || null,
       });
       setProject(response.project);
+      notifyProjectsChanged(workspaceId);
       setShowProjectSettings(false);
     } catch (caughtError) {
       setError(
@@ -728,6 +730,7 @@ export function ProjectBoard() {
     try {
       const response = await uploadProjectIcon(workspaceId, projectId, file);
       setProject(response.project);
+      notifyProjectsChanged(workspaceId);
     } catch (caughtError) {
       setError(
         caughtError instanceof ApiClientError
@@ -746,6 +749,7 @@ export function ProjectBoard() {
     try {
       const response = await deleteProjectIcon(workspaceId, projectId);
       setProject(response.project);
+      notifyProjectsChanged(workspaceId);
     } catch (caughtError) {
       setError(
         caughtError instanceof ApiClientError
@@ -766,6 +770,7 @@ export function ProjectBoard() {
       return;
     try {
       await deleteProject(workspaceId, projectId);
+      notifyProjectsChanged(workspaceId);
       router.replace(`/workspaces/${workspaceId}`);
       router.refresh();
     } catch (caughtError) {

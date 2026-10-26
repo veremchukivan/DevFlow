@@ -10,7 +10,10 @@ import {
   getProjects,
   getWorkspaces,
 } from "@/shared/lib/api-client";
-import { subscribeToWorkspaceChanges } from "@/shared/lib/workspace-events";
+import {
+  subscribeToProjectChanges,
+  subscribeToWorkspaceChanges,
+} from "@/shared/lib/workspace-events";
 import type { ProjectSummary, Workspace } from "@devflow/shared";
 
 import styles from "./workspace-sidebar.module.css";
@@ -55,16 +58,24 @@ export function WorkspaceSidebar() {
     }
 
     let active = true;
-    void getProjects(activeWorkspace.id)
-      .then((response) => {
+    const workspaceId = activeWorkspace.id;
+    async function loadProjects() {
+      try {
+        const response = await getProjects(workspaceId);
         if (active) setProjects(response.projects);
-      })
-      .catch(() => {
+      } catch {
         if (active) setProjects([]);
-      });
+      }
+    }
+
+    void loadProjects();
+    const unsubscribe = subscribeToProjectChanges((changedWorkspaceId) => {
+      if (changedWorkspaceId === workspaceId) void loadProjects();
+    });
 
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [activeWorkspace]);
 
