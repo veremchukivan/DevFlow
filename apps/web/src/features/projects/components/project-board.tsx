@@ -195,6 +195,10 @@ export function ProjectBoard() {
   const createTaskInFlight = useRef(false);
   const columnWidthsRef = useRef<Record<string, number>>({});
   const ignoreTaskClickRef = useRef(false);
+  const viewPreferencesSaveRef = useRef(Promise.resolve());
+  const saveViewPreferencesRef = useRef<
+    (input: Parameters<typeof updateProjectViewPreferences>[2]) => void
+  >(() => undefined);
   const canCreateTasks = role ? can(role, "task:create") : false;
   const canUpdateTasks = role ? can(role, "task:update") : false;
   const canDeleteTasks = role ? can(role, "task:delete") : false;
@@ -241,9 +245,9 @@ export function ProjectBoard() {
 
     function onPointerUp() {
       setResizingColumn(undefined);
-      void updateProjectViewPreferences(workspaceId, projectId, {
+      saveViewPreferencesRef.current({
         columnWidths: columnWidthsRef.current,
-      }).catch(() => setError("Unable to save board settings."));
+      });
     }
 
     window.addEventListener("pointermove", onPointerMove);
@@ -350,6 +354,7 @@ export function ProjectBoard() {
       if (document.visibilityState === "visible") void refreshActivity();
     }, 15_000);
     const onFocus = () => void refreshActivity();
+    void refreshActivity();
     window.addEventListener("focus", onFocus);
 
     return () => {
@@ -505,7 +510,7 @@ export function ProjectBoard() {
     setLabelId("");
     setAssigneeUserId("");
     setDue("");
-    setSortBy("number");
+    setSortBy("position");
     setSortOrder("asc");
     setShowArchived(false);
     const nextFilters = {
@@ -702,12 +707,17 @@ export function ProjectBoard() {
   function saveViewPreferences(
     input: Parameters<typeof updateProjectViewPreferences>[2],
   ) {
-    void updateProjectViewPreferences(workspaceId, projectId, input).catch(
-      () => {
+    viewPreferencesSaveRef.current = viewPreferencesSaveRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await updateProjectViewPreferences(workspaceId, projectId, input);
+      })
+      .catch(() => {
         setError("Unable to save board settings.");
-      },
-    );
+      });
   }
+
+  saveViewPreferencesRef.current = saveViewPreferences;
 
   async function onCreateSprint(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
