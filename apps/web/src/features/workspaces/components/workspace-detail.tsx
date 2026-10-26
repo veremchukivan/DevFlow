@@ -353,7 +353,7 @@ export function WorkspaceDetail() {
       ) : null}
 
       <section
-        className={styles.workspaceDashboard}
+        className={`${styles.workspaceDashboard} card shadow-sm`}
         aria-labelledby="dashboard-title"
       >
         <div className={styles.sectionHeading}>
@@ -368,27 +368,27 @@ export function WorkspaceDetail() {
           />
         </div>
         <div className={styles.workspaceMetrics}>
-          <article className={styles.workspaceMetric}>
+          <article className={`${styles.workspaceMetric} card`}>
             <CheckCircle2 aria-hidden="true" size={19} />
             <span>Completion rate</span>
             <strong>{completionRate}%</strong>
           </article>
-          <article className={styles.workspaceMetric}>
+          <article className={`${styles.workspaceMetric} card`}>
             <Clock3 aria-hidden="true" size={19} />
             <span>Open tasks</span>
             <strong>{openTasks.length}</strong>
           </article>
-          <article className={styles.workspaceMetric}>
+          <article className={`${styles.workspaceMetric} card`}>
             <AlertTriangle aria-hidden="true" size={19} />
             <span>Overdue</span>
             <strong>{overdueTasks.length}</strong>
           </article>
-          <article className={styles.workspaceMetric}>
+          <article className={`${styles.workspaceMetric} card`}>
             <CheckCircle2 aria-hidden="true" size={19} />
             <span>Completed this week</span>
             <strong>{completedThisWeek.length}</strong>
           </article>
-          <article className={styles.workspaceMetric}>
+          <article className={`${styles.workspaceMetric} card`}>
             <LayoutDashboard aria-hidden="true" size={19} />
             <span>Active projects</span>
             <strong>{activeProjects}</strong>
@@ -442,7 +442,7 @@ export function WorkspaceDetail() {
       </section>
 
       <section
-        className={styles.workspaceSection}
+        className={`${styles.workspaceSection} card shadow-sm`}
         aria-labelledby="projects-title"
       >
         <div className={styles.sectionHeading}>

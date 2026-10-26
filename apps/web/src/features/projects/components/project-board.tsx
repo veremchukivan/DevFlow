@@ -1955,7 +1955,7 @@ export function ProjectBoard() {
                 <div className={styles.taskList}>
                   {statusTasks.map((task) => (
                     <article
-                      className={styles.taskCard}
+                      className={`${styles.taskCard} card shadow-sm`}
                       draggable={canUpdateTasks}
                       onClick={() => setSelectedTask(task)}
                       onDragEnd={() => {
