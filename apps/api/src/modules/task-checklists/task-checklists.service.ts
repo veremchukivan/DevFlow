@@ -4,6 +4,7 @@ import type {
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
+import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import { canUpdateTask } from "../tasks/tasks.policy.js";
 import {
   createTaskChecklistItem,
@@ -32,7 +33,19 @@ export async function createChecklistItem(
   input: TaskChecklistScope & { input: CreateTaskChecklistItemRequest },
 ) {
   await requireTaskUpdatePermission(input);
-  return createTaskChecklistItem({ ...input, content: input.input.content });
+  const item = await createTaskChecklistItem({
+    ...input,
+    content: input.input.content,
+  });
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: { content: item.content },
+    eventType: "task_checklist_item_added",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
+  return item;
 }
 
 export async function updateChecklistItem(
@@ -42,7 +55,7 @@ export async function updateChecklistItem(
   },
 ) {
   await requireTaskUpdatePermission(input);
-  await requireChecklistItem(input);
+  const existingItem = await requireChecklistItem(input);
   const item = await updateTaskChecklistItem({ ...input, ...input.input });
   if (!item)
     throw new AppError(
@@ -50,6 +63,22 @@ export async function updateChecklistItem(
       "TASK_CHECKLIST_ITEM_NOT_FOUND",
       "Checklist item not found",
     );
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: {
+      content: item.content,
+      ...(input.input.isCompleted === undefined
+        ? {}
+        : { isCompleted: item.isCompleted }),
+      ...(input.input.content === undefined
+        ? {}
+        : { previousContent: existingItem.content }),
+    },
+    eventType: "task_checklist_item_updated",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
   return item;
 }
 
@@ -65,6 +94,14 @@ export async function removeChecklistItem(
       "TASK_CHECKLIST_ITEM_NOT_FOUND",
       "Checklist item not found",
     );
+  await recordTaskActivity({
+    actorUserId: input.userId,
+    data: { content: item.content },
+    eventType: "task_checklist_item_removed",
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
 }
 
 function withProgress(

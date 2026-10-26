@@ -830,8 +830,18 @@ function describeActivity(event: TaskActivityEvent) {
     task_attachment_removed: `removed ${activityValue(event, "filename", "a file")}`,
     task_relation_added: `linked ${activityValue(event, "targetTaskKey", "a task")}`,
     task_relation_removed: "removed a task link",
+    task_checklist_item_added: `added checklist item “${activityValue(event, "content", "Untitled")}”`,
+    task_checklist_item_updated: describeChecklistUpdate(event),
+    task_checklist_item_removed: `removed checklist item “${activityValue(event, "content", "Untitled")}”`,
   };
   return `${actor} ${descriptions[event.eventType]}`;
+}
+
+function describeChecklistUpdate(event: TaskActivityEvent) {
+  if (typeof event.data.isCompleted === "boolean") {
+    return `${event.data.isCompleted ? "completed" : "reopened"} checklist item “${activityValue(event, "content", "Untitled")}”`;
+  }
+  return `updated checklist item “${activityValue(event, "content", "Untitled")}”`;
 }
 
 function activityValue(

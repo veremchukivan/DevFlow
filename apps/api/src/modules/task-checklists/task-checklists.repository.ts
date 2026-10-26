@@ -143,7 +143,10 @@ export async function deleteTaskChecklistItem(
         eq(taskChecklistItems.id, input.itemId),
       ),
     )
-    .returning({ id: taskChecklistItems.id });
+    .returning({
+      content: taskChecklistItems.content,
+      id: taskChecklistItems.id,
+    });
 
   return item;
 }

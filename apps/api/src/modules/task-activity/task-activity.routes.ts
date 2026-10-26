@@ -53,7 +53,10 @@ function toTaskActivityEventDto(event: {
     | "task_attachment_added"
     | "task_attachment_removed"
     | "task_relation_added"
-    | "task_relation_removed";
+    | "task_relation_removed"
+    | "task_checklist_item_added"
+    | "task_checklist_item_updated"
+    | "task_checklist_item_removed";
   id: string;
   projectId: string;
   taskId: string;

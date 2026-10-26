@@ -58,6 +58,7 @@ describe("Task checklist integration tests", () => {
     expect(createResponse.body.item.content).toBe("Write integration coverage");
     expect(createResponse.body.item.isCompleted).toBe(false);
     const itemId = createResponse.body.item.id;
+    const activityPath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/activity`;
 
     const listResponse = await request(app)
       .get(basePath)
@@ -73,6 +74,28 @@ describe("Task checklist integration tests", () => {
     expect(updateResponse.status).toBe(200);
     expect(updateResponse.body.item.isCompleted).toBe(true);
 
+    const activityAfterUpdate = await request(app)
+      .get(activityPath)
+      .set("Cookie", owner.cookie);
+    expect(activityAfterUpdate.status).toBe(200);
+    expect(activityAfterUpdate.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content: "Write integration coverage",
+            isCompleted: true,
+          }),
+          eventType: "task_checklist_item_updated",
+        }),
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content: "Write integration coverage",
+          }),
+          eventType: "task_checklist_item_added",
+        }),
+      ]),
+    );
+
     const completedListResponse = await request(app)
       .get(basePath)
       .set("Cookie", owner.cookie);
@@ -85,6 +108,20 @@ describe("Task checklist integration tests", () => {
       .delete(`${basePath}/${itemId}`)
       .set("Cookie", owner.cookie);
     expect(deleteResponse.status).toBe(204);
+
+    const activityAfterDeletion = await request(app)
+      .get(activityPath)
+      .set("Cookie", owner.cookie);
+    expect(activityAfterDeletion.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content: "Write integration coverage",
+          }),
+          eventType: "task_checklist_item_removed",
+        }),
+      ]),
+    );
   });
 
   it("forbids viewers from changing a task checklist", async () => {
