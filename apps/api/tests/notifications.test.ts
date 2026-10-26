@@ -97,4 +97,44 @@ describe("Notification integration tests", () => {
       ]),
     );
   });
+
+  it("notifies an assignee when another member moves their task", async () => {
+    const task = await createTestTask(
+      app,
+      owner.cookie,
+      workspace.id,
+      project.id,
+      { assigneeUserId: member.user.id, title: "Status notification task" },
+    );
+    const projectDetails = await request(app)
+      .get(`/api/v1/workspaces/${workspace.id}/projects/${project.id}`)
+      .set("Cookie", owner.cookie);
+    expect(projectDetails.status).toBe(200);
+    const targetStatus = projectDetails.body.project.statuses.find(
+      (status: { id: string; category: string }) =>
+        status.category === "in_progress",
+    );
+    expect(targetStatus).toBeDefined();
+
+    const updated = await request(app)
+      .patch(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`,
+      )
+      .set("Cookie", owner.cookie)
+      .set("If-Match", `\"${task.version}\"`)
+      .send({ statusId: targetStatus.id });
+    expect(updated.status).toBe(200);
+
+    const listed = await request(app)
+      .get("/api/v1/notifications")
+      .set("Cookie", member.cookie);
+    expect(listed.body.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          taskId: task.id,
+          type: "task_status_changed",
+        }),
+      ]),
+    );
+  });
 });

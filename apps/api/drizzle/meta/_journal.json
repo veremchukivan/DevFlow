@@ -169,6 +169,13 @@
       "when": 1792950020679,
       "tag": "0023_dizzy_sleeper",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792979989104,
+      "tag": "0024_freezing_sugar_man",
+      "breakpoints": true
     }
   ]
 }

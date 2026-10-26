@@ -44,6 +44,30 @@ export async function notifyTaskCommented(input: {
   });
 }
 
+export async function notifyTaskStatusChanged(input: {
+  actorUserId: string;
+  projectId: string;
+  recipientUserId: string | null;
+  statusName: string;
+  taskId: string;
+  taskKey: string;
+  taskTitle: string;
+  workspaceId: string;
+}) {
+  if (!input.recipientUserId || input.recipientUserId === input.actorUserId)
+    return;
+  await createNotification({
+    actorUserId: input.actorUserId,
+    projectId: input.projectId,
+    recipientUserId: input.recipientUserId,
+    taskId: input.taskId,
+    taskKey: input.taskKey,
+    taskTitle: `${input.taskTitle} · ${input.statusName}`,
+    type: "task_status_changed",
+    workspaceId: input.workspaceId,
+  });
+}
+
 export async function getNotifications(input: {
   pagination: PaginationQuery & { unreadOnly?: boolean };
   userId: string;

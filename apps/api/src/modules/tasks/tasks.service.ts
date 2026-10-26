@@ -8,7 +8,10 @@ import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
-import { notifyTaskAssigned } from "../notifications/notifications.service.js";
+import {
+  notifyTaskAssigned,
+  notifyTaskStatusChanged,
+} from "../notifications/notifications.service.js";
 import { canCreateTask, canDeleteTask, canUpdateTask } from "./tasks.policy.js";
 import { findProjectSprint } from "../project-sprints/project-sprints.repository.js";
 import {
@@ -280,6 +283,22 @@ export async function updateTask(input: {
       actorUserId: input.userId,
       projectId: input.projectId,
       recipientUserId: result.assigneeUserId,
+      taskId: result.id,
+      taskKey: `${existingTask.projectKey}-${result.number}`,
+      taskTitle: result.title,
+      workspaceId: input.workspaceId,
+    });
+  }
+  if (
+    input.input.statusId !== undefined &&
+    input.input.statusId !== existingTask.statusId &&
+    input.input.assigneeUserId === undefined
+  ) {
+    await notifyTaskStatusChanged({
+      actorUserId: input.userId,
+      projectId: input.projectId,
+      recipientUserId: result.assigneeUserId,
+      statusName: result.status.name,
       taskId: result.id,
       taskKey: `${existingTask.projectKey}-${result.number}`,
       taskTitle: result.title,

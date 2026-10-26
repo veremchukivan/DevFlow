@@ -203,11 +203,11 @@ export function SiteHeader({ user }: { user: AuthUser }) {
 }
 
 function notificationMessage(
-  type: "task_assigned" | "task_commented",
+  type: "task_assigned" | "task_commented" | "task_status_changed",
   actorName: string | undefined,
 ) {
   const actor = actorName ?? "A workspace member";
-  return type === "task_commented"
-    ? `${actor} commented on a task`
-    : `${actor} assigned you a task`;
+  if (type === "task_commented") return `${actor} commented on a task`;
+  if (type === "task_status_changed") return `${actor} changed a task status`;
+  return `${actor} assigned you a task`;
 }

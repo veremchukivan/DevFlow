@@ -5,6 +5,7 @@ import { pageInfoSchema, paginationQuerySchema } from "./pagination.js";
 export const notificationTypeSchema = z.enum([
   "task_assigned",
   "task_commented",
+  "task_status_changed",
 ]);
 
 export const notificationSchema = z.object({
