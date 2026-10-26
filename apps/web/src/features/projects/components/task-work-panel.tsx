@@ -11,6 +11,7 @@ import {
   Paperclip,
   Trash2,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   type ChangeEvent,
@@ -1075,11 +1076,14 @@ function AttachmentPreview({
       onClick={onOpen}
       type="button"
     >
-      <img
+      <Image
         alt={`Preview of ${attachment.originalFilename}`}
         className={styles.attachmentImage}
+        height={240}
         loading="lazy"
         src={previewUrl}
+        unoptimized
+        width={360}
       />
     </button>
   );
@@ -1099,10 +1103,13 @@ function AttachmentMedia({
   }
 
   return (
-    <img
+    <Image
       alt={`Preview of ${attachment.originalFilename}`}
       className={styles.attachmentDialogImage}
+      height={900}
       src={previewUrl}
+      unoptimized
+      width={1200}
     />
   );
 }
