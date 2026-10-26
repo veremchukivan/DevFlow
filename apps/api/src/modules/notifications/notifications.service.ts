@@ -8,7 +8,22 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  getNotificationPreferences as getNotificationPreferencesFromDb,
+  updateNotificationPreferences as updateNotificationPreferencesInDb,
 } from "./notifications.repository.js";
+
+const preferenceByType = {
+  task_assigned: "taskAssigned", task_commented: "taskCommented", task_due_today: "taskDueToday", task_overdue: "taskOverdue", task_status_changed: "taskStatusChanged",
+} as const;
+
+async function createPreferredNotification(input: Parameters<typeof createNotification>[0]) {
+  const preferences = await getNotificationPreferencesFromDb(input.recipientUserId);
+  if (!preferences[preferenceByType[input.type]]) return;
+  return createNotification(input);
+}
+
+export async function getNotificationPreferences(userId: string) { return getNotificationPreferencesFromDb(userId); }
+export async function updateNotificationPreferences(input: { userId: string; taskAssigned?: boolean; taskCommented?: boolean; taskDueToday?: boolean; taskOverdue?: boolean; taskStatusChanged?: boolean }) { return updateNotificationPreferencesInDb(input); }
 
 export async function notifyTaskAssigned(input: {
   actorUserId: string;
@@ -21,7 +36,7 @@ export async function notifyTaskAssigned(input: {
 }) {
   if (!input.recipientUserId || input.recipientUserId === input.actorUserId)
     return;
-  await createNotification({
+  await createPreferredNotification({
     ...input,
     recipientUserId: input.recipientUserId,
     type: "task_assigned",
@@ -39,7 +54,7 @@ export async function notifyTaskCommented(input: {
 }) {
   if (!input.recipientUserId || input.recipientUserId === input.actorUserId)
     return;
-  await createNotification({
+  await createPreferredNotification({
     ...input,
     recipientUserId: input.recipientUserId,
     type: "task_commented",
@@ -58,7 +73,7 @@ export async function notifyTaskStatusChanged(input: {
 }) {
   if (!input.recipientUserId || input.recipientUserId === input.actorUserId)
     return;
-  await createNotification({
+  await createPreferredNotification({
     actorUserId: input.actorUserId,
     projectId: input.projectId,
     recipientUserId: input.recipientUserId,
@@ -80,7 +95,7 @@ export async function sendDeadlineNotifications(
     if (!task.assigneeUserId || !task.dueDate || task.dueDate > today) continue;
 
     const type = task.dueDate === today ? "task_due_today" : "task_overdue";
-    const notification = await createNotification({
+    const notification = await createPreferredNotification({
       actorUserId: null,
       dedupeKey: `deadline:${type}:${task.dueDate}:${task.taskId}`,
       projectId: task.projectId,

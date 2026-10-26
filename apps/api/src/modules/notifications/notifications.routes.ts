@@ -2,6 +2,8 @@ import {
   notificationListQuerySchema,
   notificationListResponseSchema,
   notificationParamsSchema,
+  updateNotificationPreferencesRequestSchema,
+  notificationPreferencesSchema,
 } from "@devflow/shared";
 import { Router } from "express";
 
@@ -13,10 +15,20 @@ import {
   getNotifications,
   readAllNotifications,
   readNotification,
+  getNotificationPreferences,
+  updateNotificationPreferences,
 } from "./notifications.service.js";
 
 export const notificationsRouter = Router();
 notificationsRouter.use(requireAuth);
+
+notificationsRouter.get("/preferences", async (req, res) => {
+  res.json(notificationPreferencesSchema.parse(await getNotificationPreferences(getUserId(req))));
+});
+notificationsRouter.patch("/preferences", async (req, res) => {
+  const input = updateNotificationPreferencesRequestSchema.parse(req.body);
+  res.json(notificationPreferencesSchema.parse(await updateNotificationPreferences({ ...input, userId: getUserId(req) })));
+});
 
 notificationsRouter.get("/", async (req, res) => {
   const result = await getNotifications({

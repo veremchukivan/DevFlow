@@ -3,12 +3,25 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "../../core/db/client.js";
 import { notifications } from "../../core/db/schema/notifications.js";
+import { notificationPreferences } from "../../core/db/schema/notification-preferences.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { users } from "../../core/db/schema/users.js";
 
 const actorUsers = alias(users, "notification_actor_users");
+
+export async function getNotificationPreferences(userId: string) {
+  await db.insert(notificationPreferences).values({ userId }).onConflictDoNothing();
+  const [preferences] = await db.select().from(notificationPreferences).where(eq(notificationPreferences.userId, userId));
+  return preferences!;
+}
+
+export async function updateNotificationPreferences(input: { userId: string; taskAssigned?: boolean; taskCommented?: boolean; taskDueToday?: boolean; taskOverdue?: boolean; taskStatusChanged?: boolean }) {
+  await db.insert(notificationPreferences).values({ userId: input.userId }).onConflictDoNothing();
+  const [preferences] = await db.update(notificationPreferences).set({ ...input, updatedAt: new Date() }).where(eq(notificationPreferences.userId, input.userId)).returning();
+  return preferences!;
+}
 
 export async function createNotification(input: {
   actorUserId: string | null;
