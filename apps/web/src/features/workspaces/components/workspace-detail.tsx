@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -34,6 +34,7 @@ import styles from "@/shared/styles/ui.module.css";
 
 export function WorkspaceDetail() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams<{ workspaceId: string }>();
   const workspaceId = params.workspaceId;
   const [workspace, setWorkspace] = useState<Workspace>();
@@ -93,6 +94,12 @@ export function WorkspaceDetail() {
       active = false;
     };
   }, [router, workspaceId]);
+
+  useEffect(() => {
+    if (searchParams.get("newProject") !== "1") return;
+    setShowProjectForm(true);
+    router.replace(`/workspaces/${workspaceId}`, { scroll: false });
+  }, [router, searchParams, workspaceId]);
 
   useEffect(() => {
     if (!projects.length) return;

@@ -25,6 +25,7 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const workspaceId = pathname.match(/^\/workspaces\/([^/]+)/)?.[1];
 
   const refreshNotifications = useCallback(async () => {
     try {
@@ -126,17 +127,22 @@ export function SiteHeader({ user }: { user: AuthUser }) {
       <div className={styles.content}>
         <div className={styles.mobileBrand}>DevFlow</div>
         <div className={styles.breadcrumb}>
-          {pathname === "/dashboard"
-            ? "Dashboard"
+          {pathname === "/profile"
+            ? "Profile settings"
             : pathname === "/workspaces"
-              ? "Workspaces"
+              ? "Opening workspace"
               : "Project workspace"}
         </div>
         <div className={styles.userMenu}>
-          <Link className={styles.createButton} href="/workspaces">
-            <Plus aria-hidden="true" size={18} strokeWidth={2} />
-            Create
-          </Link>
+          {workspaceId ? (
+            <Link
+              className={styles.createButton}
+              href={`/workspaces/${workspaceId}?newProject=1`}
+            >
+              <Plus aria-hidden="true" size={18} strokeWidth={2} />
+              New project
+            </Link>
+          ) : null}
           <div className={styles.notifications} ref={notificationsRef}>
             <button
               aria-expanded={isNotificationsOpen}
