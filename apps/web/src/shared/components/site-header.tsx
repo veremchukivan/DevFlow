@@ -1,7 +1,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Bell, LogOut, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 
@@ -23,7 +29,9 @@ import type {
 
 import styles from "./site-header.module.css";
 
-type SearchResult = { project: ProjectSummary; task: Task };
+type SearchResult =
+  | { kind: "project"; project: ProjectSummary }
+  | { kind: "task"; project: ProjectSummary; task: Task };
 
 export function SiteHeader({ user }: { user: AuthUser }) {
   const pathname = usePathname();
@@ -37,6 +45,7 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedSearchIndex, setSelectedSearchIndex] = useState(0);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const workspaceId = pathname.match(/^\/workspaces\/([^/]+)/)?.[1];
@@ -96,6 +105,10 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   }, [isSearchOpen]);
 
   useEffect(() => {
+    setSelectedSearchIndex(0);
+  }, [searchResults]);
+
+  useEffect(() => {
     if (!isSearchOpen || !workspaceId || searchQuery.trim().length < 2) {
       setSearchResults([]);
       setIsSearching(false);
@@ -107,16 +120,30 @@ export function SiteHeader({ user }: { user: AuthUser }) {
       setIsSearching(true);
       void getProjects(workspaceId)
         .then(async ({ projects }) => {
-          const results = await Promise.all(
+          const matchingProjects = projects
+            .filter((project) =>
+              `${project.name} ${project.key}`
+                .toLowerCase()
+                .includes(searchQuery.trim().toLowerCase()),
+            )
+            .map((project) => ({ kind: "project" as const, project }));
+          const taskResults = await Promise.all(
             projects.map(async (project) => {
               const response = await getTasks(workspaceId, project.id, {
                 limit: 8,
                 search: searchQuery.trim(),
               });
-              return response.tasks.map((task) => ({ project, task }));
+              return response.tasks.map((task) => ({
+                kind: "task" as const,
+                project,
+                task,
+              }));
             }),
           );
-          if (active) setSearchResults(results.flat().slice(0, 20));
+          if (active)
+            setSearchResults(
+              [...matchingProjects, ...taskResults.flat()].slice(0, 20),
+            );
         })
         .catch(() => {
           if (active) setSearchResults([]);
@@ -195,8 +222,28 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     setIsSearchOpen(false);
     setSearchQuery("");
     router.push(
-      `/workspaces/${result.project.workspaceId}/projects/${result.project.id}/tasks/${result.task.id}`,
+      result.kind === "project"
+        ? `/workspaces/${result.project.workspaceId}/projects/${result.project.id}`
+        : `/workspaces/${result.project.workspaceId}/projects/${result.project.id}/tasks/${result.task.id}`,
     );
+  }
+
+  function onSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (!searchResults.length) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedSearchIndex((index) => (index + 1) % searchResults.length);
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedSearchIndex(
+        (index) => (index - 1 + searchResults.length) % searchResults.length,
+      );
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      openSearchResult(searchResults[selectedSearchIndex] ?? searchResults[0]!);
+    }
   }
 
   return (
@@ -352,6 +399,7 @@ export function SiteHeader({ user }: { user: AuthUser }) {
               <Search aria-hidden="true" size={19} />
               <input
                 onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={onSearchKeyDown}
                 placeholder="Search tasks in this workspace…"
                 ref={searchInputRef}
                 value={searchQuery}
@@ -371,23 +419,47 @@ export function SiteHeader({ user }: { user: AuthUser }) {
                 <p>Searching…</p>
               ) : searchResults.length ? (
                 <ul>
-                  {searchResults.map(({ project, task }) => (
-                    <li key={task.id}>
+                  {searchResults.map((result, index) => (
+                    <li
+                      key={
+                        result.kind === "project"
+                          ? result.project.id
+                          : result.task.id
+                      }
+                    >
                       <button
-                        onClick={() => openSearchResult({ project, task })}
+                        className={
+                          selectedSearchIndex === index
+                            ? styles.searchResultSelected
+                            : undefined
+                        }
+                        onMouseMove={() => setSelectedSearchIndex(index)}
+                        onClick={() => openSearchResult(result)}
                         type="button"
                       >
-                        <span>{project.name}</span>
-                        <strong>
-                          {task.key}: {task.title}
-                        </strong>
-                        <em>{task.status.name}</em>
+                        {result.kind === "project" ? (
+                          <>
+                            <span>Project</span>
+                            <strong>
+                              {result.project.key}: {result.project.name}
+                            </strong>
+                            <em>Open project</em>
+                          </>
+                        ) : (
+                          <>
+                            <span>{result.project.name}</span>
+                            <strong>
+                              {result.task.key}: {result.task.title}
+                            </strong>
+                            <em>{result.task.status.name}</em>
+                          </>
+                        )}
                       </button>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p>No tasks found.</p>
+                <p>No matching projects or tasks found.</p>
               )}
             </div>
           </section>

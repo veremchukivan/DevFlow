@@ -156,6 +156,10 @@
 .searchResults button:hover {
   background: #f1f5f9;
 }
+.searchResults button.searchResultSelected {
+  background: #e9f2ff;
+  outline: 1px solid #b9d5fb;
+}
 .searchResults button span,
 .searchResults button em {
   color: var(--muted);
@@ -346,5 +350,37 @@
     justify-content: center;
     padding: 0;
     width: 38px;
+  }
+}
+
+@media (max-width: 560px) {
+  .content {
+    gap: 9px;
+    min-height: 64px;
+    padding: 0 14px;
+  }
+  .userMenu {
+    gap: 5px;
+  }
+  .createButton {
+    font-size: 0;
+    justify-content: center;
+    min-width: 38px;
+    padding: 0;
+  }
+  .createButton svg {
+    margin: 0;
+  }
+  .signOut {
+    display: none;
+  }
+  .searchOverlay {
+    padding: 12px;
+  }
+  .searchDialog {
+    border-radius: 10px;
+  }
+  .searchResults {
+    max-height: calc(100dvh - 110px);
   }
 }
