@@ -7,7 +7,7 @@ import {
   createTestProject,
   createTestUser,
   createTestWorkspace,
-  request
+  request,
 } from "./helpers/test-app.js";
 
 const app = createTestApp();
@@ -31,12 +31,12 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
 
     workspace = await createTestWorkspace(app, owner.cookie, {
       name: "Original Workspace",
-      slug: "orig-ws"
+      slug: "orig-ws",
     });
 
     secondWorkspace = await createTestWorkspace(app, owner.cookie, {
       name: "Second Workspace",
-      slug: "second-ws"
+      slug: "second-ws",
     });
 
     // Add members
@@ -58,7 +58,7 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
     project = await createTestProject(app, owner.cookie, workspace.id, {
       description: "Original Description",
       key: "ORIG",
-      name: "Original Project"
+      name: "Original Project",
     });
   });
 
@@ -137,7 +137,7 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
         .send({
           description: "Updated by Admin",
           key: "ADM",
-          name: "Admin Managed Project"
+          name: "Admin Managed Project",
         });
 
       expect(res.status).toBe(200);
@@ -151,7 +151,7 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
       // Create another project in the same workspace
       await createTestProject(app, owner.cookie, workspace.id, {
         key: "OTHER",
-        name: "Other Project"
+        name: "Other Project",
       });
 
       const res = await request(app)
@@ -176,7 +176,9 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
       expect(uploaded.body.project.iconUrl).toMatch(/^\/uploads\/projects\//);
 
       const removed = await request(app)
-        .delete(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/icon`)
+        .delete(
+          `/api/v1/workspaces/${workspace.id}/projects/${project.id}/icon`,
+        )
         .set("Cookie", admin.cookie);
       expect(removed.status).toBe(200);
       expect(removed.body.project.iconUrl).toBeNull();
@@ -187,15 +189,22 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
     let projectToDelete: Awaited<ReturnType<typeof createTestProject>>;
 
     beforeAll(async () => {
-      projectToDelete = await createTestProject(app, owner.cookie, workspace.id, {
-        key: "DEL",
-        name: "Project To Delete"
-      });
+      projectToDelete = await createTestProject(
+        app,
+        owner.cookie,
+        workspace.id,
+        {
+          key: "DEL",
+          name: "Project To Delete",
+        },
+      );
     });
 
     it("forbids member from deleting project", async () => {
       const res = await request(app)
-        .delete(`/api/v1/workspaces/${workspace.id}/projects/${projectToDelete.id}`)
+        .delete(
+          `/api/v1/workspaces/${workspace.id}/projects/${projectToDelete.id}`,
+        )
         .set("Cookie", member.cookie);
 
       expect(res.status).toBe(403);
@@ -204,14 +213,18 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
 
     it("allows admin to soft delete project", async () => {
       const res = await request(app)
-        .delete(`/api/v1/workspaces/${workspace.id}/projects/${projectToDelete.id}`)
+        .delete(
+          `/api/v1/workspaces/${workspace.id}/projects/${projectToDelete.id}`,
+        )
         .set("Cookie", admin.cookie);
 
       expect(res.status).toBe(204);
 
       // Verify project is no longer found
       const getRes = await request(app)
-        .get(`/api/v1/workspaces/${workspace.id}/projects/${projectToDelete.id}`)
+        .get(
+          `/api/v1/workspaces/${workspace.id}/projects/${projectToDelete.id}`,
+        )
         .set("Cookie", owner.cookie);
 
       expect(getRes.status).toBe(404);
@@ -235,7 +248,7 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
     beforeAll(async () => {
       wsToDelete = await createTestWorkspace(app, owner.cookie, {
         name: "Temporary WS",
-        slug: "temp-ws"
+        slug: "temp-ws",
       });
 
       await request(app)
@@ -280,20 +293,72 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
     });
   });
 
+  it("creates a replacement workspace after deleting a user's only workspace", async () => {
+    const soloUser = await createTestUser(app, {
+      email: "replacement-workspace@devflow.io",
+    });
+    const initialWorkspaces = await request(app)
+      .get("/api/v1/workspaces")
+      .set("Cookie", soloUser.cookie);
+    expect(initialWorkspaces.body.workspaces).toHaveLength(1);
+
+    const deletedWorkspaceId = initialWorkspaces.body.workspaces[0].id;
+    const deleted = await request(app)
+      .delete(`/api/v1/workspaces/${deletedWorkspaceId}`)
+      .set("Cookie", soloUser.cookie);
+    expect(deleted.status).toBe(204);
+
+    const remainingWorkspaces = await request(app)
+      .get("/api/v1/workspaces")
+      .set("Cookie", soloUser.cookie);
+    expect(remainingWorkspaces.body.workspaces).toHaveLength(1);
+    expect(remainingWorkspaces.body.workspaces[0]).toMatchObject({
+      name: "Personal workspace",
+      role: "owner",
+    });
+    expect(remainingWorkspaces.body.workspaces[0].id).not.toBe(
+      deletedWorkspaceId,
+    );
+  });
+
   it("transfers workspace ownership only to an active member", async () => {
-    const transferOwner = await createTestUser(app, { email: "transfer-owner@devflow.io" });
-    const target = await createTestUser(app, { email: "transfer-target@devflow.io" });
-    const transferWorkspace = await createTestWorkspace(app, transferOwner.cookie, { name: "Transfer Workspace", slug: "transfer-workspace" });
-    await request(app).post(`/api/v1/workspaces/${transferWorkspace.id}/members`).set("Cookie", transferOwner.cookie).send({ email: target.email, role: "member" });
-    const transferred = await request(app).post(`/api/v1/workspaces/${transferWorkspace.id}/members/transfer-ownership`).set("Cookie", transferOwner.cookie).send({ userId: target.user.id });
+    const transferOwner = await createTestUser(app, {
+      email: "transfer-owner@devflow.io",
+    });
+    const target = await createTestUser(app, {
+      email: "transfer-target@devflow.io",
+    });
+    const transferWorkspace = await createTestWorkspace(
+      app,
+      transferOwner.cookie,
+      { name: "Transfer Workspace", slug: "transfer-workspace" },
+    );
+    await request(app)
+      .post(`/api/v1/workspaces/${transferWorkspace.id}/members`)
+      .set("Cookie", transferOwner.cookie)
+      .send({ email: target.email, role: "member" });
+    const transferred = await request(app)
+      .post(
+        `/api/v1/workspaces/${transferWorkspace.id}/members/transfer-ownership`,
+      )
+      .set("Cookie", transferOwner.cookie)
+      .send({ userId: target.user.id });
     expect(transferred.status).toBe(204);
-    const workspaceResponse = await request(app).get(`/api/v1/workspaces/${transferWorkspace.id}`).set("Cookie", target.cookie);
+    const workspaceResponse = await request(app)
+      .get(`/api/v1/workspaces/${transferWorkspace.id}`)
+      .set("Cookie", target.cookie);
     expect(workspaceResponse.body.workspace.ownerUserId).toBe(target.user.id);
     expect(workspaceResponse.body.workspace.role).toBe("owner");
-    const formerOwner = await request(app).get(`/api/v1/workspaces/${transferWorkspace.id}`).set("Cookie", transferOwner.cookie);
+    const formerOwner = await request(app)
+      .get(`/api/v1/workspaces/${transferWorkspace.id}`)
+      .set("Cookie", transferOwner.cookie);
     expect(formerOwner.body.workspace.role).toBe("admin");
-    const repeatedTransfer = await request(app).post(`/api/v1/workspaces/${transferWorkspace.id}/members/transfer-ownership`).set("Cookie", transferOwner.cookie).send({ userId: target.user.id });
+    const repeatedTransfer = await request(app)
+      .post(
+        `/api/v1/workspaces/${transferWorkspace.id}/members/transfer-ownership`,
+      )
+      .set("Cookie", transferOwner.cookie)
+      .send({ userId: target.user.id });
     expect(repeatedTransfer.status).toBe(403);
   });
 });
-
