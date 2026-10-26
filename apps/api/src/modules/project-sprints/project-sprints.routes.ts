@@ -1,5 +1,6 @@
 import {
   createProjectSprintRequestSchema,
+  completeProjectSprintRequestSchema,
   projectSprintParamsSchema,
   projectSprintsParamsSchema,
   updateProjectSprintRequestSchema,
@@ -14,6 +15,8 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createSprint,
+  completeSprint,
+  getSprintAnalytics,
   listSprints,
   removeSprint,
   updateSprint,
@@ -45,6 +48,19 @@ projectSprintsRouter.patch("/:sprintId", async (req, res) => {
   const sprint = await updateSprint({
     ...params,
     input: updateProjectSprintRequestSchema.parse(req.body),
+    userId: userId(req),
+  });
+  res.json({ sprint: toSprintDto(sprint) } satisfies ProjectSprintResponse);
+});
+projectSprintsRouter.get("/:sprintId/analytics", async (req, res) => {
+  const params = projectSprintParamsSchema.parse(req.params);
+  res.json(await getSprintAnalytics({ ...params, userId: userId(req) }));
+});
+projectSprintsRouter.post("/:sprintId/complete", async (req, res) => {
+  const params = projectSprintParamsSchema.parse(req.params);
+  const sprint = await completeSprint({
+    ...params,
+    input: completeProjectSprintRequestSchema.parse(req.body),
     userId: userId(req),
   });
   res.json({ sprint: toSprintDto(sprint) } satisfies ProjectSprintResponse);

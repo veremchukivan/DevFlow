@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
+import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projectSprints } from "../../core/db/schema/project-sprints.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
@@ -161,4 +162,70 @@ export async function deleteProjectSprint(
     )
     .returning({ id: projectSprints.id });
   return sprint;
+}
+
+export async function listSprintTaskMetrics(
+  input: ProjectScope & { sprintId: string },
+) {
+  return db
+    .select({
+      dueDate: tasks.dueDate,
+      statusId: tasks.statusId,
+      statusName: projectStatuses.name,
+      statusCategory: projectStatuses.category,
+    })
+    .from(tasks)
+    .innerJoin(
+      projectStatuses,
+      and(
+        eq(projectStatuses.id, tasks.statusId),
+        eq(projectStatuses.projectId, tasks.projectId),
+        eq(projectStatuses.workspaceId, tasks.workspaceId),
+      ),
+    )
+    .where(
+      and(
+        eq(tasks.sprintId, input.sprintId),
+        eq(tasks.projectId, input.projectId),
+        eq(tasks.workspaceId, input.workspaceId),
+        isNull(tasks.deletedAt),
+      ),
+    );
+}
+
+export async function completeSprintAndCarryOver(
+  input: ProjectScope & { sprintId: string; targetSprintId?: string },
+) {
+  return db.transaction(async (tx) => {
+    await tx
+      .update(tasks)
+      .set({ sprintId: input.targetSprintId ?? null, updatedAt: new Date() })
+      .from(projectStatuses)
+      .where(
+        and(
+          eq(tasks.sprintId, input.sprintId),
+          eq(tasks.projectId, input.projectId),
+          eq(tasks.workspaceId, input.workspaceId),
+          isNull(tasks.deletedAt),
+          eq(projectStatuses.id, tasks.statusId),
+          sql`${projectStatuses.category} <> 'done'`,
+        ),
+      );
+    const [sprint] = await tx
+      .update(projectSprints)
+      .set({
+        status: "completed",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(projectSprints.id, input.sprintId),
+          eq(projectSprints.projectId, input.projectId),
+          eq(projectSprints.workspaceId, input.workspaceId),
+        ),
+      )
+      .returning();
+    return sprint;
+  });
 }

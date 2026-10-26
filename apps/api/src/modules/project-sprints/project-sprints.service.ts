@@ -1,5 +1,6 @@
 import type {
   CreateProjectSprintRequest,
+  CompleteProjectSprintRequest,
   UpdateProjectSprintRequest,
 } from "@devflow/shared";
 
@@ -7,12 +8,14 @@ import { AppError } from "../../core/errors/app-error.js";
 import { canUpdateProject } from "../projects/projects.policy.js";
 import {
   countTasksInSprint,
+  completeSprintAndCarryOver,
   createProjectSprint,
   deleteProjectSprint,
   findActiveWorkspaceMembership,
   findProjectInWorkspace,
   findProjectSprint,
   listProjectSprints,
+  listSprintTaskMetrics,
   updateProjectSprint,
 } from "./project-sprints.repository.js";
 
@@ -78,6 +81,80 @@ export async function removeSprint(input: SprintScope & { sprintId: string }) {
   }
   if (!(await deleteProjectSprint(input)))
     throw new AppError(404, "SPRINT_NOT_FOUND", "Sprint not found");
+}
+
+export async function completeSprint(
+  input: SprintScope & {
+    input: CompleteProjectSprintRequest;
+    sprintId: string;
+  },
+) {
+  await requireProjectUpdatePermission(input);
+  const sprint = await requireSprint(input);
+  if (sprint.status === "completed")
+    throw new AppError(
+      409,
+      "SPRINT_ALREADY_COMPLETED",
+      "This sprint is already completed",
+    );
+  if (input.input.carryOver === "sprint") {
+    const target = await requireSprint({
+      ...input,
+      sprintId: input.input.targetSprintId!,
+    });
+    if (target.status === "completed")
+      throw new AppError(
+        400,
+        "SPRINT_TARGET_COMPLETED",
+        "Cannot carry tasks into a completed sprint",
+      );
+  }
+  const completed = await completeSprintAndCarryOver({
+    ...input,
+    targetSprintId:
+      input.input.carryOver === "sprint"
+        ? input.input.targetSprintId
+        : undefined,
+  });
+  if (!completed)
+    throw new AppError(404, "SPRINT_NOT_FOUND", "Sprint not found");
+  return completed;
+}
+
+export async function getSprintAnalytics(
+  input: SprintScope & { sprintId: string },
+) {
+  await requireProject(input);
+  await requireSprint(input);
+  const tasks = await listSprintTaskMetrics(input);
+  const today = new Date().toISOString().slice(0, 10);
+  const statusDistribution = [
+    ...new Map(
+      tasks.map((task) => [
+        task.statusId,
+        {
+          count: tasks.filter((item) => item.statusId === task.statusId).length,
+          statusId: task.statusId,
+          statusName: task.statusName,
+        },
+      ]),
+    ).values(),
+  ];
+  const completed = tasks.filter(
+    (task) => task.statusCategory === "done",
+  ).length;
+  const open = tasks.length - completed;
+  return {
+    completed,
+    open,
+    overdue: tasks.filter(
+      (task) =>
+        task.statusCategory !== "done" && task.dueDate && task.dueDate < today,
+    ).length,
+    statusDistribution,
+    total: tasks.length,
+    velocity: completed,
+  };
 }
 
 async function requireProject(input: SprintScope) {

@@ -57,6 +57,28 @@ export const projectSprintsParamsSchema = z.object({
 export const projectSprintParamsSchema = projectSprintsParamsSchema.extend({
   sprintId: z.uuid(),
 });
+export const completeProjectSprintRequestSchema = z
+  .object({
+    carryOver: z.enum(["backlog", "sprint"]).default("backlog"),
+    targetSprintId: z.uuid().optional(),
+  })
+  .refine((input) => input.carryOver === "backlog" || !!input.targetSprintId, {
+    message: "Choose a sprint for unfinished tasks",
+  });
+export const projectSprintAnalyticsSchema = z.object({
+  completed: z.number().int().nonnegative(),
+  overdue: z.number().int().nonnegative(),
+  open: z.number().int().nonnegative(),
+  statusDistribution: z.array(
+    z.object({
+      count: z.number().int().nonnegative(),
+      statusId: z.uuid(),
+      statusName: z.string(),
+    }),
+  ),
+  total: z.number().int().nonnegative(),
+  velocity: z.number().int().nonnegative(),
+});
 
 export const projectSprintResponseSchema = z.object({
   sprint: projectSprintSchema,
@@ -75,4 +97,10 @@ export type ProjectSprint = z.infer<typeof projectSprintSchema>;
 export type ProjectSprintResponse = z.infer<typeof projectSprintResponseSchema>;
 export type ProjectSprintListResponse = z.infer<
   typeof projectSprintListResponseSchema
+>;
+export type CompleteProjectSprintRequest = z.infer<
+  typeof completeProjectSprintRequestSchema
+>;
+export type ProjectSprintAnalytics = z.infer<
+  typeof projectSprintAnalyticsSchema
 >;
