@@ -2163,18 +2163,16 @@ export function ProjectBoard() {
 
       <section
         aria-labelledby="project-activity-title"
-        className={styles.projectActivity}
+        aria-live="polite"
+        className={`${styles.projectActivity} alert alert-light mb-0`}
       >
-        <div className={styles.projectActivityHeading}>
-          <div>
-            <p className={styles.eyebrow}>Project activity</p>
-            <h2 id="project-activity-title">Recent changes</h2>
-          </div>
-          <span>{recentActivity.length} latest</span>
+        <div className={`${styles.projectActivityHeading} d-flex`}>
+          <h2 id="project-activity-title">Recent activity</h2>
+          {recentActivity.length > 3 ? <span>Latest 3</span> : null}
         </div>
         {recentActivity.length ? (
           <ol className={styles.projectActivityList}>
-            {recentActivity.map((event) => (
+            {recentActivity.slice(0, 3).map((event) => (
               <li key={event.id}>
                 <div>
                   <p>
@@ -2203,8 +2201,7 @@ export function ProjectBoard() {
           </ol>
         ) : (
           <p className={styles.projectActivityEmpty}>
-            Changes to tasks, comments, files, and checklist items will appear
-            here.
+            The latest project changes will appear here.
           </p>
         )}
       </section>

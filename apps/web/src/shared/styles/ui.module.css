@@ -822,40 +822,41 @@
   gap: 8px;
 }
 .projectActivity {
-  background: var(--surface);
+  background: #f8fafc;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  margin-top: 36px;
-  padding: 22px 24px;
+  border-left: 3px solid var(--brand);
+  border-radius: 7px;
+  color: var(--ink);
+  margin-top: 22px;
+  padding: 11px 14px;
 }
 .projectActivityHeading {
-  align-items: flex-start;
-  display: flex;
-  gap: 16px;
+  align-items: center;
+  gap: 10px;
   justify-content: space-between;
 }
 .projectActivityHeading h2 {
-  font-size: 20px;
-  margin: 4px 0 0;
+  font-size: 14px;
+  margin: 0;
 }
 .projectActivityHeading > span {
-  background: #eef2f7;
+  background: #e7edf5;
   border-radius: 999px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 5px 9px;
+  padding: 3px 7px;
 }
 .projectActivityList {
   display: grid;
   gap: 0;
   list-style: none;
-  margin: 18px 0 0;
+  margin: 8px 0 0;
   padding: 0;
 }
 .projectActivityList li {
   border-top: 1px solid var(--line);
-  padding: 13px 0;
+  padding: 7px 0;
 }
 .projectActivityList li:first-child {
   border-top: 0;
@@ -863,18 +864,18 @@
 }
 .projectActivityList p {
   color: var(--ink);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.35;
   margin: 0;
 }
 .projectActivityList time,
 .projectActivityEmpty {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 .projectActivityList time {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .projectActivityTask {
   background: transparent;
@@ -890,8 +891,8 @@
   text-decoration: underline;
 }
 .projectActivityEmpty {
-  line-height: 1.5;
-  margin: 18px 0 0;
+  line-height: 1.35;
+  margin: 8px 0 0;
 }
 .taskTableTitle {
   display: grid;
