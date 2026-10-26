@@ -1179,6 +1179,37 @@ export function ProjectBoard() {
     setDraggedTaskId(undefined);
     const task = tasks.find((item) => item.id === taskId);
     if (!task || task.id === beforeTaskId) return;
+    const targetStatus = project?.statuses.find((item) => item.id === statusId);
+    if (!targetStatus) return;
+
+    setTasks((current) => {
+      const movingTask = current.find((item) => item.id === task.id);
+      if (!movingTask) return current;
+
+      const withoutMovingTask = current.filter((item) => item.id !== task.id);
+      const beforeIndex = beforeTaskId
+        ? withoutMovingTask.findIndex((item) => item.id === beforeTaskId)
+        : -1;
+      const lastTargetIndex = withoutMovingTask.reduce(
+        (lastIndex, item, index) =>
+          item.statusId === statusId ? index : lastIndex,
+        -1,
+      );
+      const insertAt =
+        beforeIndex >= 0 ? beforeIndex : Math.max(0, lastTargetIndex + 1);
+      const reorderedTask = {
+        ...movingTask,
+        status: targetStatus,
+        statusId,
+      };
+
+      return [
+        ...withoutMovingTask.slice(0, insertAt),
+        reorderedTask,
+        ...withoutMovingTask.slice(insertAt),
+      ];
+    });
+
     try {
       await repositionTask(workspaceId, projectId, task.id, {
         beforeTaskId: beforeTaskId ?? null,
@@ -1191,6 +1222,7 @@ export function ProjectBoard() {
           ? caughtError.message
           : "Unable to move the task.",
       );
+      await loadTasks(filters, pageInfo?.offset);
     }
   }
 
