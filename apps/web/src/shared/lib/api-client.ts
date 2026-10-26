@@ -317,9 +317,18 @@ export function revokeOtherAccountSessions(): Promise<void> {
   });
 }
 
-export function getNotifications(): Promise<NotificationListResponse> {
+export function getNotifications(
+  pagination: { limit?: number; offset?: number; unreadOnly?: boolean } = {},
+): Promise<NotificationListResponse> {
+  const query = new URLSearchParams({
+    limit: String(pagination.limit ?? 12),
+    offset: String(pagination.offset ?? 0),
+  });
+  if (pagination.unreadOnly !== undefined) {
+    query.set("unreadOnly", String(pagination.unreadOnly));
+  }
   return request(
-    "/api/v1/notifications?limit=12&offset=0",
+    `/api/v1/notifications?${query}`,
     { method: "GET" },
     notificationListResponseSchema,
   );

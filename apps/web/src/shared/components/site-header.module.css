@@ -177,6 +177,10 @@
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+.notificationPanel li button time {
+  color: var(--muted);
+  font-size: 11px;
+}
 .unreadNotification {
   border-left: 3px solid var(--brand) !important;
 }
@@ -185,6 +189,19 @@
   font-size: 14px;
   margin: 0;
   padding: 18px 16px;
+}
+.allNotificationsLink {
+  border-top: 1px solid var(--line);
+  color: var(--brand);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 13px 16px;
+  text-align: center;
+  text-decoration: none;
+}
+.allNotificationsLink:hover {
+  background: #f5f8fc;
 }
 .signOut:hover {
   color: var(--brand);

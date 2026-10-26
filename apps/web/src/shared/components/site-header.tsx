@@ -203,6 +203,9 @@ export function SiteHeader({ user }: { user: AuthUser }) {
                           <span>
                             {notification.taskKey}: {notification.taskTitle}
                           </span>
+                          <time dateTime={notification.createdAt}>
+                            {formatRelativeTime(notification.createdAt)}
+                          </time>
                         </button>
                       </li>
                     ))}
@@ -210,6 +213,12 @@ export function SiteHeader({ user }: { user: AuthUser }) {
                 ) : (
                   <p>No notifications yet.</p>
                 )}
+                <Link
+                  className={styles.allNotificationsLink}
+                  href="/notifications"
+                >
+                  View all notifications
+                </Link>
               </section>
             ) : null}
           </div>
@@ -249,4 +258,21 @@ function notificationMessage(
   if (type === "task_commented") return `${actor} commented on a task`;
   if (type === "task_status_changed") return `${actor} changed a task status`;
   return `${actor} assigned you a task`;
+}
+
+function formatRelativeTime(value: string) {
+  const seconds = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(value).getTime()) / 1000),
+  );
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} d ago`;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
+    new Date(value),
+  );
 }
