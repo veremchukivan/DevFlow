@@ -5,6 +5,7 @@ import { buildPageInfo } from "../../core/pagination.js";
 import {
   createNotification,
   listNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
 } from "./notifications.repository.js";
 
@@ -97,4 +98,8 @@ export async function readNotification(input: {
   ) {
     throw new AppError(404, "NOTIFICATION_NOT_FOUND", "Notification not found");
   }
+}
+
+export async function readAllNotifications(input: { userId: string }) {
+  await markAllNotificationsRead({ recipientUserId: input.userId });
 }

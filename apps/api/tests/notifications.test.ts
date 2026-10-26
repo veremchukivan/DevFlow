@@ -137,4 +137,26 @@ describe("Notification integration tests", () => {
       ]),
     );
   });
+
+  it("marks every unread notification as read for the current user", async () => {
+    const before = await request(app)
+      .get("/api/v1/notifications")
+      .set("Cookie", member.cookie);
+    expect(before.body.unreadCount).toBeGreaterThan(0);
+
+    const marked = await request(app)
+      .post("/api/v1/notifications/read-all")
+      .set("Cookie", member.cookie);
+    expect(marked.status).toBe(204);
+
+    const after = await request(app)
+      .get("/api/v1/notifications")
+      .set("Cookie", member.cookie);
+    expect(after.body.unreadCount).toBe(0);
+    expect(
+      after.body.notifications.every(
+        (item: { readAt: string | null }) => item.readAt,
+      ),
+    ).toBe(true);
+  });
 });

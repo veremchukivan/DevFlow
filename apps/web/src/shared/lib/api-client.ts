@@ -305,6 +305,12 @@ export function markNotificationRead(notificationId: string): Promise<void> {
   });
 }
 
+export function markAllNotificationsRead(): Promise<void> {
+  return requestNoContent("/api/v1/notifications/read-all", {
+    method: "POST",
+  });
+}
+
 export function updateProfile(
   input: UpdateProfileRequest,
 ): Promise<AuthResponse> {

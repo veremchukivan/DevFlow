@@ -84,3 +84,17 @@ export async function markNotificationRead(input: {
     .returning({ id: notifications.id });
   return notification;
 }
+
+export async function markAllNotificationsRead(input: {
+  recipientUserId: string;
+}) {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(notifications.recipientUserId, input.recipientUserId),
+        isNull(notifications.readAt),
+      ),
+    );
+}

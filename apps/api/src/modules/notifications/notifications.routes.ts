@@ -9,7 +9,11 @@ import {
   type AuthenticatedRequest,
   requireAuth,
 } from "../auth/auth.middleware.js";
-import { getNotifications, readNotification } from "./notifications.service.js";
+import {
+  getNotifications,
+  readAllNotifications,
+  readNotification,
+} from "./notifications.service.js";
 
 export const notificationsRouter = Router();
 notificationsRouter.use(requireAuth);
@@ -36,6 +40,11 @@ notificationsRouter.get("/", async (req, res) => {
 notificationsRouter.post("/:notificationId/read", async (req, res) => {
   const { notificationId } = notificationParamsSchema.parse(req.params);
   await readNotification({ notificationId, userId: getUserId(req) });
+  res.status(204).send();
+});
+
+notificationsRouter.post("/read-all", async (req, res) => {
+  await readAllNotifications({ userId: getUserId(req) });
   res.status(204).send();
 });
 

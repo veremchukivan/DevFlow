@@ -9,6 +9,7 @@ import {
   getApiAssetUrl,
   getNotifications,
   logout,
+  markAllNotificationsRead,
   markNotificationRead,
 } from "@/shared/lib/api-client";
 import type { AuthUser, NotificationListResponse } from "@devflow/shared";
@@ -22,6 +23,7 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   const [notifications, setNotifications] =
     useState<NotificationListResponse>();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
   const refreshNotifications = useCallback(async () => {
@@ -97,6 +99,28 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     }
   }
 
+  async function markAllRead() {
+    if (!notifications?.unreadCount) return;
+    setIsMarkingAllRead(true);
+    try {
+      await markAllNotificationsRead();
+      setNotifications((current) =>
+        current
+          ? {
+              ...current,
+              notifications: current.notifications.map((notification) => ({
+                ...notification,
+                readAt: notification.readAt ?? new Date().toISOString(),
+              })),
+              unreadCount: 0,
+            }
+          : current,
+      );
+    } finally {
+      setIsMarkingAllRead(false);
+    }
+  }
+
   return (
     <header className={styles.header}>
       <div className={styles.content}>
@@ -139,7 +163,16 @@ export function SiteHeader({ user }: { user: AuthUser }) {
                 <div className={styles.notificationHeading}>
                   <strong>Notifications</strong>
                   {notifications?.unreadCount ? (
-                    <span>{notifications.unreadCount} new</span>
+                    <div className={styles.notificationActions}>
+                      <span>{notifications.unreadCount} new</span>
+                      <button
+                        disabled={isMarkingAllRead}
+                        onClick={() => void markAllRead()}
+                        type="button"
+                      >
+                        {isMarkingAllRead ? "Reading…" : "Read all"}
+                      </button>
+                    </div>
                   ) : null}
                 </div>
                 {notifications?.notifications.length ? (
