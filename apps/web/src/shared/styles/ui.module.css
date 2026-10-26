@@ -1162,6 +1162,9 @@
 .taskCard[draggable="true"]:active {
   cursor: grabbing;
 }
+.taskCardDragging {
+  opacity: 0.45;
+}
 .taskDueDate {
   color: var(--muted);
   font-size: 12px;

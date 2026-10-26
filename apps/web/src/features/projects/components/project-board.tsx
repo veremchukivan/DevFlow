@@ -2064,7 +2064,14 @@ export function ProjectBoard() {
                 className={`${styles.taskColumn} ${dropStatusId === status.id ? styles.taskColumnDropTarget : ""}`}
                 key={status.id}
                 onDragEnter={() => setDropStatusId(status.id)}
-                onDragLeave={() => setDropStatusId(undefined)}
+                onDragLeave={(event) => {
+                  if (
+                    event.relatedTarget instanceof Node &&
+                    event.currentTarget.contains(event.relatedTarget)
+                  )
+                    return;
+                  setDropStatusId(undefined);
+                }}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   event.preventDefault();
@@ -2123,7 +2130,7 @@ export function ProjectBoard() {
                 <div className={styles.taskList}>
                   {statusTasks.map((task) => (
                     <article
-                      className={`${styles.taskCard} card shadow-sm`}
+                      className={`${styles.taskCard} ${draggedTaskId === task.id ? styles.taskCardDragging : ""} card shadow-sm`}
                       draggable={canUpdateTasks}
                       onClick={() => {
                         if (ignoreTaskClickRef.current) return;
