@@ -1,6 +1,7 @@
 import {
   createTaskRequestSchema,
   listTasksQuerySchema,
+  repositionTaskRequestSchema,
   projectTasksParamsSchema,
   taskParamsSchema,
   updateTaskRequestSchema,
@@ -21,6 +22,7 @@ import {
   restoreTask,
   getTask,
   listTasks,
+  repositionTask,
   updateTask,
 } from "./tasks.service.js";
 import {
@@ -89,6 +91,16 @@ tasksRouter.patch("/:taskId", async (req, res) => {
 
   res.set("ETag", toTaskEtag(task.version));
   res.json(toTaskResponse(task));
+});
+
+tasksRouter.put("/:taskId/position", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  await repositionTask({
+    ...params,
+    ...repositionTaskRequestSchema.parse(req.body),
+    userId: getAuthenticatedUserId(req),
+  });
+  res.status(204).send();
 });
 
 tasksRouter.delete("/:taskId", async (req, res) => {
@@ -199,6 +211,7 @@ function toTaskDto(task: {
   id: string;
   labels?: Array<{ id: string; name: string; color: string }>;
   number: number;
+  position: number;
   parentTaskId: string | null;
   priority: "low" | "medium" | "high" | "urgent";
   projectId: string;
@@ -241,6 +254,7 @@ function toTaskDto(task: {
     labels: task.labels ?? [],
     key: `${task.projectKey}-${task.number}`,
     number: task.number,
+    position: task.position,
     parentTaskId: task.parentTaskId,
     priority: task.priority,
     projectId: task.projectId,

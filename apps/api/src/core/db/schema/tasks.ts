@@ -49,6 +49,7 @@ export const tasks = pgTable(
       { onDelete: "restrict" },
     ),
     statusId: uuid("status_id").notNull(),
+    position: integer("position").notNull().default(1000),
     sprintId: uuid("sprint_id"),
     type: taskTypeEnum("type").notNull().default("task"),
     title: varchar("title", { length: 200 }).notNull(),
@@ -103,6 +104,12 @@ export const tasks = pgTable(
       table.workspaceId,
       table.projectId,
       table.statusId,
+    ),
+    index("tasks_project_status_position_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.statusId,
+      table.position,
     ),
     index("tasks_project_sprint_idx").on(
       table.workspaceId,

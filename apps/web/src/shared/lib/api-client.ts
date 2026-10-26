@@ -29,6 +29,7 @@ import {
   updateProjectSprintRequestSchema,
   updateProjectStatusRequestSchema,
   createTaskRequestSchema,
+  repositionTaskRequestSchema,
   projectListResponseSchema,
   projectSprintListResponseSchema,
   projectSprintResponseSchema,
@@ -81,6 +82,7 @@ import {
   type UpdateProjectSprintRequest,
   type UpdateProjectStatusRequest,
   type CreateTaskRequest,
+  type RepositionTaskRequest,
   type CreateTaskCommentRequest,
   type CreateTaskChecklistItemRequest,
   type CreateTaskRelationRequest,
@@ -1176,6 +1178,21 @@ export function updateTask(
       method: "PATCH",
     },
     taskResponseSchema,
+  );
+}
+
+export function repositionTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: RepositionTaskRequest,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/position`,
+    {
+      body: JSON.stringify(repositionTaskRequestSchema.parse(input)),
+      method: "PUT",
+    },
   );
 }
 

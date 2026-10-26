@@ -35,6 +35,11 @@ export const updateTaskRequestSchema = z
     message: "At least one task field is required",
   });
 
+export const repositionTaskRequestSchema = z.object({
+  beforeTaskId: z.uuid().nullable().optional(),
+  statusId: z.uuid(),
+});
+
 export const projectTasksParamsSchema = z.object({
   projectId: z.uuid(),
   workspaceId: z.uuid(),
@@ -53,6 +58,7 @@ export const taskSortFieldSchema = z.enum([
   "updatedAt",
   "priority",
   "number",
+  "position",
 ]);
 
 export const taskSortOrderSchema = z.enum(["asc", "desc"]);
@@ -68,8 +74,8 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
   due: taskDueFilterSchema.optional(),
   priority: taskPrioritySchema.optional(),
   search: z.string().trim().min(1).max(200).optional(),
-  sortBy: taskSortFieldSchema.default("createdAt"),
-  sortOrder: taskSortOrderSchema.default("desc"),
+  sortBy: taskSortFieldSchema.default("position"),
+  sortOrder: taskSortOrderSchema.default("asc"),
   statusId: z.uuid().optional(),
   sprintId: z.union([z.uuid(), z.literal("backlog")]).optional(),
 });
@@ -111,6 +117,7 @@ export const taskSchema = z.object({
   number: z.number(),
   parentTaskId: z.uuid().nullable(),
   priority: taskPrioritySchema,
+  position: z.number().int().positive(),
   projectId: z.uuid(),
   reporter: taskUserSchema.nullable().optional(),
   reporterUserId: z.uuid().nullable(),
@@ -135,6 +142,7 @@ export const taskListResponseSchema = z.object({
 
 export type CreateTaskRequest = z.infer<typeof createTaskRequestSchema>;
 export type UpdateTaskRequest = z.infer<typeof updateTaskRequestSchema>;
+export type RepositionTaskRequest = z.infer<typeof repositionTaskRequestSchema>;
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
 export type TaskType = z.infer<typeof taskTypeSchema>;
 export type TaskUser = z.infer<typeof taskUserSchema>;

@@ -21,6 +21,7 @@ import {
   projectSprintResponseSchema,
   projectResponseSchema,
   reorderProjectStatusesRequestSchema,
+  repositionTaskRequestSchema,
   publicWorkspaceInvitationResponseSchema,
   registerRequestSchema,
   taskCommentListResponseSchema,
@@ -72,6 +73,7 @@ const schemas = {
   ProjectSprintResponse: projectSprintResponseSchema,
   ProjectResponse: projectResponseSchema,
   ReorderProjectStatusesRequest: reorderProjectStatusesRequestSchema,
+  RepositionTaskRequest: repositionTaskRequestSchema,
   PublicWorkspaceInvitationResponse: publicWorkspaceInvitationResponseSchema,
   RegisterRequest: registerRequestSchema,
   TaskActivityEventListResponse: taskActivityEventListResponseSchema,
@@ -803,14 +805,20 @@ export const openApiDocument = {
             in: "query",
             schema: {
               type: "string",
-              enum: ["createdAt", "updatedAt", "priority", "number"],
-              default: "createdAt",
+              enum: [
+                "createdAt",
+                "updatedAt",
+                "priority",
+                "number",
+                "position",
+              ],
+              default: "position",
             },
           },
           {
             name: "sortOrder",
             in: "query",
-            schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+            schema: { type: "string", enum: ["asc", "desc"], default: "asc" },
           },
         ],
         responses: {
@@ -897,6 +905,24 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/position":
+      {
+        put: {
+          tags: ["Tasks"],
+          operationId: "repositionTask",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+          ],
+          requestBody: requestBody("RepositionTaskRequest"),
+          responses: {
+            "204": response("Task repositioned"),
+            ...commonErrors,
+          },
+        },
+      },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/restore":
       {
         post: {

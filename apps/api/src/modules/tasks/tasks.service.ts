@@ -26,6 +26,7 @@ import {
   listLabelsForTaskIds,
   softDeleteTaskInProject,
   restoreTaskInProject,
+  repositionTaskInProject,
   updateTaskInProject,
 } from "./tasks.repository.js";
 
@@ -153,6 +154,52 @@ export async function listTasks(input: {
       labels: labelsByTask.get(task.id) ?? [],
     })),
   };
+}
+
+export async function repositionTask(input: {
+  beforeTaskId?: string | null;
+  projectId: string;
+  statusId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateTask(membership.role)) {
+    throw new AppError(
+      403,
+      "TASK_UPDATE_FORBIDDEN",
+      "You cannot update tasks in this workspace",
+    );
+  }
+
+  await requireProject(input);
+  const task = await requireTask(input);
+  const status = await resolveTaskStatus(input);
+  const repositioned = await repositionTaskInProject(input);
+  if (!repositioned) {
+    throw new AppError(
+      400,
+      "TASK_POSITION_INVALID",
+      "The reference task must belong to the target status",
+    );
+  }
+
+  if (task.statusId !== input.statusId) {
+    await recordTaskActivity({
+      actorUserId: input.userId,
+      data: {
+        fields: ["statusId"],
+        statusName: status.name,
+        taskKey: `${task.projectKey}-${task.number}`,
+        title: task.title,
+      },
+      eventType: "task_updated",
+      projectId: input.projectId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId,
+    });
+  }
 }
 
 export async function getTask(input: {

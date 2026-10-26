@@ -183,6 +183,13 @@
       "when": 1793012943024,
       "tag": "0025_military_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793014211062,
+      "tag": "0026_ancient_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

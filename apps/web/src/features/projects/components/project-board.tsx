@@ -49,6 +49,7 @@ import {
   getApiAssetUrl,
   replaceTaskLabels,
   reorderProjectStatuses,
+  repositionTask,
   updateTask,
   updateProject,
   updateProjectSprint,
@@ -153,7 +154,7 @@ export function ProjectBoard() {
   const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
     "",
   );
-  const [sortBy, setSortBy] = useState<TaskSortField>("number");
+  const [sortBy, setSortBy] = useState<TaskSortField>("position");
   const [sortOrder, setSortOrder] = useState<TaskSortOrder>("asc");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -215,7 +216,7 @@ export function ProjectBoard() {
     assigneeUserId,
     due,
     showArchived,
-    sortBy !== "number",
+    sortBy !== "position",
     sortOrder !== "asc",
   ].filter(Boolean).length;
 
@@ -508,7 +509,7 @@ export function ProjectBoard() {
     setSortOrder("asc");
     setShowArchived(false);
     const nextFilters = {
-      sortBy: "number" as const,
+      sortBy: "position" as const,
       sortOrder: "asc" as const,
       sprintId: selectedSprintId,
     };
@@ -1124,14 +1125,30 @@ export function ProjectBoard() {
     }
   }
 
-  async function onDropTask(event: DragEvent<HTMLElement>, statusId: string) {
+  async function onDropTask(
+    event: DragEvent<HTMLElement>,
+    statusId: string,
+    beforeTaskId?: string,
+  ) {
     event.preventDefault();
     const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
     setDropStatusId(undefined);
     setDraggedTaskId(undefined);
     const task = tasks.find((item) => item.id === taskId);
-    if (!task || task.statusId === statusId) return;
-    await onUpdateTask(task, { statusId });
+    if (!task || task.id === beforeTaskId) return;
+    try {
+      await repositionTask(workspaceId, projectId, task.id, {
+        beforeTaskId: beforeTaskId ?? null,
+        statusId,
+      });
+      await loadTasks(filters, pageInfo?.offset);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to move the task.",
+      );
+    }
   }
 
   if (isLoading) return <main className={styles.loading}>Loading project</main>;
@@ -2001,6 +2018,7 @@ export function ProjectBoard() {
                 }
                 value={sortBy}
               >
+                <option value="position">Manual board order</option>
                 <option value="number">Task number</option>
                 <option value="createdAt">Created date</option>
                 <option value="updatedAt">Updated date</option>
@@ -2148,6 +2166,12 @@ export function ProjectBoard() {
                         event.dataTransfer.setData("text/plain", task.id);
                         ignoreTaskClickRef.current = true;
                         setDraggedTaskId(task.id);
+                      }}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void onDropTask(event, status.id, task.id);
                       }}
                       key={task.id}
                     >

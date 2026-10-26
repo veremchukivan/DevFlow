@@ -183,8 +183,23 @@ export async function createTaskWithNextNumber(input: {
         ),
       );
 
+    const [nextPosition] = await tx
+      .select({
+        value: sql<number>`coalesce(max(${tasks.position}), 0) + 1000`,
+      })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.workspaceId, input.workspaceId),
+          eq(tasks.projectId, input.projectId),
+          eq(tasks.statusId, input.statusId),
+          isNull(tasks.deletedAt),
+        ),
+      );
+
     const values = {
       number: nextNumber?.value ?? 1,
+      position: nextPosition?.value ?? 1000,
       ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
       projectId: input.projectId,
       reporterUserId: input.reporterUserId,
@@ -255,7 +270,7 @@ export async function listTasksForProject(input: {
     archived?: boolean;
     limit: number;
     offset: number;
-    sortBy?: "createdAt" | "updatedAt" | "priority" | "number";
+    sortBy?: "createdAt" | "updatedAt" | "priority" | "number" | "position";
     sortOrder?: "asc" | "desc";
   };
 }) {
@@ -355,7 +370,7 @@ export async function listLabelsForTaskIds(taskIds: string[]) {
 }
 
 function toSortColumn(
-  field: "createdAt" | "updatedAt" | "priority" | "number",
+  field: "createdAt" | "updatedAt" | "priority" | "number" | "position",
 ) {
   switch (field) {
     case "updatedAt":
@@ -371,6 +386,8 @@ function toSortColumn(
       END`;
     case "number":
       return tasks.number;
+    case "position":
+      return tasks.position;
     default:
       return tasks.createdAt;
   }
@@ -435,6 +452,62 @@ export async function updateTaskInProject(
     .returning();
 
   return task;
+}
+
+export async function repositionTaskInProject(input: {
+  beforeTaskId?: string | null;
+  projectId: string;
+  statusId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  return db.transaction(async (tx) => {
+    const statusTasks = await tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.workspaceId, input.workspaceId),
+          eq(tasks.projectId, input.projectId),
+          eq(tasks.statusId, input.statusId),
+          isNull(tasks.deletedAt),
+        ),
+      )
+      .orderBy(asc(tasks.position), asc(tasks.id))
+      .for("update");
+
+    const orderedIds = statusTasks
+      .map((task) => task.id)
+      .filter((taskId) => taskId !== input.taskId);
+    const insertAt = input.beforeTaskId
+      ? orderedIds.indexOf(input.beforeTaskId)
+      : orderedIds.length;
+
+    if (insertAt < 0) return false;
+    orderedIds.splice(insertAt, 0, input.taskId);
+
+    for (const [index, taskId] of orderedIds.entries()) {
+      await tx
+        .update(tasks)
+        .set({
+          ...(taskId === input.taskId ? { statusId: input.statusId } : {}),
+          position: (index + 1) * 1000,
+          updatedAt: new Date(),
+          ...(taskId === input.taskId
+            ? { version: sql`${tasks.version} + 1` }
+            : {}),
+        })
+        .where(
+          and(
+            eq(tasks.id, taskId),
+            eq(tasks.workspaceId, input.workspaceId),
+            eq(tasks.projectId, input.projectId),
+            isNull(tasks.deletedAt),
+          ),
+        );
+    }
+    return true;
+  });
 }
 
 export async function softDeleteTaskInProject(
@@ -513,6 +586,7 @@ function taskSelect(executor: DbExecutor = db) {
       dueDate: tasks.dueDate,
       id: tasks.id,
       number: tasks.number,
+      position: tasks.position,
       parentTaskId: tasks.parentTaskId,
       priority: tasks.priority,
       projectId: tasks.projectId,
