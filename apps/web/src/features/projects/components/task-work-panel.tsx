@@ -22,6 +22,7 @@ import {
 
 import {
   ApiClientError,
+  createTask,
   createTaskChecklistItem,
   createTaskComment,
   createTaskRelation,
@@ -95,16 +96,26 @@ export function TaskWorkPanel({
   const [isDeletingAttachmentId, setIsDeletingAttachmentId] =
     useState<string>();
   const [isCreatingRelation, setIsCreatingRelation] = useState(false);
+  const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
   const [isDeletingRelationId, setIsDeletingRelationId] = useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
+  const [editingChecklistItemId, setEditingChecklistItemId] =
+    useState<string>();
   const [error, setError] = useState<string>();
   const [selectedAttachment, setSelectedAttachment] =
     useState<AttachmentPreviewSelection>();
   const canUpdateTask = role ? can(role, "task:update") : false;
+  const canCreateTask = role ? can(role, "task:create") : false;
   const canCreateComments = role ? can(role, "comment:create") : false;
   const completedItems = checklistItems.filter(
     (item) => item.isCompleted,
   ).length;
+  const subtasks = relatedTaskOptions.filter(
+    (candidate) => candidate.parentTaskId === task.id,
+  );
+  const parentTask = task.parentTaskId
+    ? relatedTaskOptions.find((candidate) => candidate.id === task.parentTaskId)
+    : undefined;
 
   const loadWork = useCallback(async () => {
     setIsLoading(true);
@@ -198,7 +209,7 @@ export function TaskWorkPanel({
       await createTaskChecklistItem(workspaceId, task.projectId, task.id, {
         content,
       });
-      await refreshChecklist();
+      await Promise.all([refreshChecklist(), refreshActivity()]);
       form.reset();
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to add checklist item."));
@@ -244,7 +255,7 @@ export function TaskWorkPanel({
         relationType: form.get("relationType") as TaskRelationType,
         targetTaskId: String(form.get("targetTaskId") ?? ""),
       });
-      await refreshRelations();
+      await Promise.all([refreshRelations(), refreshActivity()]);
       event.currentTarget.reset();
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to create task relation."));
@@ -263,7 +274,7 @@ export function TaskWorkPanel({
         task.id,
         relationId,
       );
-      await refreshRelations();
+      await Promise.all([refreshRelations(), refreshActivity()]);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to delete task relation."));
     } finally {
@@ -272,14 +283,16 @@ export function TaskWorkPanel({
   }
 
   async function onAttachmentChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.currentTarget.files ?? []);
+    if (!files.length) return;
 
     setError(undefined);
     setIsUploadingAttachment(true);
     try {
-      await uploadTaskAttachment(workspaceId, task.projectId, task.id, file);
-      await refreshAttachments();
+      for (const file of files) {
+        await uploadTaskAttachment(workspaceId, task.projectId, task.id, file);
+      }
+      await Promise.all([refreshAttachments(), refreshActivity()]);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to upload attachment."));
     } finally {
@@ -298,7 +311,7 @@ export function TaskWorkPanel({
         task.id,
         attachmentId,
       );
-      await refreshAttachments();
+      await Promise.all([refreshAttachments(), refreshActivity()]);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to delete attachment."));
     } finally {
@@ -319,7 +332,7 @@ export function TaskWorkPanel({
           isCompleted: !item.isCompleted,
         },
       );
-      await refreshChecklist();
+      await Promise.all([refreshChecklist(), refreshActivity()]);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to update checklist item."));
     } finally {
@@ -337,11 +350,63 @@ export function TaskWorkPanel({
         task.id,
         itemId,
       );
-      await refreshChecklist();
+      await Promise.all([refreshChecklist(), refreshActivity()]);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to delete checklist item."));
     } finally {
       setIsSavingItemId(undefined);
+    }
+  }
+
+  async function onChecklistUpdate(
+    event: FormEvent<HTMLFormElement>,
+    itemId: string,
+  ) {
+    event.preventDefault();
+    const content = String(
+      new FormData(event.currentTarget).get("content") ?? "",
+    );
+    setError(undefined);
+    setIsSavingItemId(itemId);
+    try {
+      await updateTaskChecklistItem(
+        workspaceId,
+        task.projectId,
+        task.id,
+        itemId,
+        { content },
+      );
+      await Promise.all([refreshChecklist(), refreshActivity()]);
+      setEditingChecklistItemId(undefined);
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to update checklist item."));
+    } finally {
+      setIsSavingItemId(undefined);
+    }
+  }
+
+  async function onCreateSubtask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const title = String(new FormData(form).get("title") ?? "");
+    setError(undefined);
+    setIsCreatingSubtask(true);
+    try {
+      const response = await createTask(workspaceId, task.projectId, {
+        parentTaskId: task.id,
+        priority: "medium",
+        statusId: task.statusId,
+        title,
+        type: "task",
+        ...(task.sprintId ? { sprintId: task.sprintId } : {}),
+      });
+      setRelatedTaskOptions((current) => [...current, response.task]);
+      await refreshActivity();
+      form.reset();
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to create subtask."));
+    } finally {
+      setIsCreatingSubtask(false);
     }
   }
 
@@ -453,32 +518,136 @@ export function TaskWorkPanel({
           <ol className={styles.checklist}>
             {checklistItems.map((item) => (
               <li key={item.id}>
-                <label
-                  className={item.isCompleted ? styles.completed : undefined}
-                >
-                  <input
-                    checked={item.isCompleted}
-                    disabled={!canUpdateTask || isSavingItemId === item.id}
-                    onChange={() => void onChecklistCompletionChange(item)}
-                    type="checkbox"
-                  />
-                  <span>{item.content}</span>
-                </label>
-                {canUpdateTask ? (
-                  <button
-                    aria-label={`Delete checklist item: ${item.content}`}
-                    className={styles.deleteButton}
-                    disabled={isSavingItemId === item.id}
-                    onClick={() => void onChecklistDelete(item.id)}
-                    title="Delete checklist item"
-                    type="button"
+                {editingChecklistItemId === item.id ? (
+                  <form
+                    className={styles.inlineEditForm}
+                    onSubmit={(event) => void onChecklistUpdate(event, item.id)}
                   >
-                    <Trash2 aria-hidden="true" size={15} />
-                  </button>
+                    <input
+                      autoFocus
+                      defaultValue={item.content}
+                      maxLength={500}
+                      name="content"
+                      required
+                    />
+                    <button disabled={isSavingItemId === item.id} type="submit">
+                      Save
+                    </button>
+                    <button
+                      disabled={isSavingItemId === item.id}
+                      onClick={() => setEditingChecklistItemId(undefined)}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <label
+                    className={item.isCompleted ? styles.completed : undefined}
+                  >
+                    <input
+                      checked={item.isCompleted}
+                      disabled={!canUpdateTask || isSavingItemId === item.id}
+                      onChange={() => void onChecklistCompletionChange(item)}
+                      type="checkbox"
+                    />
+                    <span>{item.content}</span>
+                  </label>
+                )}
+                {canUpdateTask ? (
+                  <div className={styles.checklistActions}>
+                    <button
+                      aria-label={`Edit checklist item: ${item.content}`}
+                      className={styles.iconButton}
+                      disabled={isSavingItemId === item.id}
+                      onClick={() => setEditingChecklistItemId(item.id)}
+                      title="Edit checklist item"
+                      type="button"
+                    >
+                      <Pencil aria-hidden="true" size={14} />
+                    </button>
+                    <button
+                      aria-label={`Delete checklist item: ${item.content}`}
+                      className={styles.deleteButton}
+                      disabled={isSavingItemId === item.id}
+                      onClick={() => void onChecklistDelete(item.id)}
+                      title="Delete checklist item"
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" size={15} />
+                    </button>
+                  </div>
                 ) : null}
               </li>
             ))}
           </ol>
+        ) : null}
+      </section>
+
+      <section
+        className={styles.subtasksSection}
+        aria-labelledby="subtasks-title"
+      >
+        <div className={styles.sectionHeading}>
+          <div>
+            <h3 id="subtasks-title">Subtasks</h3>
+            <p>
+              {task.parentTaskId
+                ? "This is a subtask"
+                : `${subtasks.length} work items`}
+            </p>
+          </div>
+          <ClipboardList aria-hidden="true" size={18} />
+        </div>
+        {parentTask ? (
+          <Link
+            className={styles.parentTaskLink}
+            href={`/workspaces/${workspaceId}/projects/${parentTask.projectId}?taskId=${parentTask.id}`}
+          >
+            <span>Parent</span>
+            <strong>
+              {parentTask.key}: {parentTask.title}
+            </strong>
+          </Link>
+        ) : null}
+        {!task.parentTaskId && canCreateTask ? (
+          <form
+            className={styles.inlineForm}
+            onSubmit={(event) => void onCreateSubtask(event)}
+          >
+            <label className={styles.srOnly} htmlFor="subtask-title">
+              New subtask
+            </label>
+            <input
+              id="subtask-title"
+              maxLength={200}
+              minLength={2}
+              name="title"
+              placeholder="Add a subtask"
+              required
+            />
+            <button disabled={isCreatingSubtask} type="submit">
+              {isCreatingSubtask ? "Adding" : "Add"}
+            </button>
+          </form>
+        ) : null}
+        {!task.parentTaskId && subtasks.length === 0 ? (
+          <p className={styles.empty}>No subtasks yet.</p>
+        ) : null}
+        {subtasks.length ? (
+          <ul className={styles.subtaskList}>
+            {subtasks.map((subtask) => (
+              <li key={subtask.id}>
+                <Link
+                  href={`/workspaces/${workspaceId}/projects/${subtask.projectId}?taskId=${subtask.id}`}
+                >
+                  <strong>{subtask.key}</strong>
+                  <span>{subtask.title}</span>
+                </Link>
+                <span>{subtask.status.name}</span>
+              </li>
+            ))}
+          </ul>
         ) : null}
       </section>
 
@@ -498,6 +667,7 @@ export function TaskWorkPanel({
             <input
               accept="application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/webm"
               disabled={isUploadingAttachment}
+              multiple
               onChange={(event) => void onAttachmentChange(event)}
               type="file"
             />

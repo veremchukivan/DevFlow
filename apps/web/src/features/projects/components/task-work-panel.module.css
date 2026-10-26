@@ -7,6 +7,7 @@
 }
 
 .checklistSection,
+.subtasksSection,
 .attachmentsSection,
 .relationsSection,
 .activitySection {
@@ -359,6 +360,113 @@
   display: flex;
   gap: 8px;
   justify-content: space-between;
+}
+.checklistActions {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+}
+.iconButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+.iconButton:hover {
+  color: var(--brand);
+}
+.inlineEditForm {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: 6px;
+}
+.inlineEditForm input {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 5px;
+  color: var(--ink);
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+  padding: 6px 8px;
+}
+.inlineEditForm button {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  min-height: 32px;
+  padding: 0 8px;
+}
+.inlineEditForm button:last-child {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+.parentTaskLink,
+.subtaskList a {
+  color: inherit;
+  text-decoration: none;
+}
+.parentTaskLink {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 3px;
+  margin-top: 16px;
+  padding: 10px;
+}
+.parentTaskLink span,
+.subtaskList span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.parentTaskLink:hover strong,
+.subtaskList a:hover strong {
+  color: var(--brand);
+  text-decoration: underline;
+}
+.subtaskList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.subtaskList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 9px 10px;
+}
+.subtaskList a {
+  min-width: 0;
+}
+.subtaskList a strong,
+.subtaskList a span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.subtaskList li > span {
+  background: #edf3ff;
+  border-radius: 999px;
+  color: var(--brand);
+  font-weight: 700;
+  padding: 4px 7px;
 }
 
 .checklist label {
