@@ -214,7 +214,7 @@ export function ProjectBoard() {
   const [showArchived, setShowArchived] = useState(false);
   const createTaskInFlight = useRef(false);
   const columnWidthsRef = useRef<Record<string, number>>({});
-  const ignoreTaskClickRef = useRef(false);
+  const suppressTaskClickAfterDragRef = useRef(false);
   const viewPreferencesSaveRef = useRef(Promise.resolve());
   const saveViewPreferencesRef = useRef<
     (input: Parameters<typeof updateProjectViewPreferences>[2]) => void
@@ -653,6 +653,16 @@ export function ProjectBoard() {
   function exitMultiSelectMode() {
     setIsMultiSelectMode(false);
     setSelectedTaskIds([]);
+  }
+
+  function onTaskCardClick(task: Task) {
+    if (suppressTaskClickAfterDragRef.current) return;
+    setTaskContextMenu(undefined);
+    if (isMultiSelectMode) {
+      toggleTaskSelection(task.id);
+      return;
+    }
+    setSelectedTask(task);
   }
 
   async function onBulkUpdate(input: UpdateTaskRequest) {
@@ -2543,15 +2553,7 @@ export function ProjectBoard() {
                       className={`${styles.taskCard} ${selectedTaskIds.includes(task.id) ? styles.taskCardSelected : ""} ${draggedTaskId === task.id ? styles.taskCardDragging : ""} card shadow-sm`}
                       data-priority={task.priority}
                       draggable={canUpdateTasks}
-                      onClick={() => {
-                        if (ignoreTaskClickRef.current) return;
-                        setTaskContextMenu(undefined);
-                        if (isMultiSelectMode) {
-                          toggleTaskSelection(task.id);
-                          return;
-                        }
-                        setSelectedTask(task);
-                      }}
+                      onClick={() => onTaskCardClick(task)}
                       onContextMenu={(event) => {
                         event.preventDefault();
                         const maxLeft = window.innerWidth - 210;
@@ -2565,14 +2567,14 @@ export function ProjectBoard() {
                       onDragEnd={() => {
                         setDraggedTaskId(undefined);
                         setDropStatusId(undefined);
+                        suppressTaskClickAfterDragRef.current = true;
                         window.setTimeout(() => {
-                          ignoreTaskClickRef.current = false;
+                          suppressTaskClickAfterDragRef.current = false;
                         }, 0);
                       }}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
                         event.dataTransfer.setData("text/plain", task.id);
-                        ignoreTaskClickRef.current = true;
                         setDraggedTaskId(task.id);
                       }}
                       onDragOver={(event) => event.preventDefault()}
@@ -2619,11 +2621,7 @@ export function ProjectBoard() {
                           className={styles.taskTitleButton}
                           onClick={(event) => {
                             event.stopPropagation();
-                            if (isMultiSelectMode) {
-                              toggleTaskSelection(task.id);
-                              return;
-                            }
-                            setSelectedTask(task);
+                            onTaskCardClick(task);
                           }}
                           type="button"
                         >
