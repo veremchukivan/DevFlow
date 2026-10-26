@@ -1577,21 +1577,15 @@
   margin-left: 4px;
   text-transform: uppercase;
 }
-.taskCardControls {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 1fr;
-  margin-top: 14px;
-}
-.taskCardControls select {
-  background: #f8fafc;
-  border: 1px solid #b9c4d1;
-  border-radius: 4px;
-  color: var(--ink);
-  font-size: 12px;
-  min-height: 32px;
-  padding: 0 6px;
-  width: 100%;
+.archivedTaskRestore {
+  background: transparent;
+  border: 0;
+  color: var(--brand);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 12px;
+  padding: 0;
 }
 .priority {
   border-radius: 4px;

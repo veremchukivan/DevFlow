@@ -2194,19 +2194,18 @@ export function ProjectBoard() {
                           {task.assignee.displayName}
                         </p>
                       ) : null}
-                      <TaskControls
-                        onUpdateTask={onUpdateTask}
-                        priorities={priorities}
-                        project={project}
-                        task={task}
-                        updatingTaskId={updatingTaskId}
-                        canUpdate={canUpdateTasks}
-                        onRestore={
-                          showArchived && canDeleteTasks
-                            ? onRestoreTask
-                            : undefined
-                        }
-                      />
+                      {showArchived && canDeleteTasks ? (
+                        <button
+                          className={styles.archivedTaskRestore}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void onRestoreTask(task);
+                          }}
+                          type="button"
+                        >
+                          Restore task
+                        </button>
+                      ) : null}
                     </article>
                   ))}
                   {statusTasks.length === 0 &&
@@ -2714,79 +2713,6 @@ function TaskEditorModal({
         </div>
       </form>
     </Modal>
-  );
-}
-
-function TaskControls({
-  onUpdateTask,
-  priorities,
-  project,
-  task,
-  updatingTaskId,
-  canUpdate,
-  onRestore,
-}: {
-  onUpdateTask: (task: Task, input: UpdateTaskRequest) => Promise<void>;
-  priorities: TaskPriority[];
-  project: Project;
-  task: Task;
-  updatingTaskId?: string;
-  canUpdate: boolean;
-  onRestore?: (task: Task) => Promise<void>;
-}) {
-  return (
-    <div
-      className={styles.taskCardControls}
-      onClick={(event) => event.stopPropagation()}
-    >
-      <label>
-        <span className={styles.srOnly}>Status</span>
-        <select
-          aria-label={`Status for ${task.key}`}
-          className="form-select form-select-sm"
-          disabled={!canUpdate || updatingTaskId === task.id}
-          onChange={(event) =>
-            void onUpdateTask(task, { statusId: event.target.value })
-          }
-          value={task.statusId}
-        >
-          {project.statuses.map((status) => (
-            <option key={status.id} value={status.id}>
-              {status.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span className={styles.srOnly}>Priority</span>
-        <select
-          aria-label={`Priority for ${task.key}`}
-          className="form-select form-select-sm"
-          disabled={!canUpdate || updatingTaskId === task.id}
-          onChange={(event) =>
-            void onUpdateTask(task, {
-              priority: event.target.value as TaskPriority,
-            })
-          }
-          value={task.priority}
-        >
-          {priorities.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-      </label>
-      {onRestore ? (
-        <button
-          className={styles.textButton}
-          onClick={() => void onRestore(task)}
-          type="button"
-        >
-          Restore
-        </button>
-      ) : null}
-    </div>
   );
 }
 
