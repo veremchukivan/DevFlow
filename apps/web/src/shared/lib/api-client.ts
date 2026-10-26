@@ -293,6 +293,10 @@ export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
 }
 
+export function getAccountDataExportUrl() {
+  return getApiAssetUrl("/api/v1/auth/data-export");
+}
+
 export function getAccountSessions(): Promise<AccountSessionListResponse> {
   return request(
     "/api/v1/auth/sessions",

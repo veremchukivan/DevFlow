@@ -24,6 +24,7 @@ import { type AuthenticatedRequest, requireAuth } from "./auth.middleware.js";
 import { clearSessionCookie, setSessionCookie } from "./auth.cookies.js";
 import {
   getCurrentUser,
+  exportAccountData,
   changePassword,
   issueEmailVerificationToken,
   login,
@@ -96,6 +97,21 @@ authRouter.put(
 authRouter.delete("/profile/avatar", requireAuth, async (req, res) => {
   const user = await removeProfileAvatar(getAuthenticatedUser(req).id);
   res.json(toAuthResponse(user));
+});
+
+authRouter.get("/data-export", requireAuth, async (req, res) => {
+  const data = await exportAccountData(getAuthenticatedUser(req).id);
+  const exportedAt = new Date().toISOString();
+  const filename = `devflow-data-export-${exportedAt.slice(0, 10)}.json`;
+
+  res
+    .set({
+      "Cache-Control": "private, no-store",
+      "Content-Disposition": `attachment; filename=${filename}`,
+      "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
+    })
+    .send(JSON.stringify({ exportedAt, ...data }, null, 2));
 });
 
 authRouter.get("/sessions", requireAuth, async (req, res) => {

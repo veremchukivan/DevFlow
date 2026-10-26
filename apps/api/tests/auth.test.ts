@@ -106,6 +106,25 @@ describe("Auth Module Integration Tests", () => {
     expect(meRes.body.user.email).toBe("alice@devflow.io");
   });
 
+  it("exports account data without authentication secrets", async () => {
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "alice@devflow.io",
+      password: "Password123!",
+    });
+    const cookie = loginRes.headers["set-cookie"][0];
+
+    const exported = await request(app)
+      .get("/api/v1/auth/data-export")
+      .set("Cookie", cookie);
+
+    expect(exported.status).toBe(200);
+    expect(exported.headers["content-disposition"]).toContain("attachment");
+    expect(exported.body.user).toMatchObject({ email: "alice@devflow.io" });
+    expect(exported.body.workspaces).toHaveLength(1);
+    expect(JSON.stringify(exported.body)).not.toContain("passwordHash");
+    expect(JSON.stringify(exported.body)).not.toContain("tokenHash");
+  });
+
   it("updates the authenticated user's display name", async () => {
     const loginRes = await request(app)
       .post("/api/v1/auth/login")

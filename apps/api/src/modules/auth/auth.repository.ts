@@ -1,11 +1,107 @@
-import { and, desc, eq, gt, isNull, lte, ne } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, ne } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { authTokens } from "../../core/db/schema/auth-tokens.js";
 import { sessions } from "../../core/db/schema/sessions.js";
+import { projects } from "../../core/db/schema/projects.js";
+import { tasks } from "../../core/db/schema/tasks.js";
 import { users, type NewUser, type User } from "../../core/db/schema/users.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
+
+export async function getAccountDataExport(userId: string) {
+  const [user] = await db
+    .select({
+      avatarUrl: users.avatarUrl,
+      createdAt: users.createdAt,
+      displayName: users.displayName,
+      email: users.email,
+      emailVerifiedAt: users.emailVerifiedAt,
+      id: users.id,
+    })
+    .from(users)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .limit(1);
+
+  if (!user) return null;
+
+  const workspaceRows = await db
+    .select({
+      createdAt: workspaces.createdAt,
+      id: workspaces.id,
+      name: workspaces.name,
+      role: workspaceMembers.role,
+      slug: workspaces.slug,
+      updatedAt: workspaces.updatedAt,
+    })
+    .from(workspaces)
+    .innerJoin(
+      workspaceMembers,
+      eq(workspaceMembers.workspaceId, workspaces.id),
+    )
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.status, "active"),
+        isNull(workspaces.deletedAt),
+      ),
+    )
+    .orderBy(desc(workspaces.createdAt));
+  const workspaceIds = workspaceRows.map((workspace) => workspace.id);
+  if (!workspaceIds.length)
+    return { projects: [], tasks: [], user, workspaces: [] };
+
+  const projectRows = await db
+    .select({
+      createdAt: projects.createdAt,
+      description: projects.description,
+      id: projects.id,
+      key: projects.key,
+      name: projects.name,
+      updatedAt: projects.updatedAt,
+      workspaceId: projects.workspaceId,
+    })
+    .from(projects)
+    .where(
+      and(
+        inArray(projects.workspaceId, workspaceIds),
+        isNull(projects.deletedAt),
+      ),
+    )
+    .orderBy(desc(projects.createdAt));
+
+  const taskRows = await db
+    .select({
+      assigneeUserId: tasks.assigneeUserId,
+      createdAt: tasks.createdAt,
+      description: tasks.description,
+      dueDate: tasks.dueDate,
+      id: tasks.id,
+      number: tasks.number,
+      parentTaskId: tasks.parentTaskId,
+      priority: tasks.priority,
+      projectId: tasks.projectId,
+      reporterUserId: tasks.reporterUserId,
+      sprintId: tasks.sprintId,
+      statusId: tasks.statusId,
+      title: tasks.title,
+      type: tasks.type,
+      updatedAt: tasks.updatedAt,
+      workspaceId: tasks.workspaceId,
+    })
+    .from(tasks)
+    .where(
+      and(inArray(tasks.workspaceId, workspaceIds), isNull(tasks.deletedAt)),
+    )
+    .orderBy(desc(tasks.updatedAt));
+
+  return {
+    projects: projectRows,
+    tasks: taskRows,
+    user,
+    workspaces: workspaceRows,
+  };
+}
 
 export type SessionUser = Pick<
   User,

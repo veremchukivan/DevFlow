@@ -25,6 +25,7 @@ import {
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
   findUserAvatarById,
+  getAccountDataExport,
   listActiveSessionsForUser,
   replaceEmailVerificationToken,
   replacePasswordResetToken,
@@ -138,6 +139,14 @@ export async function getCurrentUser(sessionToken: string) {
 
 export async function logout(sessionToken: string) {
   await deleteSessionByTokenHash(hashSessionToken(sessionToken));
+}
+
+export async function exportAccountData(userId: string) {
+  const data = await getAccountDataExport(userId);
+  if (!data) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  return data;
 }
 
 export async function listAccountSessions(input: {

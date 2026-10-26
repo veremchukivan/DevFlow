@@ -23,6 +23,7 @@ import {
   changePassword,
   deleteProfileAvatar,
   getApiAssetUrl,
+  getAccountDataExportUrl,
   getAccountSessions,
   getCurrentUser,
   logout,
@@ -243,21 +244,6 @@ export function ProfileSettings() {
     }
   }
 
-  function onExportData() {
-    if (!user) return;
-    const file = new Blob(
-      [JSON.stringify({ exportedAt: new Date().toISOString(), user }, null, 2)],
-      { type: "application/json" },
-    );
-    const url = URL.createObjectURL(file);
-    const link = document.createElement("a");
-    link.download = "devflow-account-summary.json";
-    link.href = url;
-    link.click();
-    URL.revokeObjectURL(url);
-    setMessage("Account summary downloaded.");
-  }
-
   if (isLoading) return <main className={styles.loading}>Loading profile</main>;
   if (!user)
     return (
@@ -360,9 +346,7 @@ export function ProfileSettings() {
         {activeSection === "billing" ? <BillingPanel /> : null}
         {activeSection === "setup" ? <SetupPanel /> : null}
         {activeSection === "ai" ? <AiPanel /> : null}
-        {activeSection === "data" ? (
-          <DataPanel onExport={onExportData} />
-        ) : null}
+        {activeSection === "data" ? <DataPanel /> : null}
       </section>
     </main>
   );
@@ -671,7 +655,7 @@ function AiPanel() {
     </section>
   );
 }
-function DataPanel(props: { onExport: () => void }) {
+function DataPanel() {
   return (
     <>
       <section className={styles.card}>
@@ -680,17 +664,17 @@ function DataPanel(props: { onExport: () => void }) {
           subtitle="Download a copy of your current account information"
           title="Export data"
         />
-        <button
+        <a
           className={styles.secondaryButton}
-          onClick={props.onExport}
+          href={getAccountDataExportUrl() ?? undefined}
           type="button"
         >
           <Download aria-hidden="true" size={17} />
-          Download account summary
-        </button>
+          Export as JSON
+        </a>
         <p className={styles.mutedCopy}>
-          The file includes profile information currently loaded in DevFlow.
-          Full workspace exports will be added with a dedicated server endpoint.
+          The export includes your profile plus accessible workspaces, projects,
+          and tasks. Passwords, sessions, and tokens are never included.
         </p>
       </section>
       <section className={`${styles.card} ${styles.dangerCard}`}>
