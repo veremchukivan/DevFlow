@@ -178,6 +178,8 @@ export function ProjectBoard() {
   );
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [taskMenuId, setTaskMenuId] = useState<string>();
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -600,6 +602,48 @@ export function ProjectBoard() {
       setTaskMenuId(undefined);
     } catch {
       setError("Unable to copy the task link.");
+    }
+  }
+
+  function toggleTaskSelection(taskId: string) {
+    setSelectedTaskIds((current) =>
+      current.includes(taskId)
+        ? current.filter((id) => id !== taskId)
+        : [...current, taskId],
+    );
+  }
+
+  async function onBulkUpdate(input: UpdateTaskRequest) {
+    const selectedTasks = tasks.filter((task) =>
+      selectedTaskIds.includes(task.id),
+    );
+    if (!selectedTasks.length) return;
+
+    setIsBulkUpdating(true);
+    setError(undefined);
+    try {
+      const results = await Promise.all(
+        selectedTasks.map((task) =>
+          updateTask(workspaceId, projectId, task.id, input, task.version),
+        ),
+      );
+      const updatedById = new Map(
+        results.map((response) => [response.task.id, response.task]),
+      );
+      setTasks((current) =>
+        current.map((task) => updatedById.get(task.id) ?? task),
+      );
+      setSelectedTaskIds([]);
+      await loadTasks(filters, pageInfo?.offset);
+    } catch (caughtError) {
+      await loadTasks(filters, pageInfo?.offset);
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to update the selected tasks.",
+      );
+    } finally {
+      setIsBulkUpdating(false);
     }
   }
 
@@ -2139,6 +2183,89 @@ export function ProjectBoard() {
         </p>
       ) : null}
 
+      {selectedTaskIds.length ? (
+        <section
+          className={styles.bulkTaskActions}
+          aria-label="Bulk task actions"
+        >
+          <strong>{selectedTaskIds.length} selected</strong>
+          <label>
+            <span className={styles.srOnly}>Change status</span>
+            <select
+              className="form-select form-select-sm"
+              defaultValue=""
+              disabled={isBulkUpdating}
+              onChange={(event) => {
+                if (event.target.value)
+                  void onBulkUpdate({ statusId: event.target.value });
+                event.currentTarget.value = "";
+              }}
+            >
+              <option value="">Move to…</option>
+              {project.statuses.map((status) => (
+                <option key={status.id} value={status.id}>
+                  {status.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className={styles.srOnly}>Change priority</span>
+            <select
+              className="form-select form-select-sm"
+              defaultValue=""
+              disabled={isBulkUpdating}
+              onChange={(event) => {
+                if (event.target.value)
+                  void onBulkUpdate({
+                    priority: event.target.value as TaskPriority,
+                  });
+                event.currentTarget.value = "";
+              }}
+            >
+              <option value="">Priority…</option>
+              {priorities.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className={styles.srOnly}>Change assignee</span>
+            <select
+              className="form-select form-select-sm"
+              defaultValue=""
+              disabled={isBulkUpdating}
+              onChange={(event) => {
+                if (event.target.value)
+                  void onBulkUpdate({
+                    assigneeUserId:
+                      event.target.value === "none" ? null : event.target.value,
+                  });
+                event.currentTarget.value = "";
+              }}
+            >
+              <option value="">Assign to…</option>
+              <option value="none">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.user.id} value={member.user.id}>
+                  {member.user.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isBulkUpdating}
+            onClick={() => setSelectedTaskIds([])}
+            type="button"
+          >
+            Clear
+          </button>
+        </section>
+      ) : null}
+
       {view === "board" ? (
         <section
           aria-label="Tasks"
@@ -2223,7 +2350,7 @@ export function ProjectBoard() {
                 <div className={styles.taskList}>
                   {statusTasks.map((task) => (
                     <article
-                      className={`${styles.taskCard} ${draggedTaskId === task.id ? styles.taskCardDragging : ""} card shadow-sm`}
+                      className={`${styles.taskCard} ${selectedTaskIds.includes(task.id) ? styles.taskCardSelected : ""} ${draggedTaskId === task.id ? styles.taskCardDragging : ""} card shadow-sm`}
                       draggable={canUpdateTasks}
                       onClick={() => {
                         if (ignoreTaskClickRef.current) return;
@@ -2250,6 +2377,19 @@ export function ProjectBoard() {
                       }}
                       key={task.id}
                     >
+                      {canUpdateTasks ? (
+                        <label className={styles.taskCardSelection}>
+                          <span className={styles.srOnly}>
+                            Select {task.key}
+                          </span>
+                          <input
+                            checked={selectedTaskIds.includes(task.id)}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={() => toggleTaskSelection(task.id)}
+                            type="checkbox"
+                          />
+                        </label>
+                      ) : null}
                       {visibleTaskFields.includes("taskKey") ||
                       visibleTaskFields.includes("taskType") ||
                       visibleTaskFields.includes("priority") ? (
