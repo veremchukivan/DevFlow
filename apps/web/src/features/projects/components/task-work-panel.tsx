@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Download,
   Link2,
+  Maximize2,
   MessageSquare,
   Pencil,
   Paperclip,
@@ -42,6 +43,7 @@ import {
   updateTaskComment,
   uploadTaskAttachment,
 } from "@/shared/lib/api-client";
+import { Modal } from "@/shared/components/modal";
 import type {
   Task,
   TaskActivityEvent,
@@ -57,6 +59,10 @@ import { can } from "@devflow/shared";
 import styles from "./task-work-panel.module.css";
 
 type ActivityTab = "comments" | "history";
+type AttachmentPreviewSelection = {
+  attachment: TaskAttachment;
+  previewUrl: string;
+};
 
 export function TaskWorkPanel({
   availableRelatedTasks,
@@ -92,6 +98,8 @@ export function TaskWorkPanel({
   const [isDeletingRelationId, setIsDeletingRelationId] = useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [error, setError] = useState<string>();
+  const [selectedAttachment, setSelectedAttachment] =
+    useState<AttachmentPreviewSelection>();
   const canUpdateTask = role ? can(role, "task:update") : false;
   const canCreateComments = role ? can(role, "comment:create") : false;
   const completedItems = checklistItems.filter(
@@ -504,58 +512,77 @@ export function TaskWorkPanel({
         ) : null}
         {attachments.length ? (
           <ul className={styles.attachmentList}>
-            {attachments.map((attachment) => (
-              <li key={attachment.id}>
-                {isPreviewableAttachment(attachment) ? (
-                  <AttachmentPreview
-                    attachment={attachment}
-                    previewUrl={
-                      getTaskAttachmentPreviewUrl(
-                        workspaceId,
-                        task.projectId,
-                        task.id,
-                        attachment.id,
-                      ) ?? undefined
-                    }
-                  />
-                ) : null}
-                <div>
-                  <strong>{attachment.originalFilename}</strong>
-                  <span>
-                    {formatFileSize(attachment.sizeBytes)} ·{" "}
-                    {attachment.uploadedBy?.displayName ?? "Former member"}
-                  </span>
-                </div>
-                <div className={styles.attachmentActions}>
-                  <a
-                    aria-label={`Download ${attachment.originalFilename}`}
-                    href={
-                      getTaskAttachmentDownloadUrl(
-                        workspaceId,
-                        task.projectId,
-                        task.id,
-                        attachment.id,
-                      ) ?? undefined
-                    }
-                    title="Download attachment"
-                  >
-                    <Download aria-hidden="true" size={16} />
-                  </a>
-                  {canUpdateTask ? (
-                    <button
-                      aria-label={`Delete ${attachment.originalFilename}`}
-                      className={styles.deleteButton}
-                      disabled={isDeletingAttachmentId === attachment.id}
-                      onClick={() => void onAttachmentDelete(attachment.id)}
-                      title="Delete attachment"
-                      type="button"
-                    >
-                      <Trash2 aria-hidden="true" size={15} />
-                    </button>
+            {attachments.map((attachment) => {
+              const previewUrl = getTaskAttachmentPreviewUrl(
+                workspaceId,
+                task.projectId,
+                task.id,
+                attachment.id,
+              );
+              const canPreview =
+                isPreviewableAttachment(attachment) && previewUrl;
+
+              return (
+                <li key={attachment.id}>
+                  {canPreview ? (
+                    <AttachmentPreview
+                      attachment={attachment}
+                      onOpen={() =>
+                        setSelectedAttachment({ attachment, previewUrl })
+                      }
+                      previewUrl={previewUrl}
+                    />
                   ) : null}
-                </div>
-              </li>
-            ))}
+                  <div>
+                    <strong>{attachment.originalFilename}</strong>
+                    <span>
+                      {formatFileSize(attachment.sizeBytes)} ·{" "}
+                      {attachment.uploadedBy?.displayName ?? "Former member"}
+                    </span>
+                  </div>
+                  <div className={styles.attachmentActions}>
+                    {canPreview ? (
+                      <button
+                        aria-label={`Open ${attachment.originalFilename}`}
+                        onClick={() =>
+                          setSelectedAttachment({ attachment, previewUrl })
+                        }
+                        title="Open preview"
+                        type="button"
+                      >
+                        <Maximize2 aria-hidden="true" size={16} />
+                      </button>
+                    ) : null}
+                    <a
+                      aria-label={`Download ${attachment.originalFilename}`}
+                      href={
+                        getTaskAttachmentDownloadUrl(
+                          workspaceId,
+                          task.projectId,
+                          task.id,
+                          attachment.id,
+                        ) ?? undefined
+                      }
+                      title="Download attachment"
+                    >
+                      <Download aria-hidden="true" size={16} />
+                    </a>
+                    {canUpdateTask ? (
+                      <button
+                        aria-label={`Delete ${attachment.originalFilename}`}
+                        className={styles.deleteButton}
+                        disabled={isDeletingAttachmentId === attachment.id}
+                        onClick={() => void onAttachmentDelete(attachment.id)}
+                        title="Delete attachment"
+                        type="button"
+                      >
+                        <Trash2 aria-hidden="true" size={15} />
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </section>
@@ -813,15 +840,46 @@ export function TaskWorkPanel({
           </div>
         )}
       </section>
+      {selectedAttachment ? (
+        <Modal
+          isOpen
+          onClose={() => setSelectedAttachment(undefined)}
+          title={selectedAttachment.attachment.originalFilename}
+          width="wide"
+        >
+          <div className={styles.attachmentPreviewDialog}>
+            <AttachmentMedia
+              attachment={selectedAttachment.attachment}
+              previewUrl={selectedAttachment.previewUrl}
+            />
+            <a
+              className={styles.downloadPreviewLink}
+              href={
+                getTaskAttachmentDownloadUrl(
+                  workspaceId,
+                  task.projectId,
+                  task.id,
+                  selectedAttachment.attachment.id,
+                ) ?? undefined
+              }
+            >
+              <Download aria-hidden="true" size={16} />
+              Download original
+            </a>
+          </div>
+        </Modal>
+      ) : null}
     </section>
   );
 }
 
 function AttachmentPreview({
   attachment,
+  onOpen,
   previewUrl,
 }: {
   attachment: TaskAttachment;
+  onOpen: () => void;
   previewUrl?: string;
 }) {
   if (!previewUrl) return null;
@@ -841,12 +899,11 @@ function AttachmentPreview({
   }
 
   return (
-    <a
+    <button
       aria-label={`Open ${attachment.originalFilename}`}
       className={styles.attachmentImageLink}
-      href={previewUrl}
-      rel="noreferrer"
-      target="_blank"
+      onClick={onOpen}
+      type="button"
     >
       <img
         alt={`Preview of ${attachment.originalFilename}`}
@@ -854,7 +911,29 @@ function AttachmentPreview({
         loading="lazy"
         src={previewUrl}
       />
-    </a>
+    </button>
+  );
+}
+
+function AttachmentMedia({
+  attachment,
+  previewUrl,
+}: AttachmentPreviewSelection) {
+  if (attachment.mimeType.startsWith("video/")) {
+    return (
+      <video className={styles.attachmentDialogVideo} controls autoPlay>
+        <source src={previewUrl} type={attachment.mimeType} />
+        Your browser cannot play this video. Download it instead.
+      </video>
+    );
+  }
+
+  return (
+    <img
+      alt={`Preview of ${attachment.originalFilename}`}
+      className={styles.attachmentDialogImage}
+      src={previewUrl}
+    />
   );
 }
 
