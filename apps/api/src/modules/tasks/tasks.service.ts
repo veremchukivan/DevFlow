@@ -264,6 +264,10 @@ export async function updateTask(input: {
           fields: updatedTaskFields(input.input),
           taskKey: `${existingTask.projectKey}-${existingTask.number}`,
           title: updatedTaskWithRelations.title,
+          ...(input.input.statusId !== undefined &&
+          input.input.statusId !== existingTask.statusId
+            ? { statusName: updatedTaskWithRelations.status.name }
+            : {}),
         },
         eventType: "task_updated",
         projectId: input.projectId,

@@ -125,6 +125,20 @@ describe("Notification integration tests", () => {
       .send({ statusId: targetStatus.id });
     expect(updated.status).toBe(200);
 
+    const activity = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/activity`,
+      )
+      .set("Cookie", owner.cookie);
+    expect(activity.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ statusName: targetStatus.name }),
+          eventType: "task_updated",
+        }),
+      ]),
+    );
+
     const listed = await request(app)
       .get("/api/v1/notifications")
       .set("Cookie", member.cookie);

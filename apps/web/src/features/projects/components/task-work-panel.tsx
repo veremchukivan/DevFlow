@@ -820,7 +820,7 @@ function describeActivity(event: TaskActivityEvent) {
   const actor = event.actor?.displayName ?? "A former member";
   const descriptions: Record<TaskActivityEvent["eventType"], string> = {
     task_created: "created this task",
-    task_updated: "updated this task",
+    task_updated: describeTaskUpdate(event),
     task_deleted: "deleted this task",
     task_restored: "restored this task",
     task_comment_created: "added a comment",
@@ -842,6 +842,39 @@ function describeChecklistUpdate(event: TaskActivityEvent) {
     return `${event.data.isCompleted ? "completed" : "reopened"} checklist item “${activityValue(event, "content", "Untitled")}”`;
   }
   return `updated checklist item “${activityValue(event, "content", "Untitled")}”`;
+}
+
+function describeTaskUpdate(event: TaskActivityEvent) {
+  const statusName = activityValue(event, "statusName", "");
+  if (statusName) return `moved this task to ${statusName}`;
+
+  const fields = event.data.fields;
+  if (!Array.isArray(fields)) return "updated this task";
+
+  const fieldLabels: Record<string, string> = {
+    assigneeUserId: "assignee",
+    description: "description",
+    dueDate: "due date",
+    parentTaskId: "parent task",
+    priority: "priority",
+    sprintId: "sprint",
+    statusId: "status",
+    title: "title",
+    type: "work type",
+  };
+  const labels = fields
+    .filter((field): field is string => typeof field === "string")
+    .map((field) => fieldLabels[field] ?? field)
+    .slice(0, 3);
+
+  if (!labels.length) return "updated this task";
+  return `updated ${formatList(labels)}`;
+}
+
+function formatList(values: string[]) {
+  if (values.length === 1) return values[0]!;
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 }
 
 function activityValue(
