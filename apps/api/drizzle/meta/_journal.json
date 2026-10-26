@@ -211,6 +211,13 @@
       "when": 1793034741804,
       "tag": "0029_condemned_carlie_cooper",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793035000000,
+      "tag": "0030_notification_preferences",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 export * from "./auth-tokens.js";
 export * from "./labels.js";
 export * from "./notifications.js";
+export * from "./notification-preferences.js";
 export * from "./project-statuses.js";
 export * from "./project-members.js";
 export * from "./project-sprints.js";
