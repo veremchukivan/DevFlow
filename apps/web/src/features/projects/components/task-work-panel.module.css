@@ -130,6 +130,39 @@
   padding: 9px 10px;
 }
 
+.attachmentList li:has(.attachmentImageLink),
+.attachmentList li:has(.attachmentVideo) {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(118px, 180px) minmax(0, 1fr) auto;
+}
+
+.attachmentImageLink,
+.attachmentVideo {
+  background: #edf1f5;
+  border-radius: 5px;
+  display: block;
+  height: 104px;
+  max-width: 180px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.attachmentImage {
+  height: 100%;
+  object-fit: cover;
+  transition: transform 160ms ease;
+  width: 100%;
+}
+
+.attachmentImageLink:hover .attachmentImage {
+  transform: scale(1.035);
+}
+
+.attachmentVideo {
+  object-fit: cover;
+}
+
 .attachmentList strong,
 .attachmentList span {
   display: block;
@@ -449,5 +482,15 @@
 
   .relationForm {
     grid-template-columns: 1fr;
+  }
+
+  .attachmentList li:has(.attachmentImageLink),
+  .attachmentList li:has(.attachmentVideo) {
+    grid-template-columns: minmax(94px, 130px) minmax(0, 1fr) auto;
+  }
+
+  .attachmentImageLink,
+  .attachmentVideo {
+    height: 88px;
   }
 }

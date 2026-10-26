@@ -4,7 +4,7 @@ import {
   taskAttachmentResponseSchema,
   taskAttachmentsParamsSchema,
 } from "@devflow/shared";
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 
 import { AppError } from "../../core/errors/app-error.js";
 import { taskAttachmentUpload } from "../../core/uploads/images.js";
@@ -69,6 +69,15 @@ taskAttachmentsRouter.get("/:attachmentId/download", async (req, res) => {
     .send(content);
 });
 
+taskAttachmentsRouter.get("/:attachmentId/preview", async (req, res) => {
+  const params = taskAttachmentParamsSchema.parse(req.params);
+  const { attachment, content } = await downloadAttachment({
+    ...params,
+    userId: getAuthenticatedUserId(req),
+  });
+  sendInlineAttachment(req, res, attachment, content);
+});
+
 taskAttachmentsRouter.delete("/:attachmentId", async (req, res) => {
   const params = taskAttachmentParamsSchema.parse(req.params);
   await removeAttachment({ ...params, userId: getAuthenticatedUserId(req) });
@@ -77,6 +86,65 @@ taskAttachmentsRouter.delete("/:attachmentId", async (req, res) => {
 
 function getAuthenticatedUserId(req: unknown) {
   return (req as AuthenticatedRequest).auth.user.id;
+}
+
+function sendInlineAttachment(
+  req: Request,
+  res: Response,
+  attachment: { mimeType: string; originalFilename: string },
+  content: Buffer,
+) {
+  const baseHeaders = {
+    "Cache-Control": "private, no-store",
+    "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(attachment.originalFilename)}`,
+    "Content-Type": attachment.mimeType,
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "X-Content-Type-Options": "nosniff",
+  };
+
+  if (!attachment.mimeType.startsWith("video/")) {
+    res.set({ ...baseHeaders, "Content-Length": content.length }).send(content);
+    return;
+  }
+
+  const range = req.headers.range;
+  if (!range) {
+    res
+      .set({
+        ...baseHeaders,
+        "Accept-Ranges": "bytes",
+        "Content-Length": content.length,
+      })
+      .send(content);
+    return;
+  }
+
+  const [startValue, endValue] = range.replace(/^bytes=/, "").split("-");
+  const start = Number.parseInt(startValue ?? "", 10);
+  const end = endValue
+    ? Math.min(Number.parseInt(endValue, 10), content.length - 1)
+    : content.length - 1;
+
+  if (
+    !Number.isFinite(start) ||
+    start < 0 ||
+    start >= content.length ||
+    end < start
+  ) {
+    res.status(416).set("Content-Range", `bytes */${content.length}`).end();
+    return;
+  }
+
+  const chunk = content.subarray(start, end + 1);
+  res
+    .status(206)
+    .set({
+      ...baseHeaders,
+      "Accept-Ranges": "bytes",
+      "Content-Length": chunk.length,
+      "Content-Range": `bytes ${start}-${end}/${content.length}`,
+    })
+    .send(chunk);
 }
 
 function toTaskAttachmentDto(attachment: {

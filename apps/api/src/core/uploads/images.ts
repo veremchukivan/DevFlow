@@ -8,7 +8,7 @@ import { env } from "../../config/env.js";
 import { AppError } from "../errors/app-error.js";
 
 const maxImageBytes = 2 * 1024 * 1024;
-const maxAttachmentBytes = 10 * 1024 * 1024;
+const maxAttachmentBytes = 50 * 1024 * 1024;
 const extensions = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -19,6 +19,8 @@ const attachmentExtensions = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
 } as const;
 
 export const imageUpload = multer({
@@ -49,7 +51,7 @@ export const taskAttachmentUpload = multer({
       new AppError(
         400,
         "ATTACHMENT_TYPE_INVALID",
-        "Upload a PDF, PNG, JPEG, or WebP file",
+        "Upload a PDF, PNG, JPEG, WebP, MP4, or WebM file",
       ),
     );
   },
@@ -92,7 +94,7 @@ export async function saveTaskAttachment(file: Express.Multer.File) {
     throw new AppError(
       400,
       "ATTACHMENT_TYPE_INVALID",
-      "Upload a PDF, PNG, JPEG, or WebP file",
+      "Upload a PDF, PNG, JPEG, WebP, MP4, or WebM file",
     );
   }
 

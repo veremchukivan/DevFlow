@@ -1084,6 +1084,17 @@ export function getTaskAttachmentDownloadUrl(
   );
 }
 
+export function getTaskAttachmentPreviewUrl(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  attachmentId: string,
+) {
+  return getApiAssetUrl(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}/preview`,
+  );
+}
+
 export function createTask(
   workspaceId: string,
   projectId: string,

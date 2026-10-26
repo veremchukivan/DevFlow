@@ -87,6 +87,13 @@ describe("Task attachment integration tests", () => {
     expect(downloaded.status).toBe(200);
     expect(downloaded.headers["content-type"]).toContain("image/png");
 
+    const previewed = await request(app)
+      .get(`${basePath}/${attachmentId}/preview`)
+      .set("Cookie", viewer.cookie);
+    expect(previewed.status).toBe(200);
+    expect(previewed.headers["content-disposition"]).toContain("inline");
+    expect(previewed.headers["content-type"]).toContain("image/png");
+
     const viewerDelete = await request(app)
       .delete(`${basePath}/${attachmentId}`)
       .set("Cookie", viewer.cookie);
@@ -108,5 +115,27 @@ describe("Task attachment integration tests", () => {
         }),
       ]),
     );
+  });
+
+  it("accepts a supported video attachment", async () => {
+    const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
+    const uploaded = await request(app)
+      .post(basePath)
+      .set("Cookie", owner.cookie)
+      .attach("file", Buffer.from("not-a-real-video"), {
+        contentType: "video/mp4",
+        filename: "walkthrough.mp4",
+      });
+
+    expect(uploaded.status).toBe(201);
+    expect(uploaded.body.attachment.mimeType).toBe("video/mp4");
+
+    const previewed = await request(app)
+      .get(`${basePath}/${uploaded.body.attachment.id}/preview`)
+      .set("Cookie", owner.cookie)
+      .set("Range", "bytes=0-3");
+    expect(previewed.status).toBe(206);
+    expect(previewed.headers["content-range"]).toBe("bytes 0-3/16");
+    expect(previewed.headers["accept-ranges"]).toBe("bytes");
   });
 });

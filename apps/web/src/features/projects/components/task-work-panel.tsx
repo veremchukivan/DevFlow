@@ -33,6 +33,7 @@ import {
   getTaskActivity,
   getTaskAttachments,
   getTaskAttachmentDownloadUrl,
+  getTaskAttachmentPreviewUrl,
   getTaskChecklist,
   getTaskComments,
   getTaskRelations,
@@ -480,14 +481,14 @@ export function TaskWorkPanel({
         <div className={styles.sectionHeading}>
           <div>
             <h3 id="attachments-title">Attachments</h3>
-            <p>PDF, PNG, JPEG, or WebP up to 10 MB</p>
+            <p>PDF, images, MP4 or WebM up to 50 MB</p>
           </div>
           <Paperclip aria-hidden="true" size={18} />
         </div>
         {canUpdateTask ? (
           <label className={styles.uploadButton}>
             <input
-              accept="application/pdf,image/jpeg,image/png,image/webp"
+              accept="application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/webm"
               disabled={isUploadingAttachment}
               onChange={(event) => void onAttachmentChange(event)}
               type="file"
@@ -505,6 +506,19 @@ export function TaskWorkPanel({
           <ul className={styles.attachmentList}>
             {attachments.map((attachment) => (
               <li key={attachment.id}>
+                {isPreviewableAttachment(attachment) ? (
+                  <AttachmentPreview
+                    attachment={attachment}
+                    previewUrl={
+                      getTaskAttachmentPreviewUrl(
+                        workspaceId,
+                        task.projectId,
+                        task.id,
+                        attachment.id,
+                      ) ?? undefined
+                    }
+                  />
+                ) : null}
                 <div>
                   <strong>{attachment.originalFilename}</strong>
                   <span>
@@ -800,6 +814,54 @@ export function TaskWorkPanel({
         )}
       </section>
     </section>
+  );
+}
+
+function AttachmentPreview({
+  attachment,
+  previewUrl,
+}: {
+  attachment: TaskAttachment;
+  previewUrl?: string;
+}) {
+  if (!previewUrl) return null;
+
+  if (attachment.mimeType.startsWith("video/")) {
+    return (
+      <video
+        aria-label={`Preview of ${attachment.originalFilename}`}
+        className={styles.attachmentVideo}
+        controls
+        preload="metadata"
+      >
+        <source src={previewUrl} type={attachment.mimeType} />
+        Your browser cannot play this video. Download it instead.
+      </video>
+    );
+  }
+
+  return (
+    <a
+      aria-label={`Open ${attachment.originalFilename}`}
+      className={styles.attachmentImageLink}
+      href={previewUrl}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <img
+        alt={`Preview of ${attachment.originalFilename}`}
+        className={styles.attachmentImage}
+        loading="lazy"
+        src={previewUrl}
+      />
+    </a>
+  );
+}
+
+function isPreviewableAttachment(attachment: TaskAttachment) {
+  return (
+    attachment.mimeType.startsWith("image/") ||
+    attachment.mimeType.startsWith("video/")
   );
 }
 
