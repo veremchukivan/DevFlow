@@ -264,7 +264,7 @@
 .workspaceMetrics {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 20px;
 }
 .workspaceMetric {
@@ -293,6 +293,49 @@
   color: var(--muted);
   font-size: 13px;
   margin: 18px 0 0;
+}
+.projectHealth {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+  padding-top: 20px;
+}
+.projectHealth h3 {
+  font-size: 15px;
+  margin: 0;
+}
+.projectHealth > div > p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+.projectHealthList {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.projectHealthRow {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  gap: 12px;
+  grid-template-columns: auto minmax(140px, 1fr) repeat(3, auto);
+  padding: 10px 12px;
+  text-decoration: none;
+}
+.projectHealthRow:hover {
+  border-color: var(--brand);
+}
+.projectHealthRow strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+.overdueMetric {
+  color: var(--danger);
+  font-weight: 700;
 }
 .sectionHeading {
   align-items: center;
@@ -1494,6 +1537,12 @@
   }
   .workspaceMetrics {
     grid-template-columns: 1fr;
+  }
+  .projectHealthRow {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .projectHealthRow > span:nth-last-child(-n + 3) {
+    grid-column: 2;
   }
   .projectDescription,
   .taskDescriptionField,

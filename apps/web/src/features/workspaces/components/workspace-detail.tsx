@@ -197,6 +197,42 @@ export function WorkspaceDetail() {
   const completionRate = workspaceTasks.length
     ? Math.round((completedTasks.length / workspaceTasks.length) * 100)
     : 0;
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 6);
+  weekStart.setHours(0, 0, 0, 0);
+  const completedThisWeek = completedTasks.filter(
+    (task) => new Date(task.updatedAt) >= weekStart,
+  );
+  const activeProjects = projects.filter((project) =>
+    (tasksByProject[project.id] ?? []).some(
+      (task) => task.status.category !== "done",
+    ),
+  ).length;
+  const projectHealth = projects
+    .map((project) => {
+      const projectTasks = tasksByProject[project.id] ?? [];
+      const projectDone = projectTasks.filter(
+        (task) => task.status.category === "done",
+      ).length;
+      const projectOpen = projectTasks.length - projectDone;
+      const projectOverdue = projectTasks.filter(
+        (task) =>
+          task.status.category !== "done" &&
+          task.dueDate &&
+          task.dueDate < today,
+      ).length;
+      return {
+        completionRate: projectTasks.length
+          ? Math.round((projectDone / projectTasks.length) * 100)
+          : 0,
+        open: projectOpen,
+        overdue: projectOverdue,
+        project,
+      };
+    })
+    .sort(
+      (left, right) => right.overdue - left.overdue || right.open - left.open,
+    );
 
   return (
     <main className={styles.workspaceHome}>
@@ -303,11 +339,62 @@ export function WorkspaceDetail() {
             <span>Overdue</span>
             <strong>{overdueTasks.length}</strong>
           </article>
+          <article className={styles.workspaceMetric}>
+            <CheckCircle2 aria-hidden="true" size={19} />
+            <span>Completed this week</span>
+            <strong>{completedThisWeek.length}</strong>
+          </article>
+          <article className={styles.workspaceMetric}>
+            <LayoutDashboard aria-hidden="true" size={19} />
+            <span>Active projects</span>
+            <strong>{activeProjects}</strong>
+          </article>
         </div>
         <p className={styles.workspaceDashboardSummary}>
           {projects.length} projects · {workspaceTasks.length} tasks ·{" "}
           {completedTasks.length} completed
         </p>
+        {projectHealth.length ? (
+          <section
+            className={styles.projectHealth}
+            aria-labelledby="project-health-title"
+          >
+            <div>
+              <h3 id="project-health-title">Project health</h3>
+              <p>Open work, overdue tasks, and completion by project.</p>
+            </div>
+            <div className={styles.projectHealthList}>
+              {projectHealth.map(
+                ({ completionRate, open, overdue, project }) => (
+                  <Link
+                    className={styles.projectHealthRow}
+                    href={`/workspaces/${workspaceId}/projects/${project.id}`}
+                    key={project.id}
+                  >
+                    <span className={styles.projectListIcon}>
+                      {project.iconUrl ? (
+                        <img
+                          alt=""
+                          src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                        />
+                      ) : (
+                        project.key.slice(0, 1)
+                      )}
+                    </span>
+                    <strong>{project.name}</strong>
+                    <span>{open} open</span>
+                    <span
+                      className={overdue ? styles.overdueMetric : undefined}
+                    >
+                      {overdue} overdue
+                    </span>
+                    <span>{completionRate}% complete</span>
+                  </Link>
+                ),
+              )}
+            </div>
+          </section>
+        ) : null}
       </section>
 
       <section
