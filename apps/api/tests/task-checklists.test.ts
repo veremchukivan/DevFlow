@@ -120,6 +120,10 @@ describe("Task checklist integration tests", () => {
       .set("Cookie", viewer.cookie);
     expect(defaultPreferences.status).toBe(200);
     expect(defaultPreferences.body.preferences.activityLimit).toBe(1);
+    expect(defaultPreferences.body.preferences).toMatchObject({
+      taskCardAccent: "status",
+      taskCardColor: "neutral",
+    });
 
     const updatedPreferences = await request(app)
       .patch(preferencesPath)
@@ -128,12 +132,16 @@ describe("Task checklist integration tests", () => {
         activityLimit: 5,
         boardScrolling: "column",
         hideDoneTasks: true,
+        taskCardAccent: "priority",
+        taskCardColor: "violet",
       });
     expect(updatedPreferences.status).toBe(200);
     expect(updatedPreferences.body.preferences).toMatchObject({
       activityLimit: 5,
       boardScrolling: "column",
       hideDoneTasks: true,
+      taskCardAccent: "priority",
+      taskCardColor: "violet",
     });
 
     const ownerPreferences = await request(app)

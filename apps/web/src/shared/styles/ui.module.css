@@ -631,6 +631,54 @@
   line-height: 1.4;
   margin: -3px 0 0;
 }
+.settingsDescription {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+}
+.cardAppearanceOptions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.cardAppearanceOption {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  display: flex;
+  font: inherit;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 10px;
+  text-align: left;
+}
+.cardAppearanceOption[aria-pressed="true"] {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+.cardAppearanceOption span {
+  background: #fff;
+  border: 1px solid #d7dee8;
+  border-radius: 4px;
+  display: inline-block;
+  height: 20px;
+  width: 28px;
+}
+.cardAppearanceOption span[data-color="blue"] {
+  background: #f4f8ff;
+}
+.cardAppearanceOption span[data-color="violet"] {
+  background: #faf7ff;
+}
+.cardAppearanceOption span[data-color="sand"] {
+  background: #fffbf3;
+}
+.cardAccentControl {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .segmentedControl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1075,6 +1123,43 @@
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
   padding: 16px;
   position: relative;
+}
+.taskBoard[data-card-color="blue"] .taskCard {
+  background: #f7faff;
+}
+.taskBoard[data-card-color="violet"] .taskCard {
+  background: #fbf9ff;
+}
+.taskBoard[data-card-color="sand"] .taskCard {
+  background: #fffdf8;
+}
+.taskBoard[data-card-accent="status"] .taskCard::before,
+.taskBoard[data-card-accent="priority"] .taskCard::before {
+  border-radius: 4px;
+  bottom: 11px;
+  content: "";
+  left: 0;
+  position: absolute;
+  top: 11px;
+  width: 3px;
+}
+.taskBoard[data-card-accent="status"] .taskCard::before {
+  background: var(--task-status-color);
+}
+.taskBoard[data-card-accent="priority"] .taskCard[data-priority="low"]::before {
+  background: #22a06b;
+}
+.taskBoard[data-card-accent="priority"]
+  .taskCard[data-priority="medium"]::before {
+  background: #2563eb;
+}
+.taskBoard[data-card-accent="priority"]
+  .taskCard[data-priority="high"]::before {
+  background: #d97706;
+}
+.taskBoard[data-card-accent="priority"]
+  .taskCard[data-priority="urgent"]::before {
+  background: #dc2626;
 }
 .taskCardSelected {
   border-color: var(--brand);

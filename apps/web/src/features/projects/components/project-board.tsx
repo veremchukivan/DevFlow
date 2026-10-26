@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   type DragEvent,
+  type CSSProperties,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -99,6 +100,8 @@ type BoardFilters = {
 type ProjectView = "board" | "list";
 type BoardColumnSize = "fixed" | "flexible";
 type BoardScrolling = "column" | "board";
+type TaskCardAccent = "none" | "status" | "priority";
+type TaskCardColor = "neutral" | "blue" | "violet" | "sand";
 type TaskCardField =
   "assignee" | "dueDate" | "labels" | "priority" | "taskKey" | "taskType";
 
@@ -169,11 +172,15 @@ export function ProjectBoard() {
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showBoardSettings, setShowBoardSettings] = useState(false);
+  const [showTaskCardSettings, setShowTaskCardSettings] = useState(false);
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [columnSize, setColumnSize] = useState<BoardColumnSize>("flexible");
   const [boardScrolling, setBoardScrolling] = useState<BoardScrolling>("board");
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [hideDoneTasks, setHideDoneTasks] = useState(false);
+  const [taskCardAccent, setTaskCardAccent] =
+    useState<TaskCardAccent>("status");
+  const [taskCardColor, setTaskCardColor] = useState<TaskCardColor>("neutral");
   const [visibleTaskFields, setVisibleTaskFields] = useState<TaskCardField[]>(
     defaultTaskCardFields,
   );
@@ -324,6 +331,8 @@ export function ProjectBoard() {
           columnWidthsRef.current =
             preferencesResponse.preferences.columnWidths;
           setHideDoneTasks(preferencesResponse.preferences.hideDoneTasks);
+          setTaskCardAccent(preferencesResponse.preferences.taskCardAccent);
+          setTaskCardColor(preferencesResponse.preferences.taskCardColor);
           setVisibleTaskFields(
             preferencesResponse.preferences.visibleTaskFields,
           );
@@ -1781,7 +1790,9 @@ export function ProjectBoard() {
                 Choose whether long boards scroll as one surface or inside each
                 column.
               </p>
-              <div className={styles.segmentedControl}>
+              <div
+                className={`${styles.segmentedControl} ${styles.cardAccentControl}`}
+              >
                 <button
                   aria-pressed={boardScrolling === "column"}
                   onClick={() => {
@@ -1935,6 +1946,72 @@ export function ProjectBoard() {
                 Add column
               </button>
             </form>
+          </section>
+        </Modal>
+      ) : null}
+      {showTaskCardSettings ? (
+        <Modal
+          isOpen={showTaskCardSettings}
+          onClose={() => setShowTaskCardSettings(false)}
+          title="Card appearance"
+        >
+          <section className={styles.viewSettingsSection}>
+            <p className={styles.settingsDescription}>
+              These preferences only change how cards look on your board.
+            </p>
+            <fieldset className={styles.viewSettingsFieldset}>
+              <legend>Card color</legend>
+              <p>Use a subtle surface color without changing task data.</p>
+              <div className={styles.cardAppearanceOptions}>
+                {(
+                  [
+                    ["neutral", "Neutral"],
+                    ["blue", "Blue"],
+                    ["violet", "Violet"],
+                    ["sand", "Sand"],
+                  ] as const
+                ).map(([color, label]) => (
+                  <button
+                    aria-pressed={taskCardColor === color}
+                    className={styles.cardAppearanceOption}
+                    key={color}
+                    onClick={() => {
+                      setTaskCardColor(color);
+                      saveViewPreferences({ taskCardColor: color });
+                    }}
+                    type="button"
+                  >
+                    <span data-color={color} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className={styles.viewSettingsFieldset}>
+              <legend>Card accent</legend>
+              <p>Highlight the left edge using a task property.</p>
+              <div className={styles.segmentedControl}>
+                {(
+                  [
+                    ["none", "None"],
+                    ["status", "Status"],
+                    ["priority", "Priority"],
+                  ] as const
+                ).map(([accent, label]) => (
+                  <button
+                    aria-pressed={taskCardAccent === accent}
+                    key={accent}
+                    onClick={() => {
+                      setTaskCardAccent(accent);
+                      saveViewPreferences({ taskCardAccent: accent });
+                    }}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
           </section>
         </Modal>
       ) : null}
@@ -2344,6 +2421,17 @@ export function ProjectBoard() {
               ))}
             </div>
           ) : null}
+          <button
+            onClick={() => {
+              setShowTaskCardSettings(true);
+              setTaskContextMenu(undefined);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            <Settings aria-hidden="true" size={15} />
+            Card appearance
+          </button>
           {canUpdateTasks ? (
             <button
               onClick={() => enterMultiSelectMode(taskContextMenu.task.id)}
@@ -2370,6 +2458,8 @@ export function ProjectBoard() {
         <section
           aria-label="Tasks"
           className={styles.taskBoard}
+          data-card-accent={taskCardAccent}
+          data-card-color={taskCardColor}
           data-column-size={columnSize}
           data-scrolling={boardScrolling}
         >
@@ -2451,6 +2541,7 @@ export function ProjectBoard() {
                   {statusTasks.map((task) => (
                     <article
                       className={`${styles.taskCard} ${selectedTaskIds.includes(task.id) ? styles.taskCardSelected : ""} ${draggedTaskId === task.id ? styles.taskCardDragging : ""} card shadow-sm`}
+                      data-priority={task.priority}
                       draggable={canUpdateTasks}
                       onClick={() => {
                         if (ignoreTaskClickRef.current) return;
@@ -2491,6 +2582,9 @@ export function ProjectBoard() {
                         void onDropTask(event, status.id, task.id);
                       }}
                       key={task.id}
+                      style={
+                        { "--task-status-color": status.color } as CSSProperties
+                      }
                     >
                       {visibleTaskFields.includes("taskKey") ||
                       visibleTaskFields.includes("taskType") ||

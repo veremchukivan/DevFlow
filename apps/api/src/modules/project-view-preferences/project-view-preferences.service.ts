@@ -16,6 +16,8 @@ const defaults: ProjectViewPreferences = {
   columnSize: "flexible",
   columnWidths: {},
   hideDoneTasks: false,
+  taskCardAccent: "status",
+  taskCardColor: "neutral",
   visibleTaskFields: [
     "assignee",
     "dueDate",
@@ -73,6 +75,10 @@ function toPreferences(
     columnSize: preferences.columnSize as ProjectViewPreferences["columnSize"],
     columnWidths: preferences.columnWidths as Record<string, number>,
     hideDoneTasks: preferences.hideDoneTasks,
+    taskCardAccent:
+      preferences.taskCardAccent as ProjectViewPreferences["taskCardAccent"],
+    taskCardColor:
+      preferences.taskCardColor as ProjectViewPreferences["taskCardColor"],
     visibleTaskFields:
       preferences.visibleTaskFields as ProjectViewPreferences["visibleTaskFields"],
   };

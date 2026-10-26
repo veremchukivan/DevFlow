@@ -14,12 +14,22 @@ export const taskCardFieldSchema = z.enum([
   "taskType",
 ]);
 
+export const taskCardAccentSchema = z.enum(["none", "status", "priority"]);
+export const taskCardColorSchema = z.enum([
+  "neutral",
+  "blue",
+  "violet",
+  "sand",
+]);
+
 export const projectViewPreferencesSchema = z.object({
   activityLimit: z.number().int().min(1).max(25),
   boardScrolling: z.enum(["board", "column"]),
   columnSize: z.enum(["fixed", "flexible"]),
   columnWidths: z.record(z.string(), z.number().int().min(240).max(640)),
   hideDoneTasks: z.boolean(),
+  taskCardAccent: taskCardAccentSchema,
+  taskCardColor: taskCardColorSchema,
   visibleTaskFields: z.array(taskCardFieldSchema),
 });
 
