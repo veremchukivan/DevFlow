@@ -2180,7 +2180,12 @@ export function ProjectBoard() {
                       ) : null}
                       <h3>
                         <button
+                          aria-label={`Open ${task.key}: ${task.title}`}
                           className={styles.taskTitleButton}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedTask(task);
+                          }}
                           type="button"
                         >
                           {task.title}

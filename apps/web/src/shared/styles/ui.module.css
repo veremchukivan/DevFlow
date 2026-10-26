@@ -1162,6 +1162,10 @@
 .taskCard[draggable="true"]:active {
   cursor: grabbing;
 }
+.taskCard:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 16%);
+}
 .taskCardDragging {
   opacity: 0.45;
 }
