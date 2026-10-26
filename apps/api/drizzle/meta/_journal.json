@@ -176,6 +176,13 @@
       "when": 1792979989104,
       "tag": "0024_freezing_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793012943024,
+      "tag": "0025_military_meltdown",
+      "breakpoints": true
     }
   ]
 }

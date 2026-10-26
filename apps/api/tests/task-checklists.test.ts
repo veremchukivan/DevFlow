@@ -114,6 +114,33 @@ describe("Task checklist integration tests", () => {
       ]),
     );
 
+    const preferencesPath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/view-preferences`;
+    const defaultPreferences = await request(app)
+      .get(preferencesPath)
+      .set("Cookie", viewer.cookie);
+    expect(defaultPreferences.status).toBe(200);
+    expect(defaultPreferences.body.preferences.activityLimit).toBe(1);
+
+    const updatedPreferences = await request(app)
+      .patch(preferencesPath)
+      .set("Cookie", viewer.cookie)
+      .send({
+        activityLimit: 5,
+        boardScrolling: "column",
+        hideDoneTasks: true,
+      });
+    expect(updatedPreferences.status).toBe(200);
+    expect(updatedPreferences.body.preferences).toMatchObject({
+      activityLimit: 5,
+      boardScrolling: "column",
+      hideDoneTasks: true,
+    });
+
+    const ownerPreferences = await request(app)
+      .get(preferencesPath)
+      .set("Cookie", owner.cookie);
+    expect(ownerPreferences.body.preferences.activityLimit).toBe(1);
+
     const completedListResponse = await request(app)
       .get(basePath)
       .set("Cookie", owner.cookie);

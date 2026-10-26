@@ -38,6 +38,7 @@ import {
   deleteProjectStatus,
   getProject,
   getProjectActivity,
+  getProjectViewPreferences,
   getProjectSprints,
   getTask,
   getTasks,
@@ -51,6 +52,7 @@ import {
   updateProject,
   updateProjectSprint,
   updateProjectStatus,
+  updateProjectViewPreferences,
   uploadProjectIcon,
   deleteProjectIcon,
 } from "@/shared/lib/api-client";
@@ -252,7 +254,7 @@ export function ProjectBoard() {
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
       getProjectSprints(workspaceId, projectId),
-      getProjectActivity(workspaceId, projectId, { limit: activityLimit }),
+      getProjectViewPreferences(workspaceId, projectId),
     ])
       .then(
         async ([
@@ -261,7 +263,7 @@ export function ProjectBoard() {
           membersResponse,
           workspaceResponse,
           sprintsResponse,
-          activityResponse,
+          preferencesResponse,
         ]) => {
           if (!active) return;
           const activeSprint = sprintsResponse.sprints.find(
@@ -286,7 +288,14 @@ export function ProjectBoard() {
             ),
           );
           setRole(workspaceResponse.workspace.role);
-          setRecentActivity(activityResponse.events);
+          setActivityLimit(preferencesResponse.preferences.activityLimit);
+          setBoardScrolling(preferencesResponse.preferences.boardScrolling);
+          setColumnSize(preferencesResponse.preferences.columnSize);
+          setColumnWidths(preferencesResponse.preferences.columnWidths);
+          setHideDoneTasks(preferencesResponse.preferences.hideDoneTasks);
+          setVisibleTaskFields(
+            preferencesResponse.preferences.visibleTaskFields,
+          );
         },
       )
       .catch((caughtError: unknown) => {
@@ -306,15 +315,7 @@ export function ProjectBoard() {
     return () => {
       active = false;
     };
-  }, [activityLimit, projectId, router, workspaceId]);
-
-  useEffect(() => {
-    const storedLimit = window.localStorage.getItem(
-      activityLimitStorageKey(projectId),
-    );
-    if (!storedLimit) return;
-    setActivityLimit(normalizeActivityLimit(Number(storedLimit)));
-  }, [projectId]);
+  }, [projectId, router, workspaceId]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -594,11 +595,13 @@ export function ProjectBoard() {
   }
 
   function toggleVisibleTaskField(field: TaskCardField) {
-    setVisibleTaskFields((current) =>
-      current.includes(field)
+    setVisibleTaskFields((current) => {
+      const next = current.includes(field)
         ? current.filter((item) => item !== field)
-        : [...current, field],
-    );
+        : [...current, field];
+      saveViewPreferences({ visibleTaskFields: next });
+      return next;
+    });
   }
 
   async function onCreateTask(event: FormEvent<HTMLFormElement>) {
@@ -646,9 +649,16 @@ export function ProjectBoard() {
   function updateActivityLimit(nextLimit: number) {
     const normalizedLimit = normalizeActivityLimit(nextLimit);
     setActivityLimit(normalizedLimit);
-    window.localStorage.setItem(
-      activityLimitStorageKey(projectId),
-      String(normalizedLimit),
+    saveViewPreferences({ activityLimit: normalizedLimit });
+  }
+
+  function saveViewPreferences(
+    input: Parameters<typeof updateProjectViewPreferences>[2],
+  ) {
+    void updateProjectViewPreferences(workspaceId, projectId, input).catch(
+      () => {
+        setError("Unable to save board settings.");
+      },
     );
   }
 
@@ -1478,7 +1488,11 @@ export function ProjectBoard() {
               <span>Hide completed work items</span>
               <select
                 onChange={(event) =>
-                  setHideDoneTasks(event.target.value === "hide")
+                  (() => {
+                    const next = event.target.value === "hide";
+                    setHideDoneTasks(next);
+                    saveViewPreferences({ hideDoneTasks: next });
+                  })()
                 }
                 value={hideDoneTasks ? "hide" : "show"}
               >
@@ -1526,14 +1540,20 @@ export function ProjectBoard() {
               <div className={styles.segmentedControl}>
                 <button
                   aria-pressed={columnSize === "fixed"}
-                  onClick={() => setColumnSize("fixed")}
+                  onClick={() => {
+                    setColumnSize("fixed");
+                    saveViewPreferences({ columnSize: "fixed" });
+                  }}
                   type="button"
                 >
                   Fixed
                 </button>
                 <button
                   aria-pressed={columnSize === "flexible"}
-                  onClick={() => setColumnSize("flexible")}
+                  onClick={() => {
+                    setColumnSize("flexible");
+                    saveViewPreferences({ columnSize: "flexible" });
+                  }}
                   type="button"
                 >
                   Flexible
@@ -1549,14 +1569,20 @@ export function ProjectBoard() {
               <div className={styles.segmentedControl}>
                 <button
                   aria-pressed={boardScrolling === "column"}
-                  onClick={() => setBoardScrolling("column")}
+                  onClick={() => {
+                    setBoardScrolling("column");
+                    saveViewPreferences({ boardScrolling: "column" });
+                  }}
                   type="button"
                 >
                   Within columns
                 </button>
                 <button
                   aria-pressed={boardScrolling === "board"}
-                  onClick={() => setBoardScrolling("board")}
+                  onClick={() => {
+                    setBoardScrolling("board");
+                    saveViewPreferences({ boardScrolling: "board" });
+                  }}
                   type="button"
                 >
                   Whole board
@@ -2316,10 +2342,6 @@ function formatSprintPeriod(startDate: string | null, endDate: string | null) {
   if (startDate) return `Started ${startDate}`;
   if (endDate) return `Ends ${endDate}`;
   return "Dates have not been set";
-}
-
-function activityLimitStorageKey(projectId: string) {
-  return `devflow:project-activity-limit:${projectId}`;
 }
 
 function normalizeActivityLimit(value: number) {

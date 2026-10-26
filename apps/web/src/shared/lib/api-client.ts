@@ -34,6 +34,7 @@ import {
   projectSprintResponseSchema,
   publicWorkspaceInvitationResponseSchema,
   projectResponseSchema,
+  projectViewPreferencesResponseSchema,
   taskListResponseSchema,
   taskActivityEventListResponseSchema,
   taskAttachmentListResponseSchema,
@@ -89,6 +90,8 @@ import {
   type ProjectSprintResponse,
   type PublicWorkspaceInvitationResponse,
   type ProjectResponse,
+  type ProjectViewPreferences,
+  type UpdateProjectViewPreferencesRequest,
   type TaskListResponse,
   type TaskActivityEventListResponse,
   type TaskAttachmentListResponse,
@@ -1017,6 +1020,29 @@ export function getProjectActivity(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/activity?limit=${pagination.limit ?? 12}&offset=${pagination.offset ?? 0}`,
     { method: "GET" },
     taskActivityEventListResponseSchema,
+  );
+}
+
+export function getProjectViewPreferences(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ preferences: ProjectViewPreferences }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/view-preferences`,
+    { method: "GET" },
+    projectViewPreferencesResponseSchema,
+  );
+}
+
+export function updateProjectViewPreferences(
+  workspaceId: string,
+  projectId: string,
+  input: UpdateProjectViewPreferencesRequest,
+): Promise<{ preferences: ProjectViewPreferences }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/view-preferences`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    projectViewPreferencesResponseSchema,
   );
 }
 

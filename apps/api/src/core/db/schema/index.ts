@@ -4,6 +4,7 @@ export * from "./notifications.js";
 export * from "./project-statuses.js";
 export * from "./project-sprints.js";
 export * from "./projects.js";
+export * from "./project-view-preferences.js";
 export * from "./sessions.js";
 export * from "./task-activity-events.js";
 export * from "./task-attachments.js";
