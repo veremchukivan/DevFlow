@@ -17,6 +17,8 @@ import {
   getProjects,
   getApiAssetUrl,
   getWorkspace,
+  getWorkspaceMembers,
+  getProjectSprints,
   getTasks,
   updateWorkspace,
 } from "@/shared/lib/api-client";
@@ -27,8 +29,10 @@ import {
 import {
   can,
   type ProjectSummary,
+  type ProjectSprint,
   type Task,
   type Workspace,
+  type WorkspaceMember,
 } from "@devflow/shared";
 import styles from "@/shared/styles/ui.module.css";
 
@@ -42,6 +46,16 @@ export function WorkspaceDetail() {
   const [tasksByProject, setTasksByProject] = useState<Record<string, Task[]>>(
     {},
   );
+  const [sprintsByProject, setSprintsByProject] = useState<
+    Record<string, ProjectSprint[]>
+  >({});
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<
+    "7d" | "30d" | "90d" | "all"
+  >("30d");
+  const [analyticsProjectId, setAnalyticsProjectId] = useState("all");
+  const [analyticsAssigneeId, setAnalyticsAssigneeId] = useState("all");
+  const [analyticsSprintId, setAnalyticsSprintId] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -52,14 +66,27 @@ export function WorkspaceDetail() {
   useEffect(() => {
     let active = true;
 
-    void Promise.all([getWorkspace(workspaceId), getProjects(workspaceId)])
-      .then(async ([workspaceResponse, projectResponse]) => {
+    void Promise.all([
+      getWorkspace(workspaceId),
+      getProjects(workspaceId),
+      getWorkspaceMembers(workspaceId),
+    ])
+      .then(async ([workspaceResponse, projectResponse, membersResponse]) => {
         const taskResponses = await Promise.all(
           projectResponse.projects.map(
             async (project) =>
               [
                 project.id,
-                (await getTasks(workspaceId, project.id, { limit: 100 })).tasks,
+                await getAllProjectTasks(workspaceId, project.id),
+              ] as const,
+          ),
+        );
+        const sprintResponses = await Promise.all(
+          projectResponse.projects.map(
+            async (project) =>
+              [
+                project.id,
+                (await getProjectSprints(workspaceId, project.id)).sprints,
               ] as const,
           ),
         );
@@ -70,6 +97,12 @@ export function WorkspaceDetail() {
         setWorkspace(workspaceResponse.workspace);
         setProjects(projectResponse.projects);
         setTasksByProject(Object.fromEntries(taskResponses));
+        setSprintsByProject(Object.fromEntries(sprintResponses));
+        setMembers(
+          membersResponse.members.filter(
+            (member) => member.status === "active",
+          ),
+        );
       })
       .catch((caughtError: unknown) => {
         if (
@@ -110,7 +143,7 @@ export function WorkspaceDetail() {
         const responses = await Promise.all(
           projects.map(async (project) => [
             project.id,
-            (await getTasks(workspaceId, project.id, { limit: 100 })).tasks,
+            await getAllProjectTasks(workspaceId, project.id),
           ]),
         );
         if (active) setTasksByProject(Object.fromEntries(responses));
@@ -228,33 +261,62 @@ export function WorkspaceDetail() {
   const canDeleteWorkspace = can(workspace.role, "workspace:delete");
   const canCreateProjects = can(workspace.role, "project:create");
   const workspaceTasks = Object.values(tasksByProject).flat();
-  const completedTasks = workspaceTasks.filter(
+  const analyticsTasks = workspaceTasks.filter((task) => {
+    if (analyticsProjectId !== "all" && task.projectId !== analyticsProjectId)
+      return false;
+    if (analyticsAssigneeId === "unassigned" && task.assigneeUserId !== null)
+      return false;
+    if (
+      analyticsAssigneeId !== "all" &&
+      analyticsAssigneeId !== "unassigned" &&
+      task.assigneeUserId !== analyticsAssigneeId
+    )
+      return false;
+    if (analyticsSprintId === "backlog" && task.sprintId !== null) return false;
+    if (
+      analyticsSprintId !== "all" &&
+      analyticsSprintId !== "backlog" &&
+      task.sprintId !== analyticsSprintId
+    )
+      return false;
+    return isTaskInAnalyticsPeriod(task, analyticsPeriod);
+  });
+  const completedTasks = analyticsTasks.filter(
     (task) => task.status.category === "done",
   );
-  const openTasks = workspaceTasks.filter(
+  const openTasks = analyticsTasks.filter(
     (task) => task.status.category !== "done",
   );
   const today = new Date().toISOString().slice(0, 10);
   const overdueTasks = openTasks.filter(
     (task) => task.dueDate && task.dueDate < today,
   );
-  const completionRate = workspaceTasks.length
-    ? Math.round((completedTasks.length / workspaceTasks.length) * 100)
+  const completionRate = analyticsTasks.length
+    ? Math.round((completedTasks.length / analyticsTasks.length) * 100)
     : 0;
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - 6);
-  weekStart.setHours(0, 0, 0, 0);
-  const completedThisWeek = completedTasks.filter(
-    (task) => new Date(task.updatedAt) >= weekStart,
+  const completedThisWeek = completedTasks.filter((task) =>
+    isTaskInAnalyticsPeriod(task, "7d"),
   );
   const activeProjects = projects.filter((project) =>
-    (tasksByProject[project.id] ?? []).some(
-      (task) => task.status.category !== "done",
+    analyticsTasks.some(
+      (task) =>
+        task.projectId === project.id && task.status.category !== "done",
     ),
   ).length;
+  const statusDistribution = buildStatusDistribution(analyticsTasks);
+  const workload = buildMemberWorkload(analyticsTasks, members);
+  const deliveryTrend = buildDeliveryTrend(completedTasks);
+  const allSprints = projects.flatMap((project) =>
+    (sprintsByProject[project.id] ?? []).map((sprint) => ({
+      projectName: project.name,
+      sprint,
+    })),
+  );
   const projectHealth = projects
     .map((project) => {
-      const projectTasks = tasksByProject[project.id] ?? [];
+      const projectTasks = analyticsTasks.filter(
+        (task) => task.projectId === project.id,
+      );
       const projectDone = projectTasks.filter(
         (task) => task.status.category === "done",
       ).length;
@@ -274,6 +336,9 @@ export function WorkspaceDetail() {
         project,
       };
     })
+    .filter(({ project }) =>
+      analyticsProjectId === "all" ? true : project.id === analyticsProjectId,
+    )
     .sort(
       (left, right) => right.overdue - left.overdue || right.open - left.open,
     );
@@ -367,6 +432,77 @@ export function WorkspaceDetail() {
             size={21}
           />
         </div>
+        <div className={styles.analyticsFilters}>
+          <label>
+            <span>Period</span>
+            <select
+              onChange={(event) =>
+                setAnalyticsPeriod(
+                  event.target.value as "7d" | "30d" | "90d" | "all",
+                )
+              }
+              value={analyticsPeriod}
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+              <option value="all">All time</option>
+            </select>
+          </label>
+          <label>
+            <span>Project</span>
+            <select
+              onChange={(event) => {
+                setAnalyticsProjectId(event.target.value);
+                setAnalyticsSprintId("all");
+              }}
+              value={analyticsProjectId}
+            >
+              <option value="all">All projects</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Assignee</span>
+            <select
+              onChange={(event) => setAnalyticsAssigneeId(event.target.value)}
+              value={analyticsAssigneeId}
+            >
+              <option value="all">Everyone</option>
+              <option value="unassigned">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.user.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Sprint</span>
+            <select
+              onChange={(event) => setAnalyticsSprintId(event.target.value)}
+              value={analyticsSprintId}
+            >
+              <option value="all">All sprints</option>
+              <option value="backlog">Backlog</option>
+              {allSprints
+                .filter(
+                  ({ sprint }) =>
+                    analyticsProjectId === "all" ||
+                    sprint.projectId === analyticsProjectId,
+                )
+                .map(({ projectName, sprint }) => (
+                  <option key={sprint.id} value={sprint.id}>
+                    {projectName}: {sprint.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </div>
         <div className={styles.workspaceMetrics}>
           <article className={`${styles.workspaceMetric} card`}>
             <CheckCircle2 aria-hidden="true" size={19} />
@@ -395,9 +531,105 @@ export function WorkspaceDetail() {
           </article>
         </div>
         <p className={styles.workspaceDashboardSummary}>
-          {projects.length} projects · {workspaceTasks.length} tasks ·{" "}
-          {completedTasks.length} completed
+          {activeProjects} active projects · {analyticsTasks.length} tasks ·{" "}
+          {completedTasks.length} completed in the selected view
         </p>
+        <div className={styles.analyticsGrid}>
+          <section
+            className={styles.analyticsCard}
+            aria-labelledby="status-chart-title"
+          >
+            <div>
+              <h3 id="status-chart-title">Status distribution</h3>
+              <p>How selected work is spread across statuses.</p>
+            </div>
+            {statusDistribution.length ? (
+              <ul className={styles.analyticsBarList}>
+                {statusDistribution.map((status) => (
+                  <li key={status.id}>
+                    <span>{status.name}</span>
+                    <div aria-hidden="true">
+                      <i
+                        style={{
+                          backgroundColor: status.color,
+                          width: `${Math.max(
+                            5,
+                            (status.count /
+                              Math.max(analyticsTasks.length, 1)) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <strong>{status.count}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.emptyState}>No tasks match these filters.</p>
+            )}
+          </section>
+          <section
+            className={styles.analyticsCard}
+            aria-labelledby="velocity-chart-title"
+          >
+            <div>
+              <h3 id="velocity-chart-title">Delivery velocity</h3>
+              <p>Completed tasks over the last seven days.</p>
+            </div>
+            <div className={styles.velocityChart}>
+              {deliveryTrend.map((day) => (
+                <div key={day.key}>
+                  <span>{day.count}</span>
+                  <i
+                    aria-label={`${day.label}: ${day.count} completed tasks`}
+                    style={{
+                      height: `${Math.max(
+                        6,
+                        (day.count /
+                          Math.max(
+                            ...deliveryTrend.map((item) => item.count),
+                            1,
+                          )) *
+                          100,
+                      )}%`,
+                    }}
+                  />
+                  <small>{day.label}</small>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section
+            className={styles.analyticsCard}
+            aria-labelledby="workload-chart-title"
+          >
+            <div>
+              <h3 id="workload-chart-title">Team workload</h3>
+              <p>Open and completed tasks by assignee.</p>
+            </div>
+            {workload.length ? (
+              <ul className={styles.workloadList}>
+                {workload.map((member) => (
+                  <li key={member.id}>
+                    <span>{member.name}</span>
+                    <div>
+                      <i style={{ width: `${member.openShare}%` }} />
+                      <b style={{ width: `${member.doneShare}%` }} />
+                    </div>
+                    <strong>
+                      {member.open} open · {member.done} done
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.emptyState}>
+                No assigned tasks in this view.
+              </p>
+            )}
+          </section>
+        </div>
         {projectHealth.length ? (
           <section
             className={styles.projectHealth}
@@ -532,4 +764,118 @@ export function WorkspaceDetail() {
       </section>
     </main>
   );
+}
+
+async function getAllProjectTasks(workspaceId: string, projectId: string) {
+  const tasks: Task[] = [];
+  let offset = 0;
+
+  do {
+    const response = await getTasks(workspaceId, projectId, {
+      limit: 100,
+      offset,
+      sortBy: "updatedAt",
+      sortOrder: "desc",
+    });
+    tasks.push(...response.tasks);
+    if (!response.pageInfo.hasNextPage) return tasks;
+    offset += response.pageInfo.limit;
+  } while (true);
+}
+
+function isTaskInAnalyticsPeriod(
+  task: Task,
+  period: "7d" | "30d" | "90d" | "all",
+) {
+  if (period === "all") return true;
+  const days = Number.parseInt(period, 10);
+  const start = new Date();
+  start.setDate(start.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+  return new Date(task.updatedAt) >= start;
+}
+
+function buildStatusDistribution(tasks: Task[]) {
+  const statuses = new Map<
+    string,
+    { color: string; count: number; id: string; name: string }
+  >();
+  for (const task of tasks) {
+    const current = statuses.get(task.status.id);
+    statuses.set(task.status.id, {
+      color: task.status.color,
+      count: (current?.count ?? 0) + 1,
+      id: task.status.id,
+      name: task.status.name,
+    });
+  }
+  return [...statuses.values()].sort((left, right) => right.count - left.count);
+}
+
+function buildMemberWorkload(tasks: Task[], members: WorkspaceMember[]) {
+  const counts = new Map<
+    string,
+    { done: number; id: string; name: string; open: number }
+  >(
+    members.map((member) => [
+      member.userId,
+      { done: 0, id: member.userId, name: member.user.displayName, open: 0 },
+    ]),
+  );
+  let unassignedOpen = 0;
+  let unassignedDone = 0;
+
+  for (const task of tasks) {
+    if (!task.assigneeUserId) {
+      if (task.status.category === "done") unassignedDone += 1;
+      else unassignedOpen += 1;
+      continue;
+    }
+    const current = counts.get(task.assigneeUserId) ?? {
+      done: 0,
+      id: task.assigneeUserId,
+      name: task.assignee?.displayName ?? "Unknown member",
+      open: 0,
+    };
+    if (task.status.category === "done") current.done += 1;
+    else current.open += 1;
+    counts.set(task.assigneeUserId, current);
+  }
+
+  if (unassignedOpen || unassignedDone) {
+    counts.set("unassigned", {
+      done: unassignedDone,
+      id: "unassigned",
+      name: "Unassigned",
+      open: unassignedOpen,
+    });
+  }
+  const max = Math.max(
+    ...[...counts.values()].map((member) => member.open + member.done),
+    1,
+  );
+  return [...counts.values()]
+    .filter((member) => member.open + member.done > 0)
+    .map((member) => ({
+      ...member,
+      doneShare: (member.done / max) * 100,
+      openShare: (member.open / max) * 100,
+    }))
+    .sort((left, right) => right.open - left.open || right.done - left.done);
+}
+
+function buildDeliveryTrend(tasks: Task[]) {
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - index));
+    const key = date.toISOString().slice(0, 10);
+    return {
+      count: tasks.filter((task) => task.updatedAt.slice(0, 10) === key).length,
+      key,
+      label: new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(
+        date,
+      ),
+    };
+  });
+  return days;
 }
