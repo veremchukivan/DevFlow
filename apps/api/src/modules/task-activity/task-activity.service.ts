@@ -6,9 +6,27 @@ import { buildPageInfo } from "../../core/pagination.js";
 import {
   createTaskActivityEvent,
   findActiveWorkspaceMembership,
+  findProjectInWorkspace,
   findTaskInProject,
-  listTaskActivityEvents
+  listTaskActivityEvents,
+  listProjectActivityEvents,
 } from "./task-activity.repository.js";
+
+export async function listProjectActivity(input: {
+  pagination: PaginationQuery;
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireWorkspaceMembership(input);
+  await requireProject(input);
+  const result = await listProjectActivityEvents(input);
+
+  return {
+    events: result.items,
+    pageInfo: buildPageInfo({ ...input.pagination, total: result.total }),
+  };
+}
 
 export async function recordTaskActivity(
   input: {
@@ -19,7 +37,7 @@ export async function recordTaskActivity(
     taskId: string;
     workspaceId: string;
   },
-  executor?: DbExecutor
+  executor?: DbExecutor,
 ) {
   await createTaskActivityEvent(
     {
@@ -28,9 +46,9 @@ export async function recordTaskActivity(
       eventType: input.eventType,
       projectId: input.projectId,
       taskId: input.taskId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     },
-    executor
+    executor,
   );
 }
 
@@ -48,12 +66,12 @@ export async function listTaskActivity(input: {
     pagination: input.pagination,
     projectId: input.projectId,
     taskId: input.taskId,
-    workspaceId: input.workspaceId
+    workspaceId: input.workspaceId,
   });
 
   return {
     events: result.items,
-    pageInfo: buildPageInfo({ ...input.pagination, total: result.total })
+    pageInfo: buildPageInfo({ ...input.pagination, total: result.total }),
   };
 }
 
@@ -82,4 +100,17 @@ async function requireTask(input: {
   }
 
   return task;
+}
+
+async function requireProject(input: {
+  projectId: string;
+  workspaceId: string;
+}) {
+  const project = await findProjectInWorkspace(input);
+
+  if (!project) {
+    throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  }
+
+  return project;
 }

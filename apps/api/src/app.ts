@@ -20,6 +20,7 @@ import { notificationsRouter } from "./modules/notifications/notifications.route
 import { projectsRouter } from "./modules/projects/projects.routes.js";
 import { projectSprintsRouter } from "./modules/project-sprints/project-sprints.routes.js";
 import { taskActivityRouter } from "./modules/task-activity/task-activity.routes.js";
+import { projectActivityRouter } from "./modules/task-activity/project-activity.routes.js";
 import { taskAttachmentsRouter } from "./modules/task-attachments/task-attachments.routes.js";
 import { taskChecklistsRouter } from "./modules/task-checklists/task-checklists.routes.js";
 import { taskCommentsRouter } from "./modules/task-comments/task-comments.routes.js";
@@ -84,6 +85,10 @@ export function createApp() {
     workspaceInvitationsRouter,
   );
   app.use("/api/v1/workspaces/:workspaceId/members", workspaceMembersRouter);
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/activity",
+    projectActivityRouter,
+  );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/activity",
     taskActivityRouter,

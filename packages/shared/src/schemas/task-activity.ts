@@ -25,6 +25,11 @@ export const taskActivityParamsSchema = z.object({
   workspaceId: z.uuid(),
 });
 
+export const projectActivityParamsSchema = z.object({
+  projectId: z.uuid(),
+  workspaceId: z.uuid(),
+});
+
 export const taskActivityActorSchema = z.object({
   displayName: z.string(),
   id: z.uuid(),
@@ -39,6 +44,8 @@ export const taskActivityEventSchema = z.object({
   id: z.uuid(),
   projectId: z.uuid(),
   taskId: z.uuid(),
+  taskKey: z.string().optional(),
+  taskTitle: z.string().optional(),
   workspaceId: z.uuid(),
 });
 

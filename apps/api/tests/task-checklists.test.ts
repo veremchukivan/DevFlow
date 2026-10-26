@@ -96,6 +96,24 @@ describe("Task checklist integration tests", () => {
       ]),
     );
 
+    const projectActivityResponse = await request(app)
+      .get(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/activity`)
+      .set("Cookie", viewer.cookie);
+    expect(projectActivityResponse.status).toBe(200);
+    expect(projectActivityResponse.body.pageInfo.total).toBeGreaterThanOrEqual(
+      3,
+    );
+    expect(projectActivityResponse.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "task_checklist_item_updated",
+          taskId: task.id,
+          taskKey: "CHECK-1",
+          taskTitle: "Checklist task",
+        }),
+      ]),
+    );
+
     const completedListResponse = await request(app)
       .get(basePath)
       .set("Cookie", owner.cookie);

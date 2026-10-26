@@ -1008,6 +1008,18 @@ export function getTaskActivity(
   );
 }
 
+export function getProjectActivity(
+  workspaceId: string,
+  projectId: string,
+  pagination: { limit?: number; offset?: number } = {},
+): Promise<TaskActivityEventListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/activity?limit=${pagination.limit ?? 12}&offset=${pagination.offset ?? 0}`,
+    { method: "GET" },
+    taskActivityEventListResponseSchema,
+  );
+}
+
 export function getTaskAttachments(
   workspaceId: string,
   projectId: string,

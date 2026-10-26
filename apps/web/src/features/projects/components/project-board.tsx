@@ -36,6 +36,7 @@ import {
   deleteProject,
   deleteProjectStatus,
   getProject,
+  getProjectActivity,
   getProjectSprints,
   getTask,
   getTasks,
@@ -65,6 +66,7 @@ import type {
   WorkspaceMember,
   WorkspaceRole,
   ProjectSprint,
+  TaskActivityEvent,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
 import { Modal } from "@/shared/components/modal";
@@ -129,6 +131,7 @@ export function ProjectBoard() {
     "backlog",
   );
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [recentActivity, setRecentActivity] = useState<TaskActivityEvent[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task>();
   const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [filters, setFilters] = useState<BoardFilters>({});
@@ -244,6 +247,7 @@ export function ProjectBoard() {
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
       getProjectSprints(workspaceId, projectId),
+      getProjectActivity(workspaceId, projectId),
     ])
       .then(
         async ([
@@ -252,6 +256,7 @@ export function ProjectBoard() {
           membersResponse,
           workspaceResponse,
           sprintsResponse,
+          activityResponse,
         ]) => {
           if (!active) return;
           const activeSprint = sprintsResponse.sprints.find(
@@ -276,6 +281,7 @@ export function ProjectBoard() {
             ),
           );
           setRole(workspaceResponse.workspace.role);
+          setRecentActivity(activityResponse.events);
         },
       )
       .catch((caughtError: unknown) => {
@@ -296,6 +302,32 @@ export function ProjectBoard() {
       active = false;
     };
   }, [projectId, router, workspaceId]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    let active = true;
+    async function refreshActivity() {
+      try {
+        const response = await getProjectActivity(workspaceId, projectId);
+        if (active) setRecentActivity(response.events);
+      } catch {
+        // The board remains usable if the non-critical activity feed is delayed.
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshActivity();
+    }, 15_000);
+    const onFocus = () => void refreshActivity();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [isLoading, projectId, workspaceId]);
 
   useEffect(() => {
     if (!taskIdFromUrl) return;
@@ -2129,6 +2161,54 @@ export function ProjectBoard() {
         </section>
       )}
 
+      <section
+        aria-labelledby="project-activity-title"
+        className={styles.projectActivity}
+      >
+        <div className={styles.projectActivityHeading}>
+          <div>
+            <p className={styles.eyebrow}>Project activity</p>
+            <h2 id="project-activity-title">Recent changes</h2>
+          </div>
+          <span>{recentActivity.length} latest</span>
+        </div>
+        {recentActivity.length ? (
+          <ol className={styles.projectActivityList}>
+            {recentActivity.map((event) => (
+              <li key={event.id}>
+                <div>
+                  <p>
+                    {describeProjectActivity(event)}
+                    {event.taskKey ? (
+                      <button
+                        className={styles.projectActivityTask}
+                        onClick={() =>
+                          router.push(
+                            `/workspaces/${workspaceId}/projects/${projectId}?taskId=${event.taskId}`,
+                          )
+                        }
+                        type="button"
+                      >
+                        {event.taskKey}
+                        {event.taskTitle ? ` · ${event.taskTitle}` : ""}
+                      </button>
+                    ) : null}
+                  </p>
+                  <time dateTime={event.createdAt}>
+                    {formatRelativeTime(event.createdAt)}
+                  </time>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className={styles.projectActivityEmpty}>
+            Changes to tasks, comments, files, and checklist items will appear
+            here.
+          </p>
+        )}
+      </section>
+
       {pageInfo ? (
         <nav aria-label="Task pagination" className={styles.pagination}>
           <span>
@@ -2175,6 +2255,79 @@ function formatSprintPeriod(startDate: string | null, endDate: string | null) {
   if (startDate) return `Started ${startDate}`;
   if (endDate) return `Ends ${endDate}`;
   return "Dates have not been set";
+}
+
+function describeProjectActivity(event: TaskActivityEvent) {
+  const actor = event.actor?.displayName ?? "A former member";
+  const details: Record<TaskActivityEvent["eventType"], string> = {
+    task_created: "created ",
+    task_updated: describeProjectTaskUpdate(event),
+    task_deleted: "deleted ",
+    task_restored: "restored ",
+    task_comment_created: "commented on ",
+    task_comment_updated: "updated a comment on ",
+    task_comment_deleted: "deleted a comment on ",
+    task_attachment_added: `uploaded ${activityText(event, "filename", "a file")} to `,
+    task_attachment_removed: `removed ${activityText(event, "filename", "a file")} from `,
+    task_relation_added: `linked ${activityText(event, "targetTaskKey", "a task")} to `,
+    task_relation_removed: "removed a task link from ",
+    task_checklist_item_added: "added a checklist item to ",
+    task_checklist_item_updated: describeProjectChecklistUpdate(event),
+    task_checklist_item_removed: "removed a checklist item from ",
+  };
+
+  return `${actor} ${details[event.eventType]}`;
+}
+
+function describeProjectTaskUpdate(event: TaskActivityEvent) {
+  const statusName = activityText(event, "statusName", "");
+  if (statusName) return `moved to ${statusName}: `;
+
+  const fields = event.data.fields;
+  if (!Array.isArray(fields)) return "updated ";
+  const fieldLabels: Record<string, string> = {
+    assigneeUserId: "assignee",
+    description: "description",
+    dueDate: "due date",
+    parentTaskId: "parent task",
+    priority: "priority",
+    sprintId: "sprint",
+    statusId: "status",
+    title: "title",
+    type: "work type",
+  };
+  const labels = fields
+    .filter((field): field is string => typeof field === "string")
+    .map((field) => fieldLabels[field] ?? field)
+    .slice(0, 3);
+
+  return labels.length ? `updated ${labels.join(", ")} on ` : "updated ";
+}
+
+function describeProjectChecklistUpdate(event: TaskActivityEvent) {
+  if (typeof event.data.isCompleted === "boolean") {
+    return `${event.data.isCompleted ? "completed" : "reopened"} a checklist item on `;
+  }
+  return "updated a checklist item on ";
+}
+
+function activityText(event: TaskActivityEvent, key: string, fallback: string) {
+  const value = event.data[key];
+  return typeof value === "string" && value ? value : fallback;
+}
+
+function formatRelativeTime(value: string) {
+  const elapsedSeconds = Math.max(
+    0,
+    Math.round((Date.now() - new Date(value).getTime()) / 1_000),
+  );
+  if (elapsedSeconds < 60) return "Just now";
+  const minutes = Math.round(elapsedSeconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 function TaskEditorModal({

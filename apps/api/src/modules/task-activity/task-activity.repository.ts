@@ -1,5 +1,5 @@
 import type { PaginationQuery, TaskActivityEventType } from "@devflow/shared";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { type DbExecutor, db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
@@ -16,7 +16,7 @@ export async function findActiveWorkspaceMembership(input: {
   const [membership] = await db
     .select({
       role: workspaceMembers.role,
-      workspaceId: workspaceMembers.workspaceId
+      workspaceId: workspaceMembers.workspaceId,
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
@@ -25,8 +25,8 @@ export async function findActiveWorkspaceMembership(input: {
         eq(workspaceMembers.userId, input.userId),
         eq(workspaceMembers.workspaceId, input.workspaceId),
         eq(workspaceMembers.status, "active"),
-        isNull(workspaces.deletedAt)
-      )
+        isNull(workspaces.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -42,15 +42,15 @@ export async function findTaskInProject(input: {
     .select({
       id: tasks.id,
       projectId: tasks.projectId,
-      workspaceId: tasks.workspaceId
+      workspaceId: tasks.workspaceId,
     })
     .from(tasks)
     .innerJoin(
       projects,
       and(
         eq(projects.id, tasks.projectId),
-        eq(projects.workspaceId, tasks.workspaceId)
-      )
+        eq(projects.workspaceId, tasks.workspaceId),
+      ),
     )
     .where(
       and(
@@ -58,12 +58,31 @@ export async function findTaskInProject(input: {
         eq(tasks.projectId, input.projectId),
         eq(tasks.workspaceId, input.workspaceId),
         isNull(projects.deletedAt),
-        isNull(tasks.deletedAt)
-      )
+        isNull(tasks.deletedAt),
+      ),
     )
     .limit(1);
 
   return task;
+}
+
+export async function findProjectInWorkspace(input: {
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+        isNull(projects.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  return project;
 }
 
 export async function createTaskActivityEvent(
@@ -75,13 +94,13 @@ export async function createTaskActivityEvent(
     taskId: string;
     workspaceId: string;
   },
-  executor: DbExecutor = db
+  executor: DbExecutor = db,
 ) {
   const [event] = await executor
     .insert(taskActivityEvents)
     .values(input)
     .returning({
-      id: taskActivityEvents.id
+      id: taskActivityEvents.id,
     });
 
   return event;
@@ -96,7 +115,7 @@ export async function listTaskActivityEvents(input: {
   const conditions = and(
     eq(taskActivityEvents.projectId, input.projectId),
     eq(taskActivityEvents.taskId, input.taskId),
-    eq(taskActivityEvents.workspaceId, input.workspaceId)
+    eq(taskActivityEvents.workspaceId, input.workspaceId),
   );
 
   const [totalRow] = await db
@@ -115,18 +134,79 @@ export async function listTaskActivityEvents(input: {
       id: taskActivityEvents.id,
       projectId: taskActivityEvents.projectId,
       taskId: taskActivityEvents.taskId,
-      workspaceId: taskActivityEvents.workspaceId
+      workspaceId: taskActivityEvents.workspaceId,
     })
     .from(taskActivityEvents)
     .leftJoin(
       users,
       and(
         eq(users.id, taskActivityEvents.actorUserId),
-        isNull(users.deletedAt)
-      )
+        isNull(users.deletedAt),
+      ),
     )
     .where(conditions)
     .orderBy(asc(taskActivityEvents.createdAt), asc(taskActivityEvents.id))
+    .limit(input.pagination.limit)
+    .offset(input.pagination.offset);
+
+  return { items, total: totalRow?.total ?? 0 };
+}
+
+export async function listProjectActivityEvents(input: {
+  pagination: PaginationQuery;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const conditions = and(
+    eq(taskActivityEvents.projectId, input.projectId),
+    eq(taskActivityEvents.workspaceId, input.workspaceId),
+  );
+
+  const [totalRow] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(taskActivityEvents)
+    .where(conditions);
+
+  const items = await db
+    .select({
+      actorDisplayName: users.displayName,
+      actorId: users.id,
+      actorUserId: taskActivityEvents.actorUserId,
+      createdAt: taskActivityEvents.createdAt,
+      data: taskActivityEvents.data,
+      eventType: taskActivityEvents.eventType,
+      id: taskActivityEvents.id,
+      projectId: taskActivityEvents.projectId,
+      taskId: taskActivityEvents.taskId,
+      taskKey: sql<string>`${projects.key} || '-' || ${tasks.number}`,
+      taskTitle: tasks.title,
+      workspaceId: taskActivityEvents.workspaceId,
+    })
+    .from(taskActivityEvents)
+    .innerJoin(
+      tasks,
+      and(
+        eq(tasks.id, taskActivityEvents.taskId),
+        eq(tasks.projectId, taskActivityEvents.projectId),
+        eq(tasks.workspaceId, taskActivityEvents.workspaceId),
+      ),
+    )
+    .innerJoin(
+      projects,
+      and(
+        eq(projects.id, taskActivityEvents.projectId),
+        eq(projects.workspaceId, taskActivityEvents.workspaceId),
+      ),
+    )
+    .leftJoin(
+      users,
+      and(
+        eq(users.id, taskActivityEvents.actorUserId),
+        isNull(users.deletedAt),
+      ),
+    )
+    .where(conditions)
+    .orderBy(desc(taskActivityEvents.createdAt), desc(taskActivityEvents.id))
     .limit(input.pagination.limit)
     .offset(input.pagination.offset);
 
