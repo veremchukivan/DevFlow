@@ -13,6 +13,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Copy,
   CornerDownLeft,
   GripVertical,
   LayoutGrid,
@@ -2144,6 +2145,34 @@ function TaskEditorModal({
   task: Task;
   workspaceId: string;
 }) {
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+
+  async function copyTaskLink() {
+    const taskUrl = new URL(
+      `/workspaces/${workspaceId}/projects/${project.id}/tasks/${task.id}`,
+      window.location.origin,
+    ).toString();
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(taskUrl);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = taskUrl;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.append(textArea);
+        textArea.select();
+        const wasCopied = document.execCommand("copy");
+        textArea.remove();
+        if (!wasCopied) throw new Error("Clipboard is unavailable");
+      }
+      setIsLinkCopied(true);
+      window.setTimeout(() => setIsLinkCopied(false), 2_000);
+    } catch {
+      setIsLinkCopied(false);
+    }
+  }
+
   return (
     <Modal isOpen onClose={onClose} title={`${task.key} details`} width="wide">
       <form
@@ -2281,6 +2310,14 @@ function TaskEditorModal({
           workspaceId={workspaceId}
         />
         <div className={styles.formActions}>
+          <button
+            className={styles.textButton}
+            onClick={() => void copyTaskLink()}
+            type="button"
+          >
+            <Copy aria-hidden="true" size={16} />
+            {isLinkCopied ? "Link copied" : "Copy link"}
+          </button>
           <button
             className={styles.primaryButton}
             disabled={isSaving}
