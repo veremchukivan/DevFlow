@@ -18,8 +18,11 @@ import {
   CornerDownLeft,
   GripVertical,
   LayoutGrid,
+  ListChecks,
+  MessageSquare,
   List,
   MoreHorizontal,
+  Paperclip,
   Plus,
   Search,
   Settings,
@@ -2326,6 +2329,34 @@ export function ProjectBoard() {
                         <p className={styles.taskAssignee}>
                           {task.assignee.displayName}
                         </p>
+                      ) : null}
+                      {task.metrics.attachmentCount ||
+                      task.metrics.commentCount ||
+                      task.metrics.checklistTotalCount ? (
+                        <div
+                          aria-label="Task content summary"
+                          className={styles.taskCardMetrics}
+                        >
+                          {task.metrics.checklistTotalCount ? (
+                            <span title="Checklist progress">
+                              <ListChecks aria-hidden="true" size={14} />
+                              {task.metrics.checklistCompletedCount}/
+                              {task.metrics.checklistTotalCount}
+                            </span>
+                          ) : null}
+                          {task.metrics.commentCount ? (
+                            <span title="Comments">
+                              <MessageSquare aria-hidden="true" size={14} />
+                              {task.metrics.commentCount}
+                            </span>
+                          ) : null}
+                          {task.metrics.attachmentCount ? (
+                            <span title="Attachments">
+                              <Paperclip aria-hidden="true" size={14} />
+                              {task.metrics.attachmentCount}
+                            </span>
+                          ) : null}
+                        </div>
                       ) : null}
                       {showArchived && canDeleteTasks ? (
                         <button

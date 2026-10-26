@@ -104,6 +104,12 @@ export const taskLabelSchema = z.object({
   name: z.string(),
   color: z.string(),
 });
+export const taskMetricsSchema = z.object({
+  attachmentCount: z.number().int().nonnegative(),
+  checklistCompletedCount: z.number().int().nonnegative(),
+  checklistTotalCount: z.number().int().nonnegative(),
+  commentCount: z.number().int().nonnegative(),
+});
 
 export const taskSchema = z.object({
   assignee: taskUserSchema.nullable().optional(),
@@ -113,6 +119,7 @@ export const taskSchema = z.object({
   dueDate: taskDueDateSchema.nullable(),
   id: z.uuid(),
   labels: z.array(taskLabelSchema).default([]),
+  metrics: taskMetricsSchema,
   key: z.string(),
   number: z.number(),
   parentTaskId: z.uuid().nullable(),

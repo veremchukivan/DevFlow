@@ -1136,6 +1136,21 @@
   font-weight: 700;
   margin: 10px 0 0;
 }
+.taskCardMetrics {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 10px;
+  margin-top: 12px;
+}
+.taskCardMetrics span {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
 .taskCard:not([draggable="true"]),
 .taskCard[draggable="true"] {
   cursor: pointer;

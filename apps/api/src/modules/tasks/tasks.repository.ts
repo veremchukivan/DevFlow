@@ -14,6 +14,9 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { type DbExecutor, db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
+import { taskAttachments } from "../../core/db/schema/task-attachments.js";
+import { taskChecklistItems } from "../../core/db/schema/task-checklist-items.js";
+import { taskComments } from "../../core/db/schema/task-comments.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { labels, taskLabels } from "../../core/db/schema/labels.js";
@@ -584,6 +587,10 @@ function taskSelect(executor: DbExecutor = db) {
       createdAt: tasks.createdAt,
       description: tasks.description,
       dueDate: tasks.dueDate,
+      attachmentCount: sql<number>`(select count(*)::int from ${taskAttachments} where ${taskAttachments.taskId} = ${tasks.id})`,
+      checklistCompletedCount: sql<number>`(select count(*)::int from ${taskChecklistItems} where ${taskChecklistItems.taskId} = ${tasks.id} and ${taskChecklistItems.isCompleted} = true)`,
+      checklistTotalCount: sql<number>`(select count(*)::int from ${taskChecklistItems} where ${taskChecklistItems.taskId} = ${tasks.id})`,
+      commentCount: sql<number>`(select count(*)::int from ${taskComments} where ${taskComments.taskId} = ${tasks.id} and ${taskComments.deletedAt} is null)`,
       id: tasks.id,
       number: tasks.number,
       position: tasks.position,

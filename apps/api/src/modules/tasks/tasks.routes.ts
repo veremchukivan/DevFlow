@@ -205,6 +205,10 @@ function toTaskDto(task: {
   assigneeEmail?: string | null;
   assigneeId?: string | null;
   assigneeUserId: string | null;
+  attachmentCount: number;
+  checklistCompletedCount: number;
+  checklistTotalCount: number;
+  commentCount: number;
   createdAt: Date;
   description: string | null;
   dueDate: string | null;
@@ -252,6 +256,12 @@ function toTaskDto(task: {
     dueDate: task.dueDate,
     id: task.id,
     labels: task.labels ?? [],
+    metrics: {
+      attachmentCount: task.attachmentCount,
+      checklistCompletedCount: task.checklistCompletedCount,
+      checklistTotalCount: task.checklistTotalCount,
+      commentCount: task.commentCount,
+    },
     key: `${task.projectKey}-${task.number}`,
     number: task.number,
     position: task.position,
