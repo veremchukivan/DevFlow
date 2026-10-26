@@ -37,6 +37,7 @@ import {
   createTask,
   deleteTask,
   createProjectSprint,
+  completeProjectSprint,
   deleteProjectSprint,
   restoreTask,
   createProjectStatus,
@@ -47,6 +48,7 @@ import {
   getProjectViewPreferences,
   getCurrentUser,
   getProjectSprints,
+  getProjectSprintAnalytics,
   getTask,
   getTasks,
   getWorkspaceLabels,
@@ -77,6 +79,7 @@ import type {
   WorkspaceMember,
   WorkspaceRole,
   ProjectSprint,
+  ProjectSprintAnalytics,
   TaskActivityEvent,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
@@ -197,8 +200,14 @@ export function ProjectBoard() {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
+  const [showCompleteSprint, setShowCompleteSprint] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [isSavingSprint, setIsSavingSprint] = useState(false);
+  const [isCompletingSprint, setIsCompletingSprint] = useState(false);
+  const [sprintAnalytics, setSprintAnalytics] =
+    useState<ProjectSprintAnalytics>();
+  const [isLoadingSprintAnalytics, setIsLoadingSprintAnalytics] =
+    useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isSavingProjectIcon, setIsSavingProjectIcon] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
@@ -215,6 +224,7 @@ export function ProjectBoard() {
   }>();
   const [showArchived, setShowArchived] = useState(false);
   const createTaskInFlight = useRef(false);
+  const sprintAnalyticsRequestRef = useRef(0);
   const columnWidthsRef = useRef<Record<string, number>>({});
   const suppressTaskClickAfterDragRef = useRef(false);
   const viewPreferencesSaveRef = useRef(Promise.resolve());
@@ -318,6 +328,17 @@ export function ProjectBoard() {
           setSprints(sprintsResponse.sprints);
           setSelectedSprintId(initialSprintId);
           setFilters({ sprintId: initialSprintId });
+          if (activeSprint) {
+            void getProjectSprintAnalytics(
+              workspaceId,
+              projectId,
+              activeSprint.id,
+            )
+              .then((analytics) => {
+                if (active) setSprintAnalytics(analytics);
+              })
+              .catch(() => undefined);
+          }
           setLabels(labelsResponse.labels);
           setMembers(
             membersResponse.members.filter(
@@ -862,13 +883,14 @@ export function ProjectBoard() {
         goal: String(form.get("goal") ?? "").trim() || undefined,
         name: String(form.get("name") ?? ""),
         startDate: String(form.get("startDate") ?? "") || undefined,
-        status: "active",
+        status: form.get("status") as ProjectSprint["status"],
       });
       const nextFilters = { ...filters, sprintId: response.sprint.id };
       setSprints((current) => [response.sprint, ...current]);
       setSelectedSprintId(response.sprint.id);
       setFilters(nextFilters);
       setShowSprintForm(false);
+      void loadSprintAnalytics(response.sprint.id);
       await loadTasks(nextFilters);
     } catch (caughtError) {
       setError(
@@ -885,7 +907,44 @@ export function ProjectBoard() {
     const nextFilters = { ...filters, sprintId };
     setSelectedSprintId(sprintId);
     setFilters(nextFilters);
+    if (sprintId === "backlog") {
+      sprintAnalyticsRequestRef.current += 1;
+      setSprintAnalytics(undefined);
+      setIsLoadingSprintAnalytics(false);
+    } else {
+      void loadSprintAnalytics(sprintId);
+    }
     await loadTasks(nextFilters);
+  }
+
+  async function loadSprintAnalytics(sprintId: string) {
+    const requestId = sprintAnalyticsRequestRef.current + 1;
+    sprintAnalyticsRequestRef.current = requestId;
+    setSprintAnalytics(undefined);
+    setIsLoadingSprintAnalytics(true);
+    try {
+      const analytics = await getProjectSprintAnalytics(
+        workspaceId,
+        projectId,
+        sprintId,
+      );
+      if (sprintAnalyticsRequestRef.current === requestId) {
+        setSprintAnalytics(analytics);
+      }
+    } catch (caughtError) {
+      if (sprintAnalyticsRequestRef.current === requestId) {
+        setSprintAnalytics(undefined);
+      }
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to load sprint analytics.",
+      );
+    } finally {
+      if (sprintAnalyticsRequestRef.current === requestId) {
+        setIsLoadingSprintAnalytics(false);
+      }
+    }
   }
 
   async function onSprintSettingsSubmit(event: FormEvent<HTMLFormElement>) {
@@ -914,6 +973,9 @@ export function ProjectBoard() {
         ),
       );
       setShowSprintSettings(false);
+      if (response.sprint.status === "completed") {
+        void loadSprintAnalytics(response.sprint.id);
+      }
     } catch (caughtError) {
       setError(
         caughtError instanceof ApiClientError
@@ -922,6 +984,51 @@ export function ProjectBoard() {
       );
     } finally {
       setIsSavingSprint(false);
+    }
+  }
+
+  async function onCompleteSprint(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedSprint || selectedSprint.status === "completed") return;
+
+    const form = new FormData(event.currentTarget);
+    const carryOverValue = String(form.get("carryOver") ?? "backlog");
+    const targetSprintId = carryOverValue.startsWith("sprint:")
+      ? carryOverValue.slice("sprint:".length)
+      : undefined;
+    setError(undefined);
+    setIsCompletingSprint(true);
+
+    try {
+      const response = await completeProjectSprint(
+        workspaceId,
+        projectId,
+        selectedSprint.id,
+        targetSprintId
+          ? { carryOver: "sprint", targetSprintId }
+          : { carryOver: "backlog" },
+      );
+      const nextFilters = { ...filters, sprintId: response.sprint.id };
+      setSprints((current) =>
+        current.map((sprint) =>
+          sprint.id === response.sprint.id ? response.sprint : sprint,
+        ),
+      );
+      setSelectedSprintId(response.sprint.id);
+      setFilters(nextFilters);
+      setShowCompleteSprint(false);
+      await Promise.all([
+        loadTasks(nextFilters),
+        loadSprintAnalytics(response.sprint.id),
+      ]);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to complete sprint.",
+      );
+    } finally {
+      setIsCompletingSprint(false);
     }
   }
 
@@ -1427,24 +1534,42 @@ export function ProjectBoard() {
           ) : null}
         </div>
         {activeSprint ? (
-          <button
-            aria-label="Active sprint settings"
-            className={styles.secondaryButton}
-            disabled={!canUpdateProject}
-            onClick={() => {
-              if (selectedSprintId !== activeSprint.id) {
-                void onSelectSprint(activeSprint.id).then(() =>
-                  setShowSprintSettings(true),
-                );
-                return;
-              }
-              setShowSprintSettings(true);
-            }}
-            type="button"
-          >
-            <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
-            Manage sprint
-          </button>
+          <div className={styles.sprintActions}>
+            <button
+              aria-label="Active sprint settings"
+              className={styles.secondaryButton}
+              disabled={!canUpdateProject}
+              onClick={() => {
+                if (selectedSprintId !== activeSprint.id) {
+                  void onSelectSprint(activeSprint.id).then(() =>
+                    setShowSprintSettings(true),
+                  );
+                  return;
+                }
+                setShowSprintSettings(true);
+              }}
+              type="button"
+            >
+              <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+              Manage sprint
+            </button>
+            <button
+              className={styles.primaryButton}
+              disabled={!canUpdateProject}
+              onClick={() => {
+                if (selectedSprintId !== activeSprint.id) {
+                  void onSelectSprint(activeSprint.id).then(() =>
+                    setShowCompleteSprint(true),
+                  );
+                  return;
+                }
+                setShowCompleteSprint(true);
+              }}
+              type="button"
+            >
+              Complete sprint
+            </button>
+          </div>
         ) : (
           <button
             className={styles.primaryButton}
@@ -1491,6 +1616,72 @@ export function ProjectBoard() {
           </select>
         </label>
       </div>
+      {selectedSprint ? (
+        <section
+          className={styles.sprintAnalytics}
+          aria-labelledby="sprint-analytics-title"
+        >
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.eyebrow}>Sprint analytics</p>
+              <h2 id="sprint-analytics-title">{selectedSprint.name}</h2>
+            </div>
+            {isLoadingSprintAnalytics ? <span>Updating…</span> : null}
+          </div>
+          {sprintAnalytics ? (
+            <>
+              <div className={styles.sprintMetricGrid}>
+                <article>
+                  <span>Completed</span>
+                  <strong>{sprintAnalytics.completed}</strong>
+                  <small>of {sprintAnalytics.total} tasks</small>
+                </article>
+                <article>
+                  <span>Open</span>
+                  <strong>{sprintAnalytics.open}</strong>
+                  <small>unfinished work</small>
+                </article>
+                <article>
+                  <span>Overdue</span>
+                  <strong>{sprintAnalytics.overdue}</strong>
+                  <small>open past due date</small>
+                </article>
+                <article>
+                  <span>Velocity</span>
+                  <strong>{sprintAnalytics.velocity}</strong>
+                  <small>completed tasks</small>
+                </article>
+              </div>
+              {sprintAnalytics.statusDistribution.length ? (
+                <ul className={styles.sprintDistribution}>
+                  {sprintAnalytics.statusDistribution.map((status) => (
+                    <li key={status.statusId}>
+                      <span>{status.statusName}</span>
+                      <div aria-hidden="true">
+                        <i
+                          style={{
+                            width: `${Math.max(
+                              6,
+                              (status.count /
+                                Math.max(sprintAnalytics.total, 1)) *
+                                100,
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <strong>{status.count}</strong>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : (
+            <p className={styles.emptySprintAnalytics}>
+              No task data is available for this sprint yet.
+            </p>
+          )}
+        </section>
+      ) : null}
       {showSprintForm ? (
         <Modal
           isOpen={showSprintForm}
@@ -1513,6 +1704,13 @@ export function ProjectBoard() {
             <label>
               <span>End date</span>
               <input name="endDate" type="date" />
+            </label>
+            <label>
+              <span>Initial status</span>
+              <select defaultValue="active" name="status">
+                <option value="active">Start now</option>
+                <option value="planning">Plan for later</option>
+              </select>
             </label>
             <div className={styles.formActions}>
               <button
@@ -1598,6 +1796,54 @@ export function ProjectBoard() {
                 type="button"
               >
                 Delete sprint
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+      {showCompleteSprint && selectedSprint ? (
+        <Modal
+          isOpen={showCompleteSprint}
+          onClose={() => setShowCompleteSprint(false)}
+          title={`Complete ${selectedSprint.name}`}
+        >
+          <form className={styles.modalForm} onSubmit={onCompleteSprint}>
+            <p className={styles.modalHelpText}>
+              Completed work remains in this sprint. Choose where to move every
+              unfinished task.
+            </p>
+            <label>
+              <span>Move unfinished tasks to</span>
+              <select defaultValue="backlog" name="carryOver">
+                <option value="backlog">Backlog</option>
+                {sprints
+                  .filter(
+                    (sprint) =>
+                      sprint.id !== selectedSprint.id &&
+                      sprint.status !== "completed",
+                  )
+                  .map((sprint) => (
+                    <option key={sprint.id} value={`sprint:${sprint.id}`}>
+                      Sprint: {sprint.name} ({sprint.status})
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <div className={styles.formActions}>
+              <button
+                className={styles.primaryButton}
+                disabled={isCompletingSprint}
+                type="submit"
+              >
+                {isCompletingSprint ? "Completing" : "Complete sprint"}
+              </button>
+              <button
+                className={styles.textButton}
+                disabled={isCompletingSprint}
+                onClick={() => setShowCompleteSprint(false)}
+                type="button"
+              >
+                Cancel
               </button>
             </div>
           </form>

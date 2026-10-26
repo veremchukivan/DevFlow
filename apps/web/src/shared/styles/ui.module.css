@@ -589,6 +589,85 @@
   color: var(--ink);
   max-width: 760px;
 }
+.sprintActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sprintAnalytics {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-top: 18px;
+  padding: 20px;
+}
+.sprintAnalytics .sectionHeading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.sprintAnalytics .sectionHeading h2 {
+  font-size: 18px;
+  margin: 3px 0 0;
+}
+.sprintAnalytics .sectionHeading > span,
+.emptySprintAnalytics,
+.modalHelpText {
+  color: var(--muted);
+  margin: 0;
+}
+.sprintMetricGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.sprintMetricGrid article {
+  background: #f7f9fc;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+.sprintMetricGrid span,
+.sprintMetricGrid small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.sprintMetricGrid strong {
+  font-size: 25px;
+  line-height: 1.1;
+}
+.sprintDistribution {
+  display: grid;
+  gap: 9px;
+  list-style: none;
+  margin: 18px 0 0;
+  max-width: 700px;
+  padding: 0;
+}
+.sprintDistribution li {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(90px, 140px) minmax(80px, 1fr) 30px;
+}
+.sprintDistribution li > div {
+  background: #e8edf4;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+.sprintDistribution i {
+  background: var(--brand);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+.sprintDistribution strong {
+  text-align: right;
+}
 .boardSettingsSection {
   display: grid;
   gap: 14px;
@@ -1850,6 +1929,9 @@
   }
   .activeSprintPanel {
     flex-direction: column;
+  }
+  .sprintMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .workspaceForm,
   .projectForm,

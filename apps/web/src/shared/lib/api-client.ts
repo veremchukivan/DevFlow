@@ -23,6 +23,7 @@ import {
   updateWorkspaceRequestSchema,
   createProjectRequestSchema,
   createProjectSprintRequestSchema,
+  completeProjectSprintRequestSchema,
   createProjectStatusRequestSchema,
   reorderProjectStatusesRequestSchema,
   updateProjectRequestSchema,
@@ -34,6 +35,7 @@ import {
   projectMemberListResponseSchema,
   projectMemberResponseSchema,
   projectSprintListResponseSchema,
+  projectSprintAnalyticsSchema,
   projectSprintResponseSchema,
   publicWorkspaceInvitationResponseSchema,
   projectResponseSchema,
@@ -78,6 +80,7 @@ import {
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateProjectSprintRequest,
+  type CompleteProjectSprintRequest,
   type CreateProjectStatusRequest,
   type ReorderProjectStatusesRequest,
   type UpdateProjectRequest,
@@ -94,6 +97,7 @@ import {
   type ProjectMember,
   type UpdateProjectMemberRequest,
   type ProjectSprintListResponse,
+  type ProjectSprintAnalytics,
   type ProjectSprintResponse,
   type PublicWorkspaceInvitationResponse,
   type ProjectResponse,
@@ -793,6 +797,34 @@ export function deleteProjectSprint(
   return requestNoContent(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/sprints/${sprintId}`,
     { method: "DELETE" },
+  );
+}
+
+export function getProjectSprintAnalytics(
+  workspaceId: string,
+  projectId: string,
+  sprintId: string,
+): Promise<ProjectSprintAnalytics> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/sprints/${sprintId}/analytics`,
+    { method: "GET" },
+    projectSprintAnalyticsSchema,
+  );
+}
+
+export function completeProjectSprint(
+  workspaceId: string,
+  projectId: string,
+  sprintId: string,
+  input: CompleteProjectSprintRequest,
+): Promise<ProjectSprintResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/sprints/${sprintId}/complete`,
+    {
+      body: JSON.stringify(completeProjectSprintRequestSchema.parse(input)),
+      method: "POST",
+    },
+    projectSprintResponseSchema,
   );
 }
 
