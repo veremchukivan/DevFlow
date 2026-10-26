@@ -722,6 +722,37 @@ export function ProjectBoard() {
     }
   }
 
+  async function onBulkDelete() {
+    const selectedTasks = tasks.filter((task) =>
+      selectedTaskIds.includes(task.id),
+    );
+    if (
+      !selectedTasks.length ||
+      !window.confirm(`Delete ${selectedTasks.length} selected task(s)?`)
+    )
+      return;
+    setIsBulkUpdating(true);
+    setError(undefined);
+    try {
+      await Promise.all(
+        selectedTasks.map((task) =>
+          deleteTask(workspaceId, projectId, task.id, task.version),
+        ),
+      );
+      exitMultiSelectMode();
+      await loadTasks(filters, pageInfo?.offset);
+    } catch (caughtError) {
+      await loadTasks(filters, pageInfo?.offset);
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to delete the selected tasks.",
+      );
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  }
+
   async function onChangeTaskPage(offset: number) {
     await loadTasks(filters, offset);
   }
@@ -2643,6 +2674,16 @@ export function ProjectBoard() {
               ))}
             </select>
           </label>
+          <button
+            className="btn btn-outline-danger btn-sm"
+            disabled={
+              isBulkUpdating || selectedTaskIds.length === 0 || !canDeleteTasks
+            }
+            onClick={() => void onBulkDelete()}
+            type="button"
+          >
+            Delete selected
+          </button>
           <button
             className="btn btn-outline-secondary btn-sm"
             disabled={isBulkUpdating}
