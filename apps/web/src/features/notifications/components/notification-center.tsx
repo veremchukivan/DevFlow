@@ -6,10 +6,15 @@ import { useEffect, useState } from "react";
 
 import {
   getNotifications,
+  getNotificationPreferences,
   markAllNotificationsRead,
   markNotificationRead,
+  updateNotificationPreferences,
 } from "@/shared/lib/api-client";
-import type { NotificationListResponse } from "@devflow/shared";
+import type {
+  NotificationListResponse,
+  NotificationPreferences,
+} from "@devflow/shared";
 
 import styles from "./notification-center.module.css";
 
@@ -18,6 +23,7 @@ export function NotificationCenter() {
   const [data, setData] = useState<NotificationListResponse>();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [preferences, setPreferences] = useState<NotificationPreferences>();
 
   useEffect(() => {
     setLoading(true);
@@ -25,6 +31,21 @@ export function NotificationCenter() {
       .then(setData)
       .finally(() => setLoading(false));
   }, [unreadOnly]);
+
+  useEffect(() => {
+    void getNotificationPreferences().then(setPreferences);
+  }, []);
+
+  async function togglePreference(key: keyof NotificationPreferences) {
+    if (!preferences) return;
+    const next = { ...preferences, [key]: !preferences[key] };
+    setPreferences(next);
+    try {
+      setPreferences(await updateNotificationPreferences({ [key]: next[key] }));
+    } catch {
+      setPreferences(preferences);
+    }
+  }
 
   async function open(item: NotificationListResponse["notifications"][number]) {
     if (!item.readAt) await markNotificationRead(item.id);
@@ -78,6 +99,33 @@ export function NotificationCenter() {
           Unread
         </button>
       </div>
+      {preferences ? (
+        <section
+          className={styles.preferences}
+          aria-labelledby="notification-preferences-title"
+        >
+          <h2 id="notification-preferences-title">Notification preferences</h2>
+          <p>Choose which in-app alerts you receive.</p>
+          {(
+            [
+              ["taskAssigned", "Task assignments"],
+              ["taskCommented", "Comments"],
+              ["taskStatusChanged", "Status changes"],
+              ["taskDueToday", "Due today"],
+              ["taskOverdue", "Overdue tasks"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key}>
+              <input
+                checked={preferences[key]}
+                onChange={() => void togglePreference(key)}
+                type="checkbox"
+              />
+              {label}
+            </label>
+          ))}
+        </section>
+      ) : null}
       {loading ? (
         <p className={styles.empty}>Loading notifications…</p>
       ) : data?.notifications.length ? (

@@ -105,3 +105,24 @@
     padding: 28px 18px;
   }
 }
+.preferences {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+  padding: 16px;
+}
+.preferences h2,
+.preferences p {
+  margin: 0;
+}
+.preferences p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.preferences label {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+}

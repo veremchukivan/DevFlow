@@ -15,6 +15,8 @@ import {
   healthResponseSchema,
   loginRequestSchema,
   notificationListResponseSchema,
+  notificationPreferencesSchema,
+  updateNotificationPreferencesRequestSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
   registerRequestSchema,
@@ -69,6 +71,8 @@ import {
   type HealthResponse,
   type LoginRequest,
   type NotificationListResponse,
+  type NotificationPreferences,
+  type UpdateNotificationPreferencesRequest,
   type RegisterRequest,
   type CreateWorkspaceRequest,
   type UpdateWorkspaceRequest,
@@ -358,6 +362,28 @@ export function markAllNotificationsRead(): Promise<void> {
   return requestNoContent("/api/v1/notifications/read-all", {
     method: "POST",
   });
+}
+
+export function getNotificationPreferences(): Promise<NotificationPreferences> {
+  return request(
+    "/api/v1/notifications/preferences",
+    { method: "GET" },
+    notificationPreferencesSchema,
+  );
+}
+export function updateNotificationPreferences(
+  input: UpdateNotificationPreferencesRequest,
+): Promise<NotificationPreferences> {
+  return request(
+    "/api/v1/notifications/preferences",
+    {
+      body: JSON.stringify(
+        updateNotificationPreferencesRequestSchema.parse(input),
+      ),
+      method: "PATCH",
+    },
+    notificationPreferencesSchema,
+  );
 }
 
 export function updateProfile(
