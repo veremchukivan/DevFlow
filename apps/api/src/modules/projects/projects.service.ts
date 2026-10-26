@@ -3,8 +3,9 @@ import type {
   CreateProjectRequest,
   CreateProjectStatusRequest,
   PaginationQuery,
+  ProjectMemberRole,
   UpdateProjectRequest,
-  UpdateProjectStatusRequest
+  UpdateProjectStatusRequest,
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
@@ -13,7 +14,7 @@ import { buildPageInfo } from "../../core/pagination.js";
 import {
   canCreateProject,
   canDeleteProject,
-  canUpdateProject
+  canUpdateProject,
 } from "./projects.policy.js";
 import {
   createProjectWithDefaultStatuses,
@@ -30,8 +31,16 @@ import {
   softDeleteProjectInDb,
   updateProjectInDb,
   updateProjectIconInDb,
-  updateProjectStatusInDb
+  updateProjectStatusInDb,
 } from "./projects.repository.js";
+import {
+  addProjectMember,
+  findActiveWorkspaceMember,
+  listProjectMembers,
+  listProjectTaskWorkloads,
+  removeProjectMember,
+  updateProjectMemberRole,
+} from "./project-members.repository.js";
 
 const maxProjectKeyAttempts = 10;
 
@@ -46,14 +55,14 @@ export async function createProject(input: {
     throw new AppError(
       403,
       "PROJECT_CREATE_FORBIDDEN",
-      "You cannot create projects in this workspace"
+      "You cannot create projects in this workspace",
     );
   }
 
   const key = await buildAvailableProjectKey({
     key: input.input.key,
     name: input.input.name,
-    workspaceId: input.workspaceId
+    workspaceId: input.workspaceId,
   });
 
   try {
@@ -62,14 +71,14 @@ export async function createProject(input: {
       key,
       name: input.input.name,
       ownerUserId: input.userId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(
         409,
         "PROJECT_KEY_TAKEN",
-        "A project with this key already exists in this workspace"
+        "A project with this key already exists in this workspace",
       );
     }
 
@@ -86,15 +95,15 @@ export async function listProjects(input: {
 
   const result = await listProjectsForWorkspace({
     pagination: input.pagination,
-    workspaceId: input.workspaceId
+    workspaceId: input.workspaceId,
   });
 
   return {
     pageInfo: buildPageInfo({
       ...input.pagination,
-      total: result.total
+      total: result.total,
     }),
-    projects: result.projects
+    projects: result.projects,
   };
 }
 
@@ -115,7 +124,7 @@ export async function getProject(input: {
 
   return {
     ...project,
-    statuses
+    statuses,
   };
 }
 
@@ -131,7 +140,7 @@ export async function updateProject(input: {
     throw new AppError(
       403,
       "PROJECT_UPDATE_FORBIDDEN",
-      "You cannot update projects in this workspace"
+      "You cannot update projects in this workspace",
     );
   }
 
@@ -145,14 +154,14 @@ export async function updateProject(input: {
   if (input.input.key && input.input.key !== existingProject.key) {
     const keyTaken = await findProjectByKey({
       key: input.input.key,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
 
     if (keyTaken && keyTaken.id !== input.projectId) {
       throw new AppError(
         409,
         "PROJECT_KEY_TAKEN",
-        "A project with this key already exists in this workspace"
+        "A project with this key already exists in this workspace",
       );
     }
     key = input.input.key;
@@ -164,7 +173,7 @@ export async function updateProject(input: {
       key: input.input.key ? key : undefined,
       name: input.input.name,
       projectId: input.projectId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
 
     if (!updated) {
@@ -175,14 +184,14 @@ export async function updateProject(input: {
 
     return {
       ...updated,
-      statuses
+      statuses,
     };
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(
         409,
         "PROJECT_KEY_TAKEN",
-        "A project with this key already exists in this workspace"
+        "A project with this key already exists in this workspace",
       );
     }
 
@@ -201,7 +210,7 @@ export async function deleteProject(input: {
     throw new AppError(
       403,
       "PROJECT_DELETE_FORBIDDEN",
-      "You cannot delete projects in this workspace"
+      "You cannot delete projects in this workspace",
     );
   }
 
@@ -226,10 +235,15 @@ export async function updateProjectIcon(input: {
 }) {
   const membership = await requireWorkspaceMembership(input);
   if (!canUpdateProject(membership.role)) {
-    throw new AppError(403, "PROJECT_UPDATE_FORBIDDEN", "You cannot update projects in this workspace");
+    throw new AppError(
+      403,
+      "PROJECT_UPDATE_FORBIDDEN",
+      "You cannot update projects in this workspace",
+    );
   }
   const existing = await findProjectInWorkspace(input);
-  if (!existing) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  if (!existing)
+    throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
 
   const iconUrl = await saveImage({ file: input.file, kind: "projects" });
   const project = await updateProjectIconInDb({ ...input, iconUrl });
@@ -248,13 +262,19 @@ export async function removeProjectIcon(input: {
 }) {
   const membership = await requireWorkspaceMembership(input);
   if (!canUpdateProject(membership.role)) {
-    throw new AppError(403, "PROJECT_UPDATE_FORBIDDEN", "You cannot update projects in this workspace");
+    throw new AppError(
+      403,
+      "PROJECT_UPDATE_FORBIDDEN",
+      "You cannot update projects in this workspace",
+    );
   }
   const existing = await findProjectInWorkspace(input);
-  if (!existing) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  if (!existing)
+    throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
 
   const project = await updateProjectIconInDb({ ...input, iconUrl: null });
-  if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  if (!project)
+    throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
   await deleteStoredImage(existing.iconUrl);
   return { ...project, statuses: await listProjectStatuses(input) };
 }
@@ -279,7 +299,12 @@ export async function updateProjectStatus(input: {
 }) {
   await requireProjectUpdatePermission(input);
   const status = await updateProjectStatusInDb(input);
-  if (!status) throw new AppError(404, "PROJECT_STATUS_NOT_FOUND", "Project status not found");
+  if (!status)
+    throw new AppError(
+      404,
+      "PROJECT_STATUS_NOT_FOUND",
+      "Project status not found",
+    );
   return getProject(input);
 }
 
@@ -312,10 +337,18 @@ export async function deleteProjectStatus(input: {
 }) {
   await requireProjectUpdatePermission(input);
   if ((await countProjectStatuses(input)) <= 1) {
-    throw new AppError(400, "PROJECT_STATUS_LAST_FORBIDDEN", "A project must have at least one status");
+    throw new AppError(
+      400,
+      "PROJECT_STATUS_LAST_FORBIDDEN",
+      "A project must have at least one status",
+    );
   }
   if ((await countTasksForProjectStatus(input)) > 0) {
-    throw new AppError(409, "PROJECT_STATUS_TASKS_EXIST", "Move tasks out of this status before deleting it");
+    throw new AppError(
+      409,
+      "PROJECT_STATUS_TASKS_EXIST",
+      "Move tasks out of this status before deleting it",
+    );
   }
   let status;
   try {
@@ -325,14 +358,132 @@ export async function deleteProjectStatus(input: {
       throw new AppError(
         409,
         "PROJECT_STATUS_TASKS_EXIST",
-        "Move tasks out of this status before deleting it"
+        "Move tasks out of this status before deleting it",
       );
     }
 
     throw error;
   }
-  if (!status) throw new AppError(404, "PROJECT_STATUS_NOT_FOUND", "Project status not found");
+  if (!status)
+    throw new AppError(
+      404,
+      "PROJECT_STATUS_NOT_FOUND",
+      "Project status not found",
+    );
   return getProject(input);
+}
+
+export async function getProjectMembers(input: {
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireWorkspaceMembership(input);
+  if (!(await findProjectInWorkspace(input))) {
+    throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  }
+  const [members, workloads] = await Promise.all([
+    listProjectMembers(input),
+    listProjectTaskWorkloads(input),
+  ]);
+  return members.map((member) => {
+    const assigned = workloads.filter(
+      (task) => task.assigneeUserId === member.userId,
+    );
+    return {
+      ...member,
+      completedTaskCount: assigned.filter(
+        (task) => task.statusCategory === "done",
+      ).length,
+      joinedAt: member.joinedAt.toISOString(),
+      openTaskCount: assigned.filter((task) => task.statusCategory !== "done")
+        .length,
+    };
+  });
+}
+
+export async function addMemberToProject(input: {
+  projectId: string;
+  role: ProjectMemberRole;
+  targetUserId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  if (
+    !(await findActiveWorkspaceMember({
+      userId: input.targetUserId,
+      workspaceId: input.workspaceId,
+    }))
+  ) {
+    throw new AppError(
+      400,
+      "PROJECT_MEMBER_WORKSPACE_REQUIRED",
+      "Add this person to the workspace before the project",
+    );
+  }
+  await addProjectMember({
+    projectId: input.projectId,
+    role: input.role,
+    userId: input.targetUserId,
+    workspaceId: input.workspaceId,
+  });
+  const members = await getProjectMembers(input);
+  return members.find((member) => member.userId === input.targetUserId)!;
+}
+
+export async function updateProjectMember(input: {
+  projectId: string;
+  role: ProjectMemberRole;
+  targetUserId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  if (
+    !(await updateProjectMemberRole({
+      projectId: input.projectId,
+      role: input.role,
+      userId: input.targetUserId,
+    }))
+  ) {
+    throw new AppError(
+      404,
+      "PROJECT_MEMBER_NOT_FOUND",
+      "Project member not found",
+    );
+  }
+  const members = await getProjectMembers(input);
+  return members.find((member) => member.userId === input.targetUserId)!;
+}
+
+export async function removeMemberFromProject(input: {
+  projectId: string;
+  targetUserId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  const project = await findProjectInWorkspace(input);
+  if (project?.ownerUserId === input.targetUserId) {
+    throw new AppError(
+      400,
+      "PROJECT_OWNER_MEMBER_REQUIRED",
+      "The project owner must remain on the project team",
+    );
+  }
+  if (
+    !(await removeProjectMember({
+      projectId: input.projectId,
+      userId: input.targetUserId,
+    }))
+  ) {
+    throw new AppError(
+      404,
+      "PROJECT_MEMBER_NOT_FOUND",
+      "Project member not found",
+    );
+  }
 }
 
 async function requireProjectUpdatePermission(input: {
@@ -342,7 +493,11 @@ async function requireProjectUpdatePermission(input: {
 }) {
   const membership = await requireWorkspaceMembership(input);
   if (!canUpdateProject(membership.role)) {
-    throw new AppError(403, "PROJECT_UPDATE_FORBIDDEN", "You cannot update projects in this workspace");
+    throw new AppError(
+      403,
+      "PROJECT_UPDATE_FORBIDDEN",
+      "You cannot update projects in this workspace",
+    );
   }
   if (!(await findProjectInWorkspace(input))) {
     throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
@@ -373,7 +528,7 @@ async function buildAvailableProjectKey(input: {
     const key = withAttemptSuffix(baseKey, attempt);
     const existingProject = await findProjectByKey({
       key,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     });
 
     if (!existingProject) {
@@ -389,7 +544,7 @@ async function buildAvailableProjectKey(input: {
       const key = `${baseKey.slice(0, 12 - randomSuffix.length)}${randomSuffix}`;
       const existingProject = await findProjectByKey({
         key,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       });
 
       if (!existingProject) {
@@ -401,7 +556,7 @@ async function buildAvailableProjectKey(input: {
   throw new AppError(
     409,
     "PROJECT_KEY_TAKEN",
-    "A project with this key already exists in this workspace"
+    "A project with this key already exists in this workspace",
   );
 }
 

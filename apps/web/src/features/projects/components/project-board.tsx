@@ -82,6 +82,7 @@ import type {
 import { can } from "@devflow/shared";
 import { Modal } from "@/shared/components/modal";
 import { TaskWorkPanel } from "./task-work-panel";
+import { ProjectTeamModal } from "./project-team-modal";
 import { notifyProjectsChanged } from "@/shared/lib/workspace-events";
 import styles from "@/shared/styles/ui.module.css";
 
@@ -171,6 +172,7 @@ export function ProjectBoard() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [draftStatusId, setDraftStatusId] = useState<string>();
   const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showProjectTeam, setShowProjectTeam] = useState(false);
   const [showBoardSettings, setShowBoardSettings] = useState(false);
   const [showTaskCardSettings, setShowTaskCardSettings] = useState(false);
   const [showAddColumn, setShowAddColumn] = useState(false);
@@ -1382,6 +1384,17 @@ export function ProjectBoard() {
                   <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
                   Project settings
                 </button>
+                <button
+                  onClick={() => {
+                    setShowProjectMenu(false);
+                    setShowProjectTeam(true);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <UserRound aria-hidden="true" size={17} strokeWidth={1.8} />
+                  Project team
+                </button>
               </div>
             ) : null}
           </div>
@@ -1708,6 +1721,15 @@ export function ProjectBoard() {
             </div>
           </section>
         </Modal>
+      ) : null}
+      {showProjectTeam ? (
+        <ProjectTeamModal
+          canManage={canUpdateProject}
+          members={members}
+          onClose={() => setShowProjectTeam(false)}
+          projectId={projectId}
+          workspaceId={workspaceId}
+        />
       ) : null}
       {showBoardSettings ? (
         <Modal

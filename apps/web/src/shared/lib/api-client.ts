@@ -31,6 +31,8 @@ import {
   createTaskRequestSchema,
   repositionTaskRequestSchema,
   projectListResponseSchema,
+  projectMemberListResponseSchema,
+  projectMemberResponseSchema,
   projectSprintListResponseSchema,
   projectSprintResponseSchema,
   publicWorkspaceInvitationResponseSchema,
@@ -88,6 +90,9 @@ import {
   type CreateTaskRelationRequest,
   type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
+  type CreateProjectMemberRequest,
+  type ProjectMember,
+  type UpdateProjectMemberRequest,
   type ProjectSprintListResponse,
   type ProjectSprintResponse,
   type PublicWorkspaceInvitationResponse,
@@ -638,6 +643,53 @@ export function getProject(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
     { method: "GET" },
     projectResponseSchema,
+  );
+}
+
+export function getProjectMembers(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ members: ProjectMember[] }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/members`,
+    { method: "GET" },
+    projectMemberListResponseSchema,
+  );
+}
+
+export function addProjectMember(
+  workspaceId: string,
+  projectId: string,
+  input: CreateProjectMemberRequest,
+): Promise<{ member: ProjectMember }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/members`,
+    { body: JSON.stringify(input), method: "POST" },
+    projectMemberResponseSchema,
+  );
+}
+
+export function updateProjectMember(
+  workspaceId: string,
+  projectId: string,
+  userId: string,
+  input: UpdateProjectMemberRequest,
+): Promise<{ member: ProjectMember }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/members/${userId}`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    projectMemberResponseSchema,
+  );
+}
+
+export function removeProjectMember(
+  workspaceId: string,
+  projectId: string,
+  userId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/members/${userId}`,
+    { method: "DELETE" },
   );
 }
 

@@ -2,6 +2,7 @@ export * from "./auth-tokens.js";
 export * from "./labels.js";
 export * from "./notifications.js";
 export * from "./project-statuses.js";
+export * from "./project-members.js";
 export * from "./project-sprints.js";
 export * from "./projects.js";
 export * from "./project-view-preferences.js";

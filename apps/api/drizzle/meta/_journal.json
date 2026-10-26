@@ -204,6 +204,13 @@
       "when": 1793034374631,
       "tag": "0028_fair_earthquake",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793034741804,
+      "tag": "0029_condemned_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }
