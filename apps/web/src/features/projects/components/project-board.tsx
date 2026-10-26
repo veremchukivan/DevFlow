@@ -30,6 +30,7 @@ import {
 import {
   ApiClientError,
   createTask,
+  deleteTask,
   createProjectSprint,
   deleteProjectSprint,
   restoreTask,
@@ -173,6 +174,7 @@ export function ProjectBoard() {
     defaultTaskCardFields,
   );
   const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [taskMenuId, setTaskMenuId] = useState<string>();
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showSprintSettings, setShowSprintSettings] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -567,6 +569,34 @@ export function ProjectBoard() {
           ? caughtError.message
           : "Unable to restore task.",
       );
+    }
+  }
+
+  async function onArchiveTask(task: Task) {
+    if (!window.confirm(`Archive “${task.title}”?`)) return;
+    try {
+      await deleteTask(workspaceId, projectId, task.id, task.version);
+      setTaskMenuId(undefined);
+      await loadTasks(filters, pageInfo?.offset);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to archive the task.",
+      );
+    }
+  }
+
+  async function copyTaskCardLink(task: Task) {
+    const taskUrl = new URL(
+      `/workspaces/${workspaceId}/projects/${projectId}/tasks/${task.id}`,
+      window.location.origin,
+    ).toString();
+    try {
+      await navigator.clipboard.writeText(taskUrl);
+      setTaskMenuId(undefined);
+    } catch {
+      setError("Unable to copy the task link.");
     }
   }
 
@@ -2225,6 +2255,50 @@ export function ProjectBoard() {
                           {task.title}
                         </button>
                       </h3>
+                      <div className={styles.taskCardActions}>
+                        <button
+                          aria-expanded={taskMenuId === task.id}
+                          aria-label={`Actions for ${task.key}`}
+                          className={styles.taskCardMenuButton}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setTaskMenuId((current) =>
+                              current === task.id ? undefined : task.id,
+                            );
+                          }}
+                          type="button"
+                        >
+                          <MoreHorizontal aria-hidden="true" size={17} />
+                        </button>
+                        {taskMenuId === task.id ? (
+                          <div className={styles.taskCardMenu} role="menu">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void copyTaskCardLink(task);
+                              }}
+                              role="menuitem"
+                              type="button"
+                            >
+                              <Copy aria-hidden="true" size={15} />
+                              Copy link
+                            </button>
+                            {canDeleteTasks && !showArchived ? (
+                              <button
+                                className={styles.taskCardArchiveAction}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void onArchiveTask(task);
+                                }}
+                                role="menuitem"
+                                type="button"
+                              >
+                                Archive task
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
                       {task.description ? <p>{task.description}</p> : null}
                       {visibleTaskFields.includes("labels") &&
                       task.labels.length ? (
@@ -2240,7 +2314,12 @@ export function ProjectBoard() {
                         </div>
                       ) : null}
                       {visibleTaskFields.includes("dueDate") && task.dueDate ? (
-                        <p className={styles.taskDueDate}>Due {task.dueDate}</p>
+                        <p
+                          className={`${styles.taskDueDate} ${isTaskOverdue(task.dueDate) ? styles.taskDueDateOverdue : ""}`}
+                        >
+                          <CalendarDays aria-hidden="true" size={14} />
+                          Due {task.dueDate}
+                        </p>
                       ) : null}
                       {visibleTaskFields.includes("assignee") &&
                       task.assignee ? (
@@ -2476,6 +2555,10 @@ function formatSprintPeriod(startDate: string | null, endDate: string | null) {
 function normalizeActivityLimit(value: number) {
   if (!Number.isFinite(value)) return defaultActivityLimit;
   return Math.max(1, Math.min(maxActivityLimit, Math.trunc(value)));
+}
+
+function isTaskOverdue(dueDate: string) {
+  return dueDate < new Date().toISOString().slice(0, 10);
 }
 
 function describeProjectActivity(event: TaskActivityEvent) {
