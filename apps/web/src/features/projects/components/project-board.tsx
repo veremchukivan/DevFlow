@@ -364,6 +364,58 @@ export function ProjectBoard() {
     }
   }
 
+  useEffect(() => {
+    if (
+      isLoading ||
+      selectedTask ||
+      showTaskForm ||
+      draggedTaskId ||
+      updatingTaskId
+    ) {
+      return;
+    }
+
+    let active = true;
+    async function refreshBoardTasks() {
+      try {
+        const response = await getTasks(workspaceId, projectId, {
+          ...filters,
+          limit: taskPageSize,
+          offset: pageInfo?.offset ?? 0,
+        });
+        if (!active) return;
+        setTasks(response.tasks);
+        setPageInfo(response.pageInfo);
+      } catch {
+        // Keep the current board visible during a transient background failure.
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshBoardTasks();
+      }
+    }, 15_000);
+    const onFocus = () => void refreshBoardTasks();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [
+    draggedTaskId,
+    filters,
+    isLoading,
+    pageInfo?.offset,
+    projectId,
+    selectedTask,
+    showTaskForm,
+    updatingTaskId,
+    workspaceId,
+  ]);
+
   async function onFilter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextFilters = {
