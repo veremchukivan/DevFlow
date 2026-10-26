@@ -192,6 +192,7 @@ export function ProjectBoard() {
   }>();
   const [showArchived, setShowArchived] = useState(false);
   const createTaskInFlight = useRef(false);
+  const columnWidthsRef = useRef<Record<string, number>>({});
   const canCreateTasks = role ? can(role, "task:create") : false;
   const canUpdateTasks = role ? can(role, "task:update") : false;
   const canDeleteTasks = role ? can(role, "task:delete") : false;
@@ -229,14 +230,18 @@ export function ProjectBoard() {
           activeResize.startWidth + event.clientX - activeResize.startX,
         ),
       );
-      setColumnWidths((current) => ({
-        ...current,
-        [activeResize.id]: nextWidth,
-      }));
+      setColumnWidths((current) => {
+        const next = { ...current, [activeResize.id]: nextWidth };
+        columnWidthsRef.current = next;
+        return next;
+      });
     }
 
     function onPointerUp() {
       setResizingColumn(undefined);
+      void updateProjectViewPreferences(workspaceId, projectId, {
+        columnWidths: columnWidthsRef.current,
+      }).catch(() => setError("Unable to save board settings."));
     }
 
     window.addEventListener("pointermove", onPointerMove);
@@ -245,7 +250,7 @@ export function ProjectBoard() {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [resizingColumn]);
+  }, [projectId, resizingColumn, workspaceId]);
 
   useEffect(() => {
     let active = true;
@@ -297,6 +302,8 @@ export function ProjectBoard() {
           setBoardScrolling(preferencesResponse.preferences.boardScrolling);
           setColumnSize(preferencesResponse.preferences.columnSize);
           setColumnWidths(preferencesResponse.preferences.columnWidths);
+          columnWidthsRef.current =
+            preferencesResponse.preferences.columnWidths;
           setHideDoneTasks(preferencesResponse.preferences.hideDoneTasks);
           setVisibleTaskFields(
             preferencesResponse.preferences.visibleTaskFields,
@@ -624,6 +631,7 @@ export function ProjectBoard() {
     event.preventDefault();
     event.stopPropagation();
     setColumnSize("fixed");
+    saveViewPreferences({ columnSize: "fixed" });
     setResizingColumn({
       id: statusId,
       startWidth: columnWidths[statusId] ?? 320,
