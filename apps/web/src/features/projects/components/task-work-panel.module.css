@@ -233,6 +233,17 @@
   overflow-wrap: anywhere;
 }
 
+.relatedTaskLink {
+  color: inherit;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.relatedTaskLink:hover strong {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
 .relationList strong {
   font-size: 14px;
 }

@@ -10,6 +10,7 @@ import {
   Paperclip,
   Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -604,10 +605,13 @@ export function TaskWorkPanel({
                 <span className={styles.relationType}>
                   {formatRelationType(relation.relationType)}
                 </span>
-                <div>
+                <Link
+                  className={styles.relatedTaskLink}
+                  href={`/workspaces/${workspaceId}/projects/${relation.task.projectId}?taskId=${relation.task.id}`}
+                >
                   <strong>{relation.task.key}</strong>
                   <span>{relation.task.title}</span>
-                </div>
+                </Link>
                 {canUpdateTask ? (
                   <button
                     aria-label={`Remove relation to ${relation.task.key}`}
