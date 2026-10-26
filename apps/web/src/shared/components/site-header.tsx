@@ -2,19 +2,28 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, LogOut, Plus } from "lucide-react";
+import { Bell, LogOut, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 
 import {
   getApiAssetUrl,
   getNotifications,
+  getProjects,
+  getTasks,
   logout,
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/shared/lib/api-client";
-import type { AuthUser, NotificationListResponse } from "@devflow/shared";
+import type {
+  AuthUser,
+  NotificationListResponse,
+  ProjectSummary,
+  Task,
+} from "@devflow/shared";
 
 import styles from "./site-header.module.css";
+
+type SearchResult = { project: ProjectSummary; task: Task };
 
 export function SiteHeader({ user }: { user: AuthUser }) {
   const pathname = usePathname();
@@ -24,7 +33,12 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     useState<NotificationListResponse>();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const workspaceId = pathname.match(/^\/workspaces\/([^/]+)/)?.[1];
 
   const refreshNotifications = useCallback(async () => {
@@ -62,6 +76,61 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        if (!workspaceId) return;
+        event.preventDefault();
+        setIsSearchOpen(true);
+      }
+      if (event.key === "Escape") setIsSearchOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    window.setTimeout(() => searchInputRef.current?.focus(), 0);
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (!isSearchOpen || !workspaceId || searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setIsSearching(true);
+      void getProjects(workspaceId)
+        .then(async ({ projects }) => {
+          const results = await Promise.all(
+            projects.map(async (project) => {
+              const response = await getTasks(workspaceId, project.id, {
+                limit: 8,
+                search: searchQuery.trim(),
+              });
+              return response.tasks.map((task) => ({ project, task }));
+            }),
+          );
+          if (active) setSearchResults(results.flat().slice(0, 20));
+        })
+        .catch(() => {
+          if (active) setSearchResults([]);
+        })
+        .finally(() => {
+          if (active) setIsSearching(false);
+        });
+    }, 220);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [isSearchOpen, searchQuery, workspaceId]);
 
   async function openNotification(
     notification: NotificationListResponse["notifications"][number],
@@ -122,6 +191,14 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     }
   }
 
+  function openSearchResult(result: SearchResult) {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+    router.push(
+      `/workspaces/${result.project.workspaceId}/projects/${result.project.id}/tasks/${result.task.id}`,
+    );
+  }
+
   return (
     <header className={styles.header}>
       <div className={styles.content}>
@@ -134,6 +211,17 @@ export function SiteHeader({ user }: { user: AuthUser }) {
               : "Project workspace"}
         </div>
         <div className={styles.userMenu}>
+          {workspaceId ? (
+            <button
+              className={styles.searchButton}
+              onClick={() => setIsSearchOpen(true)}
+              type="button"
+            >
+              <Search aria-hidden="true" size={17} />
+              <span>Search</span>
+              <kbd>Ctrl K</kbd>
+            </button>
+          ) : null}
           {workspaceId ? (
             <Link
               className={styles.createButton}
@@ -246,6 +334,65 @@ export function SiteHeader({ user }: { user: AuthUser }) {
           </button>
         </div>
       </div>
+      {isSearchOpen ? (
+        <div
+          className={styles.searchOverlay}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsSearchOpen(false);
+          }}
+          role="presentation"
+        >
+          <section
+            aria-label="Search workspace tasks"
+            className={styles.searchDialog}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className={styles.searchInputWrap}>
+              <Search aria-hidden="true" size={19} />
+              <input
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search tasks in this workspace…"
+                ref={searchInputRef}
+                value={searchQuery}
+              />
+              <button
+                aria-label="Close search"
+                onClick={() => setIsSearchOpen(false)}
+                type="button"
+              >
+                <X aria-hidden="true" size={18} />
+              </button>
+            </div>
+            <div className={styles.searchResults}>
+              {searchQuery.trim().length < 2 ? (
+                <p>Enter at least two characters to search tasks.</p>
+              ) : isSearching ? (
+                <p>Searching…</p>
+              ) : searchResults.length ? (
+                <ul>
+                  {searchResults.map(({ project, task }) => (
+                    <li key={task.id}>
+                      <button
+                        onClick={() => openSearchResult({ project, task })}
+                        type="button"
+                      >
+                        <span>{project.name}</span>
+                        <strong>
+                          {task.key}: {task.title}
+                        </strong>
+                        <em>{task.status.name}</em>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No tasks found.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </header>
   );
 }
