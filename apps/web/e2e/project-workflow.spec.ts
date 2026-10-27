@@ -7,11 +7,16 @@ async function register(page: Page) {
   await page.getByLabel("Email").fill(`workflow-${uniqueId}@example.test`);
   await page.getByLabel("Password").fill("E2ePassword123");
   await page.getByRole("button", { name: "Create account" }).click();
-  const error = page.getByRole("alert");
-  if (await error.isVisible().catch(() => false)) {
-    throw new Error(`Registration failed: ${await error.textContent()}`);
+  try {
+    await expect(page).toHaveURL(/workspaces/, { timeout: 10_000 });
+  } catch (error) {
+    const message = await page.locator("form [role='alert']").textContent();
+    if (message?.trim()) {
+      throw new Error(`Registration failed: ${message}`);
+    }
+
+    throw error;
   }
-  await expect(page).toHaveURL(/workspaces/);
 }
 
 test("member can create a project and task", async ({ page }) => {
@@ -44,13 +49,17 @@ test("member can move a task between board columns", async ({ page }) => {
     .getByRole("main")
     .getByRole("link", { name: "D Drag Project", exact: true })
     .click();
-  await page.getByLabel(/Create task in/i).first().click();
-  await page.getByLabel("Task title").fill("Move me");
   await page
-    .getByRole("button", { name: "Create task", exact: true })
+    .getByLabel(/Create task in/i)
+    .first()
     .click();
-  const task = page.getByRole("article", { name: /Move me/i });
-  const inProgress = page.getByRole("heading", { name: "In Progress" }).locator("../..");
+  await page.getByLabel("Task title").fill("Move me");
+  await page.getByRole("button", { name: "Create task", exact: true }).click();
+  const task = page.locator("article").filter({ hasText: "Move me" });
+  const inProgress = page
+    .getByRole("heading", { name: "In Progress" })
+    .locator("xpath=ancestor::section[1]");
+  await expect(task).toBeVisible();
   await task.dragTo(inProgress);
   await expect(inProgress.getByText("Move me")).toBeVisible();
 });
