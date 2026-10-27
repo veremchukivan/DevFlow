@@ -23,7 +23,7 @@ export const apiRateLimiter = rateLimit({
   max: env.API_RATE_LIMIT_MAX,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  skip: () => env.NODE_ENV === "test",
+  skip: () => env.NODE_ENV === "test" || env.E2E_TEST_MODE,
   message: {
     error: {
       code: "RATE_LIMIT_EXCEEDED",
@@ -38,7 +38,7 @@ export const authRateLimiter = rateLimit({
   max: env.AUTH_RATE_LIMIT_MAX,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  skip: () => env.NODE_ENV === "test",
+  skip: () => env.NODE_ENV === "test" || env.E2E_TEST_MODE,
   message: {
     error: {
       code: "RATE_LIMIT_EXCEEDED",

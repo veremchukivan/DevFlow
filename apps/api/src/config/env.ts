@@ -36,6 +36,7 @@ const envSchema = z
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    E2E_TEST_MODE: booleanFromEnv.default(false),
     SESSION_COOKIE_NAME: z.string().min(1).default("devflow_session"),
     SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
     SESSION_CLEANUP_INTERVAL_HOURS: z.coerce
@@ -90,6 +91,9 @@ const envSchema = z
         message: "REDIS_URL is required in production",
         path: ["REDIS_URL"],
       });
+    }
+    if (value.NODE_ENV === "production" && value.E2E_TEST_MODE) {
+      context.addIssue({ code: "custom", message: "E2E_TEST_MODE cannot be enabled in production", path: ["E2E_TEST_MODE"] });
     }
 
     if (value.NODE_ENV === "production") {
