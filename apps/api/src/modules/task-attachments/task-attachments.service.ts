@@ -1,7 +1,7 @@
 import { AppError } from "../../core/errors/app-error.js";
 import {
   deleteStoredFile,
-  readStoredFile,
+  getStoredFileSize,
   saveTaskAttachment,
 } from "../../core/uploads/images.js";
 import { canUpdateTask } from "../tasks/tasks.policy.js";
@@ -85,11 +85,13 @@ export async function downloadAttachment(
   if (!attachment) {
     throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
   }
-  const content = await readStoredFile(attachment.storageKey).catch((error) => {
-    if (error instanceof AppError) throw error;
-    throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
-  });
-  return { attachment, content };
+  const fileSize = await getStoredFileSize(attachment.storageKey).catch(
+    (error) => {
+      if (error instanceof AppError) throw error;
+      throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
+    },
+  );
+  return { attachment, fileSize };
 }
 
 async function requireTaskReadAccess(input: TaskAttachmentScope) {

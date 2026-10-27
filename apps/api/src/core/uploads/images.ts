@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import multer from "multer";
@@ -115,11 +116,29 @@ export async function deleteStoredFile(storageKey: string) {
   await rm(getStoredFilePath(storageKey), { force: true });
 }
 
-export async function readStoredFile(storageKey: string) {
+export async function getStoredFileSize(storageKey: string) {
   if (!isSafeStorageKey(storageKey)) {
     throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
   }
-  return readFile(getStoredFilePath(storageKey));
+  const metadata = await stat(getStoredFilePath(storageKey));
+  if (!metadata.isFile()) {
+    throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
+  }
+  return metadata.size;
+}
+
+export function createStoredFileStream(input: {
+  end?: number;
+  start?: number;
+  storageKey: string;
+}) {
+  if (!isSafeStorageKey(input.storageKey)) {
+    throw new AppError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found");
+  }
+  return createReadStream(getStoredFilePath(input.storageKey), {
+    end: input.end,
+    start: input.start,
+  });
 }
 
 function getStoredFilePath(storageKey: string) {

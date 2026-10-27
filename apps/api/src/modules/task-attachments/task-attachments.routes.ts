@@ -7,7 +7,10 @@ import {
 import { Router, type Request, type Response } from "express";
 
 import { AppError } from "../../core/errors/app-error.js";
-import { taskAttachmentUpload } from "../../core/uploads/images.js";
+import {
+  createStoredFileStream,
+  taskAttachmentUpload,
+} from "../../core/uploads/images.js";
 import {
   type AuthenticatedRequest,
   requireAuth,
@@ -20,6 +23,12 @@ import {
 } from "./task-attachments.service.js";
 
 export const taskAttachmentsRouter = Router({ mergeParams: true });
+
+type StreamableAttachment = {
+  mimeType: string;
+  originalFilename: string;
+  storageKey: string;
+};
 
 taskAttachmentsRouter.use(requireAuth);
 
@@ -55,27 +64,20 @@ taskAttachmentsRouter.post(
 
 taskAttachmentsRouter.get("/:attachmentId/download", async (req, res) => {
   const params = taskAttachmentParamsSchema.parse(req.params);
-  const { attachment, content } = await downloadAttachment({
+  const { attachment, fileSize } = await downloadAttachment({
     ...params,
     userId: getAuthenticatedUserId(req),
   });
-  res
-    .set({
-      "Cache-Control": "private, no-store",
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.originalFilename)}`,
-      "Content-Type": attachment.mimeType,
-      "X-Content-Type-Options": "nosniff",
-    })
-    .send(content);
+  sendAttachmentStream(res, attachment, fileSize, "attachment");
 });
 
 taskAttachmentsRouter.get("/:attachmentId/preview", async (req, res) => {
   const params = taskAttachmentParamsSchema.parse(req.params);
-  const { attachment, content } = await downloadAttachment({
+  const { attachment, fileSize } = await downloadAttachment({
     ...params,
     userId: getAuthenticatedUserId(req),
   });
-  sendInlineAttachment(req, res, attachment, content);
+  sendInlineAttachment(req, res, attachment, fileSize);
 });
 
 taskAttachmentsRouter.delete("/:attachmentId", async (req, res) => {
@@ -91,8 +93,8 @@ function getAuthenticatedUserId(req: unknown) {
 function sendInlineAttachment(
   req: Request,
   res: Response,
-  attachment: { mimeType: string; originalFilename: string },
-  content: Buffer,
+  attachment: StreamableAttachment,
+  fileSize: number,
 ) {
   const baseHeaders = {
     "Cache-Control": "private, no-store",
@@ -103,48 +105,75 @@ function sendInlineAttachment(
   };
 
   if (!attachment.mimeType.startsWith("video/")) {
-    res.set({ ...baseHeaders, "Content-Length": content.length }).send(content);
+    sendAttachmentStream(res, attachment, fileSize, "inline", baseHeaders);
     return;
   }
 
   const range = req.headers.range;
   if (!range) {
-    res
-      .set({
-        ...baseHeaders,
-        "Accept-Ranges": "bytes",
-        "Content-Length": content.length,
-      })
-      .send(content);
+    res.set({
+      ...baseHeaders,
+      "Accept-Ranges": "bytes",
+      "Content-Length": fileSize,
+    });
+    pipeStoredFile(res, attachment, { end: fileSize - 1, start: 0 });
     return;
   }
 
   const [startValue, endValue] = range.replace(/^bytes=/, "").split("-");
   const start = Number.parseInt(startValue ?? "", 10);
   const end = endValue
-    ? Math.min(Number.parseInt(endValue, 10), content.length - 1)
-    : content.length - 1;
+    ? Math.min(Number.parseInt(endValue, 10), fileSize - 1)
+    : fileSize - 1;
 
   if (
     !Number.isFinite(start) ||
     start < 0 ||
-    start >= content.length ||
+    start >= fileSize ||
     end < start
   ) {
-    res.status(416).set("Content-Range", `bytes */${content.length}`).end();
+    res.status(416).set("Content-Range", `bytes */${fileSize}`).end();
     return;
   }
 
-  const chunk = content.subarray(start, end + 1);
-  res
-    .status(206)
-    .set({
-      ...baseHeaders,
-      "Accept-Ranges": "bytes",
-      "Content-Length": chunk.length,
-      "Content-Range": `bytes ${start}-${end}/${content.length}`,
-    })
-    .send(chunk);
+  res.status(206).set({
+    ...baseHeaders,
+    "Accept-Ranges": "bytes",
+    "Content-Length": end - start + 1,
+    "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+  });
+  pipeStoredFile(res, attachment, { end, start });
+}
+
+function sendAttachmentStream(
+  res: Response,
+  attachment: StreamableAttachment,
+  fileSize: number,
+  disposition: "attachment" | "inline",
+  additionalHeaders: Record<string, string | number> = {},
+) {
+  res.set({
+    "Cache-Control": "private, no-store",
+    "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(attachment.originalFilename)}`,
+    "Content-Length": fileSize,
+    "Content-Type": attachment.mimeType,
+    "X-Content-Type-Options": "nosniff",
+    ...additionalHeaders,
+  });
+  pipeStoredFile(res, attachment, { end: fileSize - 1, start: 0 });
+}
+
+function pipeStoredFile(
+  res: Response,
+  attachment: StreamableAttachment,
+  range: { end: number; start: number },
+) {
+  const stream = createStoredFileStream({
+    storageKey: attachment.storageKey,
+    ...range,
+  });
+  stream.on("error", () => res.destroy());
+  stream.pipe(res);
 }
 
 function toTaskAttachmentDto(attachment: {
