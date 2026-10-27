@@ -643,6 +643,34 @@ export function declineWorkspaceInvitation(token: string): Promise<void> {
   );
 }
 
+export function getWorkspaceInvitationById(
+  invitationId: string,
+): Promise<PublicWorkspaceInvitationResponse> {
+  return request(
+    `/api/v1/invitations/id/${invitationId}`,
+    { method: "GET" },
+    publicWorkspaceInvitationResponseSchema,
+  );
+}
+
+export function acceptWorkspaceInvitationById(
+  invitationId: string,
+): Promise<AcceptInvitationResponse> {
+  return request(
+    `/api/v1/invitations/id/${invitationId}/accept`,
+    { method: "POST" },
+    acceptInvitationResponseSchema,
+  );
+}
+
+export function declineWorkspaceInvitationById(
+  invitationId: string,
+): Promise<void> {
+  return requestNoContent(`/api/v1/invitations/id/${invitationId}/decline`, {
+    method: "POST",
+  });
+}
+
 export function getProjects(workspaceId: string): Promise<ProjectListResponse> {
   return request(
     `/api/v1/workspaces/${workspaceId}/projects?limit=100&offset=0`,

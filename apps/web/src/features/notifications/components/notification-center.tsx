@@ -50,7 +50,9 @@ export function NotificationCenter() {
   async function open(item: NotificationListResponse["notifications"][number]) {
     if (!item.readAt) await markNotificationRead(item.id);
     router.push(
-      `/workspaces/${item.workspaceId}/projects/${item.projectId}/tasks/${item.taskId}`,
+      item.type === "workspace_invited"
+        ? `/invitations/id/${item.invitationId}`
+        : `/workspaces/${item.workspaceId}/projects/${item.projectId}/tasks/${item.taskId}`,
     );
   }
 
@@ -141,7 +143,9 @@ export function NotificationCenter() {
                 <span>
                   <strong>{message(item.type, item.actor?.displayName)}</strong>
                   <em>
-                    {item.taskKey}: {item.taskTitle}
+                    {item.type === "workspace_invited"
+                      ? "Open invitation"
+                      : `${item.taskKey}: ${item.taskTitle}`}
                   </em>
                   <time>{relativeTime(item.createdAt)}</time>
                 </span>
@@ -164,19 +168,22 @@ function message(
     | "task_commented"
     | "task_due_today"
     | "task_overdue"
-    | "task_status_changed",
+    | "task_status_changed"
+    | "workspace_invited",
   actor?: string,
 ) {
   const name = actor ?? "A workspace member";
-  return type === "task_commented"
-    ? `${name} commented on a task`
-    : type === "task_status_changed"
-      ? `${name} changed a task status`
-      : type === "task_due_today"
-        ? "Task is due today"
-        : type === "task_overdue"
-          ? "Task is overdue"
-          : `${name} assigned you a task`;
+  return type === "workspace_invited"
+    ? `${name} invited you to a workspace`
+    : type === "task_commented"
+      ? `${name} commented on a task`
+      : type === "task_status_changed"
+        ? `${name} changed a task status`
+        : type === "task_due_today"
+          ? "Task is due today"
+          : type === "task_overdue"
+            ? "Task is overdue"
+            : `${name} assigned you a task`;
 }
 function relativeTime(value: string) {
   const minutes = Math.max(

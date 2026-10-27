@@ -181,7 +181,9 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     }
     setIsNotificationsOpen(false);
     router.push(
-      `/workspaces/${notification.workspaceId}/projects/${notification.projectId}/tasks/${notification.taskId}`,
+      notification.type === "workspace_invited"
+        ? `/invitations/id/${notification.invitationId}`
+        : `/workspaces/${notification.workspaceId}/projects/${notification.projectId}/tasks/${notification.taskId}`,
     );
   }
 
@@ -482,10 +484,13 @@ function notificationMessage(
     | "task_commented"
     | "task_due_today"
     | "task_overdue"
-    | "task_status_changed",
+    | "task_status_changed"
+    | "workspace_invited",
   actorName: string | undefined,
 ) {
   const actor = actorName ?? "A workspace member";
+  if (type === "workspace_invited")
+    return `${actor} invited you to a workspace`;
   if (type === "task_commented") return `${actor} commented on a task`;
   if (type === "task_status_changed") return `${actor} changed a task status`;
   if (type === "task_due_today") return "Task is due today";

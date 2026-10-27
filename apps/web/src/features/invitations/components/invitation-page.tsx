@@ -8,13 +8,22 @@ import {
   acceptWorkspaceInvitation,
   ApiClientError,
   declineWorkspaceInvitation,
+  declineWorkspaceInvitationById,
   getCurrentUser,
+  getWorkspaceInvitationById,
   getPublicWorkspaceInvitation,
+  acceptWorkspaceInvitationById,
 } from "@/shared/lib/api-client";
 import type { AuthUser, PublicWorkspaceInvitation } from "@devflow/shared";
 import styles from "@/shared/styles/ui.module.css";
 
-export function InvitationPage({ token }: { token: string }) {
+export function InvitationPage({
+  token,
+  byId = false,
+}: {
+  token: string;
+  byId?: boolean;
+}) {
   const router = useRouter();
   const [invitation, setInvitation] = useState<PublicWorkspaceInvitation>();
   const [user, setUser] = useState<AuthUser>();
@@ -27,7 +36,9 @@ export function InvitationPage({ token }: { token: string }) {
     let active = true;
 
     void Promise.all([
-      getPublicWorkspaceInvitation(token),
+      byId
+        ? getWorkspaceInvitationById(token)
+        : getPublicWorkspaceInvitation(token),
       getCurrentUser().catch(() => undefined),
     ])
       .then(([invitationResponse, userResponse]) => {
@@ -50,13 +61,15 @@ export function InvitationPage({ token }: { token: string }) {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [byId, token]);
 
   async function onAccept() {
     setError(undefined);
     setIsSubmitting(true);
     try {
-      const response = await acceptWorkspaceInvitation(token);
+      const response = byId
+        ? await acceptWorkspaceInvitationById(token)
+        : await acceptWorkspaceInvitation(token);
       router.replace(`/workspaces/${response.workspaceId}`);
       router.refresh();
     } catch (caughtError) {
@@ -73,7 +86,8 @@ export function InvitationPage({ token }: { token: string }) {
     setError(undefined);
     setIsSubmitting(true);
     try {
-      await declineWorkspaceInvitation(token);
+      if (byId) await declineWorkspaceInvitationById(token);
+      else await declineWorkspaceInvitation(token);
       setIsComplete(true);
     } catch (caughtError) {
       setError(
@@ -94,7 +108,9 @@ export function InvitationPage({ token }: { token: string }) {
     <main className={styles.authPage}>
       <section className={styles.authPanel} aria-labelledby="invitation-title">
         <div className={styles.authBrand}>DevFlow</div>
-        {isLoading ? <p className={styles.authSubtitle}>Loading invitation</p> : null}
+        {isLoading ? (
+          <p className={styles.authSubtitle}>Loading invitation</p>
+        ) : null}
         {!isLoading && error && !invitation ? (
           <>
             <h1 id="invitation-title">Invitation unavailable</h1>
