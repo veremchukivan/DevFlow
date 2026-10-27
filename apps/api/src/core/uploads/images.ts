@@ -63,6 +63,7 @@ export async function saveImage(input: {
   file: Express.Multer.File;
   kind: "avatars" | "projects";
 }) {
+  assertFileSignature(input.file);
   const extension = extensions[input.file.mimetype as keyof typeof extensions];
   if (!extension) {
     throw new AppError(
@@ -88,6 +89,7 @@ export async function deleteStoredImage(url: string | null | undefined) {
 }
 
 export async function saveTaskAttachment(file: Express.Multer.File) {
+  assertFileSignature(file);
   const extension =
     attachmentExtensions[file.mimetype as keyof typeof attachmentExtensions];
   if (!extension) {
@@ -129,5 +131,50 @@ function isSafeStorageKey(storageKey: string) {
     storageKey.startsWith("task-attachments/") &&
     !storageKey.includes("..") &&
     !storageKey.includes("\\")
+  );
+}
+
+function assertFileSignature(
+  file: Pick<Express.Multer.File, "buffer" | "mimetype">,
+) {
+  if (hasExpectedSignature(file.buffer, file.mimetype)) return;
+
+  throw new AppError(
+    400,
+    "FILE_CONTENT_INVALID",
+    "Uploaded file content does not match its declared type",
+  );
+}
+
+function hasExpectedSignature(content: Buffer, mimeType: string) {
+  switch (mimeType) {
+    case "image/jpeg":
+      return hasBytes(content, [0xff, 0xd8, 0xff]);
+    case "image/png":
+      return hasBytes(
+        content,
+        [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+      );
+    case "image/webp":
+      return hasText(content, 0, "RIFF") && hasText(content, 8, "WEBP");
+    case "application/pdf":
+      return hasText(content, 0, "%PDF-");
+    case "video/mp4":
+      return hasText(content, 4, "ftyp");
+    case "video/webm":
+      return hasBytes(content, [0x1a, 0x45, 0xdf, 0xa3]);
+    default:
+      return false;
+  }
+}
+
+function hasBytes(content: Buffer, expected: number[]) {
+  return expected.every((byte, index) => content[index] === byte);
+}
+
+function hasText(content: Buffer, offset: number, expected: string) {
+  return (
+    content.subarray(offset, offset + expected.length).toString("ascii") ===
+    expected
   );
 }

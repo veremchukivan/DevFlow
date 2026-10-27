@@ -149,10 +149,14 @@ describe("Auth Module Integration Tests", () => {
     const uploaded = await request(app)
       .put("/api/v1/auth/profile/avatar")
       .set("Cookie", cookie)
-      .attach("image", Buffer.from([0x89, 0x50, 0x4e, 0x47]), {
-        contentType: "image/png",
-        filename: "avatar.png",
-      });
+      .attach(
+        "image",
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        {
+          contentType: "image/png",
+          filename: "avatar.png",
+        },
+      );
 
     expect(uploaded.status).toBe(200);
     expect(uploaded.body.user.avatarUrl).toMatch(/^\/uploads\/avatars\//);

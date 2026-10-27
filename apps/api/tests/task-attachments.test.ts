@@ -51,10 +51,14 @@ describe("Task attachment integration tests", () => {
     const uploaded = await request(app)
       .post(basePath)
       .set("Cookie", owner.cookie)
-      .attach("file", Buffer.from([0x89, 0x50, 0x4e, 0x47]), {
-        contentType: "image/png",
-        filename: "plan.png",
-      });
+      .attach(
+        "file",
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        {
+          contentType: "image/png",
+          filename: "plan.png",
+        },
+      );
 
     expect(uploaded.status).toBe(201);
     expect(uploaded.body.attachment.originalFilename).toBe("plan.png");
@@ -122,10 +126,17 @@ describe("Task attachment integration tests", () => {
     const uploaded = await request(app)
       .post(basePath)
       .set("Cookie", owner.cookie)
-      .attach("file", Buffer.from("not-a-real-video"), {
-        contentType: "video/mp4",
-        filename: "walkthrough.mp4",
-      });
+      .attach(
+        "file",
+        Buffer.from([
+          0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0,
+          0,
+        ]),
+        {
+          contentType: "video/mp4",
+          filename: "walkthrough.mp4",
+        },
+      );
 
     expect(uploaded.status).toBe(201);
     expect(uploaded.body.attachment.mimeType).toBe("video/mp4");
@@ -137,5 +148,19 @@ describe("Task attachment integration tests", () => {
     expect(previewed.status).toBe(206);
     expect(previewed.headers["content-range"]).toBe("bytes 0-3/16");
     expect(previewed.headers["accept-ranges"]).toBe("bytes");
+  });
+
+  it("rejects an attachment whose bytes do not match the declared type", async () => {
+    const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
+    const uploaded = await request(app)
+      .post(basePath)
+      .set("Cookie", owner.cookie)
+      .attach("file", Buffer.from("<script>alert('not an image')</script>"), {
+        contentType: "image/png",
+        filename: "unsafe.png",
+      });
+
+    expect(uploaded.status).toBe(400);
+    expect(uploaded.body.error.code).toBe("FILE_CONTENT_INVALID");
   });
 });

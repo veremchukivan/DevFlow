@@ -167,10 +167,14 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
       const uploaded = await request(app)
         .put(`/api/v1/workspaces/${workspace.id}/projects/${project.id}/icon`)
         .set("Cookie", admin.cookie)
-        .attach("image", Buffer.from([0x89, 0x50, 0x4e, 0x47]), {
-          contentType: "image/png",
-          filename: "project.png",
-        });
+        .attach(
+          "image",
+          Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+          {
+            contentType: "image/png",
+            filename: "project.png",
+          },
+        );
 
       expect(uploaded.status).toBe(200);
       expect(uploaded.body.project.iconUrl).toMatch(/^\/uploads\/projects\//);
