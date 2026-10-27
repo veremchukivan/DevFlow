@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Bell, LogOut, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   getApiAssetUrl,
@@ -364,7 +365,13 @@ export function SiteHeader({ user }: { user: AuthUser }) {
             title="Profile settings"
           >
             {user.avatarUrl ? (
-              <img alt="" src={getApiAssetUrl(user.avatarUrl) ?? undefined} />
+              <Image
+                alt=""
+                height={72}
+                src={getApiAssetUrl(user.avatarUrl)!}
+                unoptimized
+                width={72}
+              />
             ) : (
               user.displayName.slice(0, 2).toUpperCase()
             )}

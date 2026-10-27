@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   type DragEvent,
@@ -1484,7 +1485,13 @@ export function ProjectBoard() {
         <div className={styles.projectIdentity}>
           <span className={styles.projectIcon}>
             {project.iconUrl ? (
-              <img alt="" src={getApiAssetUrl(project.iconUrl) ?? undefined} />
+              <Image
+                alt=""
+                height={88}
+                src={getApiAssetUrl(project.iconUrl)!}
+                unoptimized
+                width={88}
+              />
             ) : (
               project.key.slice(0, 1)
             )}
@@ -1905,9 +1912,12 @@ export function ProjectBoard() {
           <section className={styles.projectIconSettings}>
             <span className={styles.projectIcon}>
               {project.iconUrl ? (
-                <img
+                <Image
                   alt=""
-                  src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                  height={64}
+                  src={getApiAssetUrl(project.iconUrl)!}
+                  unoptimized
+                  width={64}
                 />
               ) : (
                 project.key.slice(0, 1)

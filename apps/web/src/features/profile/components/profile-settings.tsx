@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { type FormEvent, useEffect, useState } from "react";
 
 import {
@@ -735,7 +736,13 @@ function Avatar({ large = false, user }: { large?: boolean; user: AuthUser }) {
       className={large ? styles.largeAvatar : styles.avatar}
     >
       {user.avatarUrl ? (
-        <img alt="" src={getApiAssetUrl(user.avatarUrl) ?? undefined} />
+        <Image
+          alt=""
+          height={large ? 112 : 56}
+          src={getApiAssetUrl(user.avatarUrl)!}
+          unoptimized
+          width={large ? 112 : 56}
+        />
       ) : (
         initials(user.displayName)
       )}

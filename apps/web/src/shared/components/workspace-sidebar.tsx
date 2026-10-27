@@ -2,6 +2,7 @@
 
 import { LayoutDashboard, Users } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -143,9 +144,12 @@ export function WorkspaceSidebar() {
                 >
                   <span className={styles.projectIcon}>
                     {project.iconUrl ? (
-                      <img
+                      <Image
                         alt=""
-                        src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                        height={36}
+                        src={getApiAssetUrl(project.iconUrl)!}
+                        unoptimized
+                        width={36}
                       />
                     ) : (
                       project.key.slice(0, 1)

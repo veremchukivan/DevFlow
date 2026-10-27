@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import {
@@ -649,9 +650,12 @@ export function WorkspaceDetail() {
                   >
                     <span className={styles.projectListIcon}>
                       {project.iconUrl ? (
-                        <img
+                        <Image
                           alt=""
-                          src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                          height={34}
+                          src={getApiAssetUrl(project.iconUrl)!}
+                          unoptimized
+                          width={34}
                         />
                       ) : (
                         project.key.slice(0, 1)
@@ -745,9 +749,12 @@ export function WorkspaceDetail() {
               >
                 <span className={styles.projectListIcon}>
                   {project.iconUrl ? (
-                    <img
+                    <Image
                       alt=""
-                      src={getApiAssetUrl(project.iconUrl) ?? undefined}
+                      height={34}
+                      src={getApiAssetUrl(project.iconUrl)!}
+                      unoptimized
+                      width={34}
                     />
                   ) : (
                     project.key.slice(0, 1)
