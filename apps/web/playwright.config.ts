@@ -11,7 +11,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "pnpm dev",
+    command: "pnpm exec next dev --port 3001",
     cwd: rootDir,
     port: 3001,
     reuseExistingServer: !process.env.CI,
