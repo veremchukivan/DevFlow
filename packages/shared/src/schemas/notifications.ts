@@ -8,6 +8,7 @@ export const notificationTypeSchema = z.enum([
   "task_due_today",
   "task_overdue",
   "task_status_changed",
+  "workspace_invited",
 ]);
 
 export const notificationSchema = z.object({
@@ -15,11 +16,12 @@ export const notificationSchema = z.object({
   actorUserId: z.uuid().nullable(),
   createdAt: z.string().datetime(),
   id: z.uuid(),
-  projectId: z.uuid(),
+  projectId: z.uuid().nullable(),
   readAt: z.string().datetime().nullable(),
-  taskId: z.uuid(),
-  taskKey: z.string(),
-  taskTitle: z.string(),
+  taskId: z.uuid().nullable(),
+  invitationId: z.uuid().nullable(),
+  taskKey: z.string().nullable(),
+  taskTitle: z.string().nullable(),
   type: notificationTypeSchema,
   workspaceId: z.uuid(),
 });

@@ -223,6 +223,13 @@ export async function findInvitationById(
   return invitation;
 }
 
+export async function findInvitationForUserById(input: { emailNormalized: string; invitationId: string }) {
+  const [invitation] = await invitationSelect()
+    .where(and(eq(workspaceInvitations.id, input.invitationId), eq(workspaceInvitations.emailNormalized, input.emailNormalized)))
+    .limit(1);
+  return invitation;
+}
+
 export async function cancelInvitationTx(input: {
   invitationId: string;
   targetUserId?: string;
@@ -272,7 +279,7 @@ export async function deleteWorkspaceInvitation(input: {
 export async function updateInvitationToken(input: {
   expiresAt: Date;
   invitationId: string;
-  tokenHash: string;
+  tokenHash?: string;
   workspaceId: string;
 }) {
   const [updated] = await db
@@ -347,7 +354,7 @@ export async function findInvitationByTokenHash(tokenHash: string) {
 export async function acceptInvitationTx(input: {
   invitationId: string;
   role: "owner" | "admin" | "member" | "viewer";
-  tokenHash: string;
+  tokenHash?: string;
   userId: string;
   workspaceId: string;
 }) {
@@ -365,7 +372,7 @@ export async function acceptInvitationTx(input: {
         and(
           eq(workspaceInvitations.id, input.invitationId),
           eq(workspaceInvitations.workspaceId, input.workspaceId),
-          eq(workspaceInvitations.tokenHash, input.tokenHash),
+          ...(input.tokenHash ? [eq(workspaceInvitations.tokenHash, input.tokenHash)] : []),
           isNull(workspaceInvitations.acceptedAt),
           isNull(workspaceInvitations.rejectedAt),
           gt(workspaceInvitations.expiresAt, now)
@@ -402,7 +409,7 @@ export async function acceptInvitationTx(input: {
 
 export async function declineInvitationTx(input: {
   invitationId: string;
-  tokenHash: string;
+  tokenHash?: string;
   userId?: string;
   workspaceId: string;
 }) {
@@ -419,7 +426,7 @@ export async function declineInvitationTx(input: {
         and(
           eq(workspaceInvitations.id, input.invitationId),
           eq(workspaceInvitations.workspaceId, input.workspaceId),
-          eq(workspaceInvitations.tokenHash, input.tokenHash),
+          ...(input.tokenHash ? [eq(workspaceInvitations.tokenHash, input.tokenHash)] : []),
           isNull(workspaceInvitations.acceptedAt),
           isNull(workspaceInvitations.rejectedAt),
           gt(workspaceInvitations.expiresAt, now)

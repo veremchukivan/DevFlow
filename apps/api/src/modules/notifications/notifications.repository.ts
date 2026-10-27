@@ -26,17 +26,18 @@ export async function updateNotificationPreferences(input: { userId: string; tas
 export async function createNotification(input: {
   actorUserId: string | null;
   dedupeKey?: string;
-  projectId: string;
+  projectId?: string;
   recipientUserId: string;
-  taskId: string;
-  taskKey: string;
-  taskTitle: string;
+  taskId?: string;
+  invitationId?: string;
+  taskKey?: string;
+  taskTitle?: string;
   type:
     | "task_assigned"
     | "task_commented"
     | "task_due_today"
     | "task_overdue"
-    | "task_status_changed";
+    | "task_status_changed" | "workspace_invited";
   workspaceId: string;
 }) {
   const [notification] = await db
@@ -114,6 +115,7 @@ export async function listNotifications(input: {
         actorUserId: notifications.actorUserId,
         createdAt: notifications.createdAt,
         id: notifications.id,
+        invitationId: notifications.invitationId,
         projectId: notifications.projectId,
         readAt: notifications.readAt,
         taskId: notifications.taskId,

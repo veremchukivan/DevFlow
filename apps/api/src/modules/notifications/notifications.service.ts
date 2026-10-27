@@ -17,6 +17,7 @@ const preferenceByType = {
 } as const;
 
 async function createPreferredNotification(input: Parameters<typeof createNotification>[0]) {
+  if (input.type === "workspace_invited") return createNotification(input);
   const preferences = await getNotificationPreferencesFromDb(input.recipientUserId);
   if (!preferences[preferenceByType[input.type]]) return;
   return createNotification(input);
@@ -24,6 +25,12 @@ async function createPreferredNotification(input: Parameters<typeof createNotifi
 
 export async function getNotificationPreferences(userId: string) { return getNotificationPreferencesFromDb(userId); }
 export async function updateNotificationPreferences(input: { userId: string; taskAssigned?: boolean; taskCommented?: boolean; taskDueToday?: boolean; taskOverdue?: boolean; taskStatusChanged?: boolean }) { return updateNotificationPreferencesInDb(input); }
+
+export async function notifyWorkspaceInvited(input: { actorUserId: string; invitationId: string; recipientUserId: string | null; workspaceId: string }) {
+  if (!input.recipientUserId || input.recipientUserId === input.actorUserId) return;
+  const recipientUserId = input.recipientUserId;
+  await createNotification({ actorUserId: input.actorUserId, invitationId: input.invitationId, recipientUserId, type: "workspace_invited", taskTitle: "You were invited to a workspace", workspaceId: input.workspaceId });
+}
 
 export async function notifyTaskAssigned(input: {
   actorUserId: string;

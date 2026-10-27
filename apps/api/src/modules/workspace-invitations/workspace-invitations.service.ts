@@ -8,6 +8,7 @@ import { env } from "../../config/env.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { canManageWorkspaceInvitations } from "./workspace-invitations.policy.js";
+import { notifyWorkspaceInvited } from "../notifications/notifications.service.js";
 import {
   acceptInvitationTx,
   cancelInvitationTx,
@@ -17,6 +18,7 @@ import {
   findActiveMemberByEmail,
   findActiveWorkspaceMembership,
   findInvitationById,
+  findInvitationForUserById,
   findInvitationByTokenHash,
   findPendingInvitationByEmail,
   findUserByEmailNormalized,
@@ -106,6 +108,7 @@ export async function createInvitation(input: {
     if (!invitation) {
       throw new Error("Failed to load created workspace invitation");
     }
+    await notifyWorkspaceInvited({ actorUserId: input.userId, invitationId: invitation.id, recipientUserId: targetUser?.id ?? null, workspaceId: input.workspaceId });
 
     return {
       invitation,
@@ -354,6 +357,28 @@ export async function acceptInvitation(input: {
     role: row.role,
     workspaceId: row.workspaceId
   };
+}
+
+export async function getInvitationForUser(input: { invitationId: string; userEmail: string }) {
+  const row = await findInvitationForUserById({ emailNormalized: normalizeEmail(input.userEmail), invitationId: input.invitationId });
+  if (!row) throw new AppError(404, "WORKSPACE_INVITATION_NOT_FOUND", "Invitation not found");
+  const workspace = await findWorkspaceById(row.workspaceId);
+  if (!workspace) throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace was not found");
+  return { ...row, workspaceName: workspace.name, workspaceSlug: workspace.slug };
+}
+
+export async function acceptInvitationById(input: { invitationId: string; userEmail: string; userId: string }) {
+  const row = await getInvitationForUser(input);
+  const accepted = await acceptInvitationTx({ invitationId: row.id, role: row.role, userId: input.userId, workspaceId: row.workspaceId });
+  if (!accepted) throw invitationNoLongerActiveError();
+  return { role: row.role, workspaceId: row.workspaceId };
+}
+
+export async function declineInvitationById(input: { invitationId: string; userEmail: string; userId: string }) {
+  const row = await getInvitationForUser(input);
+  const declined = await declineInvitationTx({ invitationId: row.id, userId: input.userId, workspaceId: row.workspaceId });
+  if (!declined) throw invitationNoLongerActiveError();
+  return { status: "declined" };
 }
 
 export async function declineInvitation(token: string) {

@@ -16,6 +16,7 @@ import {
   type WorkspaceInvitationResponse
 } from "@devflow/shared";
 import { Router } from "express";
+import { z } from "zod";
 
 import { env } from "../../config/env.js";
 import { sendWorkspaceInvitationEmail } from "../../core/email/mailer.js";
@@ -29,6 +30,9 @@ import {
   cancelInvitation,
   createInvitation,
   declineInvitation,
+  declineInvitationById,
+  acceptInvitationById,
+  getInvitationForUser,
   getPublicInvitation,
   listInvitations,
   resendInvitation
@@ -100,6 +104,21 @@ workspaceInvitationsRouter.post("/:invitationId/resend", async (req, res) => {
 // ---------------------------------------------------------------------------
 
 export const publicInvitationsRouter = Router();
+
+const invitationIdParams = z.object({ invitationId: z.uuid() });
+publicInvitationsRouter.get("/id/:invitationId", requireAuth, async (req, res) => {
+  const { invitationId } = invitationIdParams.parse(req.params);
+  const invitation = await getInvitationForUser({ invitationId, userEmail: getAuthenticatedUser(req).email });
+  res.json({ invitation: { email: invitation.email, expiresAt: invitation.expiresAt.toISOString(), id: invitation.id, inviterDisplayName: invitation.invitedBy?.displayName ?? null, isAccepted: !!invitation.acceptedAt, isExpired: invitation.expiresAt <= new Date(), isRejected: !!invitation.rejectedAt, role: invitation.role, workspaceName: invitation.workspaceName, workspaceSlug: invitation.workspaceSlug } });
+});
+publicInvitationsRouter.post("/id/:invitationId/accept", requireAuth, async (req, res) => {
+  const { invitationId } = invitationIdParams.parse(req.params); const user = getAuthenticatedUser(req);
+  res.json(await acceptInvitationById({ invitationId, userEmail: user.email, userId: user.id }));
+});
+publicInvitationsRouter.post("/id/:invitationId/decline", requireAuth, async (req, res) => {
+  const { invitationId } = invitationIdParams.parse(req.params); const user = getAuthenticatedUser(req);
+  res.json(await declineInvitationById({ invitationId, userEmail: user.email, userId: user.id }));
+});
 
 publicInvitationsRouter.get("/:token", async (req, res) => {
   const params = invitationTokenParamsSchema.parse(req.params);
