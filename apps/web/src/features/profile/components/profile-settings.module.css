@@ -365,6 +365,54 @@
   font-size: 13px;
   line-height: 1.4;
 }
+.apiGuide {
+  background: #f6f8fa;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 16px;
+}
+.apiGuide > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+.apiGuide strong {
+  font-size: 14px;
+}
+.apiGuide span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.apiGuide pre {
+  background: #202936;
+  border-radius: 6px;
+  color: #eff5fb;
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+  overflow-x: auto;
+  padding: 13px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.apiGuideActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.textLink {
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 700;
+}
+.textLink:hover {
+  color: var(--brand-hover);
+  text-decoration: underline;
+}
 .planRow strong {
   background: #e7f2f0;
   border-radius: 99px;

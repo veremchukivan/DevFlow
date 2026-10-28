@@ -737,6 +737,9 @@ function SetupPanel() {
   const [figmaConnected, setFigmaConnected] = useState(false);
   const [isLoadingFigma, setIsLoadingFigma] = useState(true);
   const [isDisconnectingFigma, setIsDisconnectingFigma] = useState(false);
+  const apiReferenceUrl = getApiAssetUrl("/openapi.json");
+  const apiExample = `curl -H "Authorization: Bearer YOUR_TOKEN" \\
+  ${getApiAssetUrl("/api/v1/auth/me")}`;
 
   useEffect(() => {
     void getFigmaConnection()
@@ -843,6 +846,43 @@ function SetupPanel() {
           program. Tokens can be revoked here at any time and are shown only
           once.
         </p>
+        <div className={styles.apiGuide}>
+          <div>
+            <strong>Connect an external client</strong>
+            <span>
+              Send the token in the Authorization header. Choose read-only for
+              dashboards and reports; use read and write only for clients that
+              create or change DevFlow data.
+            </span>
+          </div>
+          <pre>
+            <code>{apiExample}</code>
+          </pre>
+          <div className={styles.apiGuideActions}>
+            <button
+              className={styles.secondaryButton}
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(apiExample)
+                  .then(() => setSetupMessage("Request example copied."))
+                  .catch(() => setSetupError("Unable to copy the request example."))
+              }
+              type="button"
+            >
+              Copy example
+            </button>
+            {apiReferenceUrl ? (
+              <a
+                className={styles.textLink}
+                href={apiReferenceUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open OpenAPI reference
+              </a>
+            ) : null}
+          </div>
+        </div>
         {secret ? (
           <p className={styles.success}>
             Copy this token now: <code>{secret}</code>
