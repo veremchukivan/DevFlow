@@ -99,6 +99,9 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      FIGMA_CLIENT_ID: ${FIGMA_CLIENT_ID:-}
+      FIGMA_CLIENT_SECRET: ${FIGMA_CLIENT_SECRET:-}
+      FIGMA_REDIRECT_URI: ${FIGMA_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/figma/callback}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     depends_on:
       postgres:
@@ -130,6 +133,9 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      FIGMA_CLIENT_ID: ${FIGMA_CLIENT_ID:-}
+      FIGMA_CLIENT_SECRET: ${FIGMA_CLIENT_SECRET:-}
+      FIGMA_REDIRECT_URI: ${FIGMA_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/figma/callback}
       SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
       TRUST_PROXY: ${TRUST_PROXY:-0}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}

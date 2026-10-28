@@ -239,6 +239,13 @@
       "when": 1793155485269,
       "tag": "0033_short_pestilence",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793158170729,
+      "tag": "0034_blushing_pete_wisdom",
+      "breakpoints": true
     }
   ]
 }

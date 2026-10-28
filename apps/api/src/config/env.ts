@@ -82,6 +82,9 @@ const envSchema = z
     SMTP_USER: optionalNonEmptyString,
     SMTP_PASSWORD: optionalNonEmptyString,
     SMTP_FROM: optionalNonEmptyString,
+    FIGMA_CLIENT_ID: optionalNonEmptyString,
+    FIGMA_CLIENT_SECRET: optionalNonEmptyString,
+    FIGMA_REDIRECT_URI: z.url().optional(),
     UPLOADS_DIR: z.string().min(1).default("uploads"),
   })
   .superRefine((value, context) => {

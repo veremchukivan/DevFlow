@@ -1,5 +1,6 @@
 export * from "./auth-tokens.js";
 export * from "./api-tokens.js";
+export * from "./figma-connections.js";
 export * from "./labels.js";
 export * from "./notifications.js";
 export * from "./notification-preferences.js";
