@@ -532,4 +532,12 @@ describe("Auth Module Integration Tests", () => {
     const revoked = await request(app).delete(`/api/v1/auth/api-tokens/${created.body.tokenInfo.id}`).set("Cookie", cookie);
     expect(revoked.status).toBe(204);
   });
+
+  it("authenticates API requests with a bearer token", async () => {
+    const registered = await request(app).post("/api/v1/auth/register").send({ displayName: "Bearer User", email: `bearer-${Date.now()}@devflow.io`, password: "Password123!" });
+    const created = await request(app).post("/api/v1/auth/api-tokens").set("Cookie", registered.headers["set-cookie"][0]).send({ name: "CLI" });
+    const me = await request(app).get("/api/v1/auth/me").set("Authorization", `Bearer ${created.body.token}`);
+    expect(me.status).toBe(200);
+    expect(me.body.user.email).toBe(registered.body.user.email);
+  });
 });

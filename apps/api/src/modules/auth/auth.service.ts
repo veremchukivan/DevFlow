@@ -29,6 +29,7 @@ import {
   findUserPasswordById,
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
+  findUserByApiTokenHash,
   findUserAvatarById,
   getAccountDataExport,
   listActiveSessionsForUser,
@@ -143,6 +144,12 @@ export async function getCurrentUser(sessionToken: string) {
   }
 
   return session.user;
+}
+
+export async function getCurrentUserByApiToken(token: string) {
+  const user = await findUserByApiTokenHash(hashToken(token));
+  if (!user) throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  return user;
 }
 
 export async function logout(sessionToken: string) {

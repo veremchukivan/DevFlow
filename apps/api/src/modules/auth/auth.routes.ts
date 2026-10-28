@@ -279,16 +279,8 @@ authRouter.post(
   },
 );
 
-authRouter.get("/me", async (req, res) => {
-  const token = getSessionToken(req);
-
-  if (!token) {
-    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
-  }
-
-  const user = await getCurrentUser(token);
-
-  res.json(toAuthResponse(user));
+authRouter.get("/me", requireAuth, (req, res) => {
+  res.json(toAuthResponse(getAuthenticatedUser(req)));
 });
 
 function getSessionToken(req: Request) {
