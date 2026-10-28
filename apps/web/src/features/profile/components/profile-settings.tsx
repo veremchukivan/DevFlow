@@ -7,6 +7,7 @@ import {
   CreditCard,
   Database,
   Download,
+  Palette,
   KeyRound,
   LogOut,
   Mail,
@@ -717,7 +718,15 @@ function BillingPanel() {
   );
 }
 function SetupPanel() {
-  const [tokens, setTokens] = useState<Array<{ id: string; name: string; tokenPrefix: string; expiresAt?: string | null; lastUsedAt?: string | null }>>([]);
+  const [tokens, setTokens] = useState<
+    Array<{
+      expiresAt?: string | null;
+      id: string;
+      lastUsedAt?: string | null;
+      name: string;
+      tokenPrefix: string;
+    }>
+  >([]);
   const [secret, setSecret] = useState<string>();
   const [setupError, setSetupError] = useState<string>();
   const [setupMessage, setSetupMessage] = useState<string>();
@@ -731,65 +740,173 @@ function SetupPanel() {
       .catch(() => setSetupError("Unable to load Figma connection status."))
       .finally(() => setIsLoadingFigma(false));
   }, []);
-  useEffect(() => { void getApiTokens().then((response) => setTokens(response.tokens)).catch(() => setSetupError("Unable to load API tokens.")); }, []);
+
+  useEffect(() => {
+    void getApiTokens()
+      .then((response) => setTokens(response.tokens))
+      .catch(() => setSetupError("Unable to load API tokens."));
+  }, []);
+
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    try { const form = new FormData(event.currentTarget); const days = Number(form.get("expiresInDays") ?? 0); const response = await createApiToken({ name: String(form.get("name") ?? ""), expiresAt: days ? new Date(Date.now() + days * 86_400_000).toISOString() : null }); setSecret(response.token); setTokens((current) => [response.tokenInfo, ...current]); event.currentTarget.reset(); setSetupMessage("Token created. Copy it now — it will not be shown again."); } catch { setSetupError("Unable to create API token."); }
+    setSetupError(undefined);
+    const form = new FormData(event.currentTarget);
+    const days = Number(form.get("expiresInDays") ?? 0);
+
+    try {
+      const response = await createApiToken({
+        expiresAt: days
+          ? new Date(Date.now() + days * 86_400_000).toISOString()
+          : null,
+        name: String(form.get("name") ?? ""),
+      });
+      setSecret(response.token);
+      setTokens((current) => [response.tokenInfo, ...current]);
+      event.currentTarget.reset();
+      setSetupMessage("Token created. Copy it now — it will not be shown again.");
+    } catch {
+      setSetupError("Unable to create API token.");
+    }
   }
+
   return (
-    <section className={styles.card}>
-      <CardHeading
-        icon={TerminalSquare}
-        subtitle="Connect developer tools to DevFlow"
-        title="Developer setup"
-      />
-      <div className={styles.infoRow}>
-        <span>
-          Figma{" "}
-          {isLoadingFigma
-            ? "connection is loading"
-            : figmaConnected
-              ? "connected"
-              : "not connected"}
-        </span>
-        {figmaConnected ? (
-          <button
-            className={styles.textButton}
-            disabled={isDisconnectingFigma}
-            onClick={() => {
-              setIsDisconnectingFigma(true);
-              void disconnectFigma()
-                .then(() => {
-                  setFigmaConnected(false);
-                  setSetupMessage("Figma account disconnected.");
-                })
-                .catch(() => setSetupError("Unable to disconnect Figma."))
-                .finally(() => setIsDisconnectingFigma(false));
-            }}
-            type="button"
-          >
-            {isDisconnectingFigma ? "Disconnecting…" : "Disconnect"}
-          </button>
-        ) : (
-          <a
-            aria-disabled={isLoadingFigma}
-            className={styles.secondaryButton}
-            href={
-              isLoadingFigma
-                ? undefined
-                : (getApiAssetUrl("/api/v1/integrations/figma/connect") ??
-                  undefined)
-            }
-          >
-            Connect Figma
-          </a>
-        )}
-      </div>
-      {setupError ? <p className={styles.error}>{setupError}</p> : null}{setupMessage ? <p className={styles.success}>{setupMessage}</p> : null}
-      {secret ? <p className={styles.success}>Copy this token now: <code>{secret}</code> <button className={styles.textButton} onClick={() => void navigator.clipboard.writeText(secret).then(() => setSetupMessage("Token copied."))} type="button">Copy</button></p> : null}
-      <form className={styles.form} onSubmit={(event) => void create(event)}><label><span>Token name</span><input name="name" required maxLength={80} /></label><label><span>Expires</span><select name="expiresInDays"><option value="0">Never</option><option value="30">In 30 days</option><option value="90">In 90 days</option></select></label><div className={styles.formFooter}><span /><button className={styles.primaryButton} type="submit">Create API token</button></div></form>
-      <ul className={styles.sessionList}>{tokens.map((token) => <li key={token.id}><div><strong>{token.name} · {token.tokenPrefix}…</strong><span>{token.expiresAt ? `Expires ${new Date(token.expiresAt).toLocaleDateString()}` : "Never expires"}{token.lastUsedAt ? ` · Last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : " · Never used"}</span></div><button className={styles.textButton} onClick={() => void revokeApiToken(token.id).then(() => setTokens((current) => current.filter((item) => item.id !== token.id)))} type="button">Revoke</button></li>)}</ul>
-    </section>
+    <>
+      <section className={styles.card}>
+        <CardHeading
+          icon={TerminalSquare}
+          subtitle="Connect your personal tools without sharing credentials with your team"
+          title="Integrations"
+        />
+        {setupError ? <p className={styles.error}>{setupError}</p> : null}
+        {setupMessage ? <p className={styles.success}>{setupMessage}</p> : null}
+        <div className={styles.integrationRow}>
+          <Palette aria-hidden="true" size={22} />
+          <div>
+            <strong>Figma</strong>
+            <span>
+              {isLoadingFigma
+                ? "Checking your connection…"
+                : figmaConnected
+                  ? "Your Figma account is connected. Its access remains personal."
+                  : "Connect your account to use Figma-powered features."}
+            </span>
+          </div>
+          {figmaConnected ? (
+            <button
+              className={styles.textButton}
+              disabled={isDisconnectingFigma}
+              onClick={() => {
+                setIsDisconnectingFigma(true);
+                void disconnectFigma()
+                  .then(() => {
+                    setFigmaConnected(false);
+                    setSetupMessage("Figma account disconnected.");
+                  })
+                  .catch(() => setSetupError("Unable to disconnect Figma."))
+                  .finally(() => setIsDisconnectingFigma(false));
+              }}
+              type="button"
+            >
+              {isDisconnectingFigma ? "Disconnecting…" : "Disconnect"}
+            </button>
+          ) : (
+            <a
+              aria-disabled={isLoadingFigma}
+              className={styles.secondaryButton}
+              href={
+                isLoadingFigma
+                  ? undefined
+                  : (getApiAssetUrl("/api/v1/integrations/figma/connect") ??
+                    undefined)
+              }
+            >
+              Connect Figma
+            </a>
+          )}
+        </div>
+      </section>
+
+      <section className={styles.card}>
+        <CardHeading
+          icon={KeyRound}
+          subtitle="Create scoped credentials for Codex, scripts, and any supported client"
+          title="Developer API"
+        />
+        <p className={styles.mutedCopy}>
+          Create a token only when you explicitly connect DevFlow to another
+          program. Tokens can be revoked here at any time and are shown only
+          once.
+        </p>
+        {secret ? (
+          <p className={styles.success}>
+            Copy this token now: <code>{secret}</code>
+            <button
+              className={styles.textButton}
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(secret)
+                  .then(() => setSetupMessage("Token copied."))
+              }
+              type="button"
+            >
+              Copy
+            </button>
+          </p>
+        ) : null}
+        <form className={styles.form} onSubmit={(event) => void create(event)}>
+          <label>
+            <span>Token name</span>
+            <input maxLength={80} name="name" required />
+          </label>
+          <label>
+            <span>Expires</span>
+            <select name="expiresInDays">
+              <option value="0">Never</option>
+              <option value="30">In 30 days</option>
+              <option value="90">In 90 days</option>
+            </select>
+          </label>
+          <div className={styles.formFooter}>
+            <span />
+            <button className={styles.primaryButton} type="submit">
+              Create API token
+            </button>
+          </div>
+        </form>
+        <ul className={styles.sessionList}>
+          {tokens.map((token) => (
+            <li key={token.id}>
+              <div>
+                <strong>
+                  {token.name} · {token.tokenPrefix}…
+                </strong>
+                <span>
+                  {token.expiresAt
+                    ? `Expires ${new Date(token.expiresAt).toLocaleDateString()}`
+                    : "Never expires"}
+                  {token.lastUsedAt
+                    ? ` · Last used ${new Date(token.lastUsedAt).toLocaleDateString()}`
+                    : " · Never used"}
+                </span>
+              </div>
+              <button
+                className={styles.textButton}
+                onClick={() =>
+                  void revokeApiToken(token.id).then(() =>
+                    setTokens((current) =>
+                      current.filter((item) => item.id !== token.id),
+                    ),
+                  )
+                }
+                type="button"
+              >
+                Revoke
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }
 function AiPanel() {

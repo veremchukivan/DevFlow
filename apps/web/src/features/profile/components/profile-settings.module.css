@@ -337,6 +337,34 @@
   color: var(--muted);
   font-size: 14px;
 }
+.integrationRow {
+  align-items: center;
+  background: #f6f8fa;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: flex;
+  gap: 14px;
+  margin-top: 24px;
+  padding: 15px;
+}
+.integrationRow > svg {
+  color: #7a4bd1;
+  flex: 0 0 auto;
+}
+.integrationRow > div {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+.integrationRow strong {
+  font-size: 14px;
+}
+.integrationRow span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
 .planRow strong {
   background: #e7f2f0;
   border-radius: 99px;
@@ -467,5 +495,12 @@
     align-items: flex-start;
     flex-direction: column;
     padding: 14px;
+  }
+  .integrationRow {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .integrationRow > div {
+    flex-basis: calc(100% - 40px);
   }
 }
