@@ -27,6 +27,7 @@ import {
 import { Plate, PlateContent, usePlateEditor } from "platejs/react";
 import {
   type ChangeEvent,
+  type MouseEvent,
   type ReactNode,
   useEffect,
   useMemo,
@@ -34,6 +35,7 @@ import {
   useState,
 } from "react";
 
+import { Modal } from "./modal";
 import styles from "./rich-text-editor.module.css";
 
 type RichTextAttachment = {
@@ -89,6 +91,7 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const [value, setValue] = useState(() => normalizeHtml(defaultValue));
   const [isActive, setIsActive] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<RichTextAttachment>();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -122,6 +125,22 @@ export function RichTextEditor({
     setValue((currentValue) => removeEmbeddedMedia(currentValue, attachmentId));
   }
 
+  function handlePreviewClick(event: MouseEvent<HTMLButtonElement>) {
+    const mediaElement = (event.target as HTMLElement).closest<HTMLElement>(
+      "[data-description-media-id]",
+    );
+    const attachmentId = mediaElement?.dataset.descriptionMediaId;
+    const attachment = attachments.find((item) => item.id === attachmentId);
+
+    if (attachment) {
+      event.preventDefault();
+      event.stopPropagation();
+      setSelectedMedia(attachment);
+      return;
+    }
+    setIsActive(true);
+  }
+
   return (
     <div
       className={styles.editor}
@@ -151,7 +170,7 @@ export function RichTextEditor({
         <button
           aria-label={placeholder}
           className={styles.previewButton}
-          onClick={() => setIsActive(true)}
+          onClick={handlePreviewClick}
           type="button"
         >
           {hasContent(value) ? (
@@ -165,6 +184,33 @@ export function RichTextEditor({
           )}
         </button>
       )}
+      {selectedMedia ? (
+        <Modal
+          isOpen
+          onClose={() => setSelectedMedia(undefined)}
+          title={selectedMedia.originalFilename}
+          width="wide"
+        >
+          <div className={styles.mediaPreviewDialog}>
+            {selectedMedia.mimeType.startsWith("video/") ? (
+              <video controls preload="metadata">
+                <source
+                  src={getAttachmentPreviewUrl?.(selectedMedia.id)}
+                  type={selectedMedia.mimeType}
+                />
+              </video>
+            ) : (
+              // Attachment previews are authenticated API resources. A native img
+              // keeps the existing session credentials on the asset request.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={selectedMedia.originalFilename}
+                src={getAttachmentPreviewUrl?.(selectedMedia.id)}
+              />
+            )}
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }
@@ -531,8 +577,9 @@ function appendEmbeddedMedia(value: string, media: EmbeddedMedia[]) {
   const allMedia = [...extractEmbeddedMedia(value), ...media];
   const uniqueMedia = allMedia.filter(
     (item, index) =>
-      allMedia.findIndex((candidate) => candidate.attachmentId === item.attachmentId) ===
-      index,
+      allMedia.findIndex(
+        (candidate) => candidate.attachmentId === item.attachmentId,
+      ) === index,
   );
   const tags = uniqueMedia
     .map(({ attachmentId, kind }) =>
@@ -565,8 +612,8 @@ function resolveEmbeddedMedia(
     const safeUrl = escapeAttribute(previewUrl);
     const safeName = escapeAttribute(attachment.originalFilename);
     return kind.toLowerCase() === "video"
-      ? `<video controls preload="metadata"><source src="${safeUrl}" type="${escapeAttribute(attachment.mimeType)}"></video>`
-      : `<img src="${safeUrl}" alt="${safeName}">`;
+      ? `<video controls preload="metadata" data-description-media-id="${attachment.id}"><source src="${safeUrl}" type="${escapeAttribute(attachment.mimeType)}"></video>`
+      : `<img src="${safeUrl}" alt="${safeName}" data-description-media-id="${attachment.id}">`;
   });
 }
 function plainTextLength(html: string) {
