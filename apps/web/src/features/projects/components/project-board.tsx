@@ -53,11 +53,9 @@ import {
   getProjectSprintAnalytics,
   getTask,
   getTasks,
-  getWorkspaceLabels,
   getWorkspaceMembers,
   getWorkspace,
   getApiAssetUrl,
-  replaceTaskLabels,
   reorderProjectStatuses,
   repositionTask,
   updateTask,
@@ -72,7 +70,6 @@ import {
   getProjectFigmaLinks,
 } from "@/shared/lib/api-client";
 import type {
-  Label,
   PageInfo,
   Project,
   ProjectFigmaLink,
@@ -98,7 +95,6 @@ import styles from "@/shared/styles/ui.module.css";
 type BoardFilters = {
   archived?: boolean;
   priority?: TaskPriority;
-  labelId?: string;
   assigneeUserId?: string | "none";
   due?: "overdue" | "today" | "week" | "none";
   search?: string;
@@ -113,12 +109,11 @@ type BoardScrolling = "column" | "board";
 type TaskCardAccent = "none" | "status" | "priority";
 type TaskCardColor = "neutral" | "blue" | "violet" | "sand";
 type TaskCardField =
-  "assignee" | "dueDate" | "labels" | "priority" | "taskKey" | "taskType";
+  "assignee" | "dueDate" | "priority" | "taskKey" | "taskType";
 
 const taskCardFields: Array<{ id: TaskCardField; label: string }> = [
   { id: "assignee", label: "Assignee" },
   { id: "dueDate", label: "Due date" },
-  { id: "labels", label: "Labels" },
   { id: "priority", label: "Priority" },
   { id: "taskKey", label: "Work item key" },
   { id: "taskType", label: "Work type" },
@@ -126,7 +121,6 @@ const taskCardFields: Array<{ id: TaskCardField; label: string }> = [
 const defaultTaskCardFields: TaskCardField[] = [
   "assignee",
   "dueDate",
-  "labels",
   "priority",
   "taskKey",
   "taskType",
@@ -164,8 +158,6 @@ export function ProjectBoard() {
   const [filters, setFilters] = useState<BoardFilters>({});
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<"" | TaskPriority>("");
-  const [labels, setLabels] = useState<Label[]>([]);
-  const [labelId, setLabelId] = useState("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [role, setRole] = useState<WorkspaceRole>();
@@ -256,7 +248,6 @@ export function ProjectBoard() {
   );
   const activeFilterCount = [
     priority,
-    labelId,
     assigneeUserId,
     due,
     showArchived,
@@ -304,7 +295,6 @@ export function ProjectBoard() {
     void Promise.all([
       getProject(workspaceId, projectId),
       getProjectFigmaLinks(workspaceId, projectId),
-      getWorkspaceLabels(workspaceId),
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
       getProjectSprints(workspaceId, projectId),
@@ -315,7 +305,6 @@ export function ProjectBoard() {
         async ([
           projectResponse,
           figmaLinksResponse,
-          labelsResponse,
           membersResponse,
           workspaceResponse,
           sprintsResponse,
@@ -350,7 +339,6 @@ export function ProjectBoard() {
               })
               .catch(() => undefined);
           }
-          setLabels(labelsResponse.labels);
           setMembers(
             membersResponse.members.filter(
               (member) => member.status === "active",
@@ -559,7 +547,6 @@ export function ProjectBoard() {
     const nextFilters = {
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(priority ? { priority } : {}),
-      ...(labelId ? { labelId } : {}),
       ...(assigneeUserId
         ? { assigneeUserId: assigneeUserId as string | "none" }
         : {}),
@@ -577,7 +564,6 @@ export function ProjectBoard() {
   async function onClearFilters() {
     setSearch("");
     setPriority("");
-    setLabelId("");
     setAssigneeUserId("");
     setDue("");
     setSortBy("position");
@@ -609,7 +595,6 @@ export function ProjectBoard() {
     const nextFilters = {
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(priority ? { priority } : {}),
-      ...(labelId ? { labelId } : {}),
       ...(nextAssigneeUserId
         ? { assigneeUserId: nextAssigneeUserId as string | "none" }
         : {}),
@@ -1418,13 +1403,6 @@ export function ProjectBoard() {
         },
         selectedTask.version,
       );
-      const labelIds = form.getAll("labelIds").map(String);
-      await replaceTaskLabels(
-        workspaceId,
-        projectId,
-        selectedTask.id,
-        labelIds,
-      );
       setTasks((current) =>
         current.map((task) =>
           task.id === response.task.id ? response.task : task,
@@ -1837,7 +1815,6 @@ export function ProjectBoard() {
         <TaskEditorModal
           availableParentTasks={tasks}
           isSaving={updatingTaskId === selectedTask.id}
-          labels={labels}
           members={members}
           onClose={closeTaskEditor}
           onSubmit={onTaskEditorSubmit}
@@ -2576,20 +2553,6 @@ export function ProjectBoard() {
               </select>
             </label>
             <label>
-              <span>Label</span>
-              <select
-                onChange={(event) => setLabelId(event.target.value)}
-                value={labelId}
-              >
-                <option value="">All labels</option>
-                {labels.map((label) => (
-                  <option key={label.id} value={label.id}>
-                    {label.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
               <span>Assignee</span>
               <select
                 onChange={(event) => setAssigneeUserId(event.target.value)}
@@ -3019,19 +2982,6 @@ export function ProjectBoard() {
                         </button>
                       </h3>
                       {task.description ? <p>{task.description}</p> : null}
-                      {visibleTaskFields.includes("labels") &&
-                      task.labels.length ? (
-                        <div className={styles.taskLabels}>
-                          {task.labels.map((label) => (
-                            <span
-                              key={label.id}
-                              style={{ backgroundColor: label.color }}
-                            >
-                              {label.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
                       {visibleTaskFields.includes("dueDate") && task.dueDate ? (
                         <p
                           className={`${styles.taskDueDate} ${isTaskOverdue(task.dueDate) ? styles.taskDueDateOverdue : ""}`}
@@ -3389,7 +3339,6 @@ function formatRelativeTime(value: string) {
 function TaskEditorModal({
   availableParentTasks,
   isSaving,
-  labels,
   members,
   onClose,
   onSubmit,
@@ -3401,7 +3350,6 @@ function TaskEditorModal({
 }: {
   availableParentTasks: Task[];
   isSaving: boolean;
-  labels: Label[];
   members: WorkspaceMember[];
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -3483,27 +3431,6 @@ function TaskEditorModal({
               rows={9}
             />
           </label>
-          <fieldset className={styles.taskLabelsFieldset}>
-            <legend>Labels</legend>
-            {labels.length ? (
-              labels.map((label) => (
-                <label key={label.id}>
-                  <input
-                    defaultChecked={task.labels.some(
-                      (taskLabel) => taskLabel.id === label.id,
-                    )}
-                    name="labelIds"
-                    type="checkbox"
-                    value={label.id}
-                  />
-                  <span style={{ backgroundColor: label.color }} />
-                  {label.name}
-                </label>
-              ))
-            ) : (
-              <p className={styles.emptyState}>No workspace labels yet.</p>
-            )}
-          </fieldset>
         </section>
         <aside className={styles.taskEditorDetails}>
           <h3>Details</h3>

@@ -70,7 +70,6 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
     .transform((v) => v === "true")
     .optional(),
   assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
-  labelId: z.uuid().optional(),
   due: taskDueFilterSchema.optional(),
   priority: taskPrioritySchema.optional(),
   search: z.string().trim().min(1).max(200).optional(),
@@ -99,11 +98,6 @@ export const taskUserSchema = z.object({
   email: z.string().email(),
   id: z.uuid(),
 });
-export const taskLabelSchema = z.object({
-  id: z.uuid(),
-  name: z.string(),
-  color: z.string(),
-});
 export const taskMetricsSchema = z.object({
   attachmentCount: z.number().int().nonnegative(),
   checklistCompletedCount: z.number().int().nonnegative(),
@@ -118,7 +112,6 @@ export const taskSchema = z.object({
   description: z.string().nullable(),
   dueDate: taskDueDateSchema.nullable(),
   id: z.uuid(),
-  labels: z.array(taskLabelSchema).default([]),
   metrics: taskMetricsSchema,
   key: z.string(),
   number: z.number(),

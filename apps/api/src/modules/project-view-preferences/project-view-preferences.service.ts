@@ -21,7 +21,6 @@ const defaults: ProjectViewPreferences = {
   visibleTaskFields: [
     "assignee",
     "dueDate",
-    "labels",
     "priority",
     "taskKey",
     "taskType",

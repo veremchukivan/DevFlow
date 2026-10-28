@@ -8,7 +8,6 @@ export const projectViewPreferenceParamsSchema = z.object({
 export const taskCardFieldSchema = z.enum([
   "assignee",
   "dueDate",
-  "labels",
   "priority",
   "taskKey",
   "taskType",

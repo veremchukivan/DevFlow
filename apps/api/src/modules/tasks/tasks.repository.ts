@@ -19,7 +19,6 @@ import { taskChecklistItems } from "../../core/db/schema/task-checklist-items.js
 import { taskComments } from "../../core/db/schema/task-comments.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
-import { labels, taskLabels } from "../../core/db/schema/labels.js";
 import { users } from "../../core/db/schema/users.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
@@ -266,7 +265,6 @@ export async function listTasksForProject(input: {
     statusId?: string;
     sprintId?: string | "backlog";
     priority?: TaskPriority;
-    labelId?: string;
     due?: "overdue" | "today" | "week" | "none";
     assigneeUserId?: string | "none";
     search?: string;
@@ -300,11 +298,6 @@ export async function listTasksForProject(input: {
 
   if (f.priority !== undefined) {
     conditions.push(eq(tasks.priority, f.priority));
-  }
-  if (f.labelId !== undefined) {
-    conditions.push(
-      sql`exists (select 1 from ${taskLabels} where ${taskLabels.taskId} = ${tasks.id} and ${taskLabels.labelId} = ${f.labelId})`,
-    );
   }
   if (f.due === "none") conditions.push(isNull(tasks.dueDate));
   if (f.due === "overdue")
@@ -355,21 +348,6 @@ export async function listTasksForProject(input: {
     tasks: rows,
     total: totalRow?.total ?? 0,
   };
-}
-
-export async function listLabelsForTaskIds(taskIds: string[]) {
-  if (!taskIds.length) return [];
-  return db
-    .select({
-      taskId: taskLabels.taskId,
-      id: labels.id,
-      name: labels.name,
-      color: labels.color,
-    })
-    .from(taskLabels)
-    .innerJoin(labels, eq(labels.id, taskLabels.labelId))
-    .where(inArray(taskLabels.taskId, taskIds))
-    .orderBy(asc(labels.name));
 }
 
 function toSortColumn(

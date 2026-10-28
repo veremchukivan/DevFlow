@@ -3,10 +3,6 @@ import {
   authResponseSchema,
   accountSessionListResponseSchema,
   acceptInvitationResponseSchema,
-  labelListResponseSchema,
-  labelResponseSchema,
-  createLabelRequestSchema,
-  updateLabelRequestSchema,
   createTaskCommentRequestSchema,
   createTaskChecklistItemRequestSchema,
   createTaskRelationRequestSchema,
@@ -70,10 +66,6 @@ import {
   type AiSettings,
   type AccountSessionListResponse,
   type AcceptInvitationResponse,
-  type LabelListResponse,
-  type LabelResponse,
-  type CreateLabelRequest,
-  type UpdateLabelRequest,
   type ChangePasswordRequest,
   type ChangeEmailRequest,
   createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
@@ -550,55 +542,6 @@ export function deleteWorkspace(workspaceId: string): Promise<void> {
   });
 }
 
-export function getWorkspaceLabels(
-  workspaceId: string,
-): Promise<LabelListResponse> {
-  return request(
-    `/api/v1/workspaces/${workspaceId}/labels`,
-    { method: "GET" },
-    labelListResponseSchema,
-  );
-}
-
-export function createWorkspaceLabel(
-  workspaceId: string,
-  input: CreateLabelRequest,
-): Promise<LabelResponse> {
-  return request(
-    `/api/v1/workspaces/${workspaceId}/labels`,
-    {
-      body: JSON.stringify(createLabelRequestSchema.parse(input)),
-      method: "POST",
-    },
-    labelResponseSchema,
-  );
-}
-
-export function deleteWorkspaceLabel(
-  workspaceId: string,
-  labelId: string,
-): Promise<void> {
-  return requestNoContent(
-    `/api/v1/workspaces/${workspaceId}/labels/${labelId}`,
-    { method: "DELETE" },
-  );
-}
-
-export function updateWorkspaceLabel(
-  workspaceId: string,
-  labelId: string,
-  input: UpdateLabelRequest,
-): Promise<LabelResponse> {
-  return request(
-    `/api/v1/workspaces/${workspaceId}/labels/${labelId}`,
-    {
-      body: JSON.stringify(updateLabelRequestSchema.parse(input)),
-      method: "PATCH",
-    },
-    labelResponseSchema,
-  );
-}
-
 export function getWorkspaceMembers(
   workspaceId: string,
 ): Promise<WorkspaceMemberListResponse> {
@@ -1052,7 +995,6 @@ type TaskListFilters = {
   archived?: boolean;
   assigneeUserId?: string | "none";
   due?: "overdue" | "today" | "week" | "none";
-  labelId?: string;
   limit?: number;
   offset?: number;
   priority?: TaskPriority;
@@ -1077,7 +1019,6 @@ export function getTasks(
   if (filters.priority) {
     query.set("priority", filters.priority);
   }
-  if (filters.labelId) query.set("labelId", filters.labelId);
   if (filters.assigneeUserId)
     query.set("assigneeUserId", filters.assigneeUserId);
   if (filters.due) query.set("due", filters.due);
@@ -1104,31 +1045,6 @@ export function getTask(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
     { method: "GET" },
     taskResponseSchema,
-  );
-}
-
-export function getTaskLabels(
-  workspaceId: string,
-  projectId: string,
-  taskId: string,
-): Promise<LabelListResponse> {
-  return request(
-    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/labels`,
-    { method: "GET" },
-    labelListResponseSchema,
-  );
-}
-
-export function replaceTaskLabels(
-  workspaceId: string,
-  projectId: string,
-  taskId: string,
-  labelIds: string[],
-): Promise<LabelListResponse> {
-  return request(
-    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/labels`,
-    { body: JSON.stringify({ labelIds }), method: "PUT" },
-    labelListResponseSchema,
   );
 }
 
