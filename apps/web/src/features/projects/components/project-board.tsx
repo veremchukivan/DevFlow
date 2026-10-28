@@ -3392,8 +3392,10 @@ function TaskEditorModal({
 
   return (
     <Modal isOpen onClose={onClose} title={`${task.key} details`} width="extraWide">
+      <div className={styles.taskEditorWorkspace}>
       <form
         className={styles.taskEditorForm}
+        id={`task-editor-${task.id}`}
         onSubmit={(event) => void onSubmit(event)}
       >
         <header className={styles.taskEditorHeader}>
@@ -3424,26 +3426,6 @@ function TaskEditorModal({
             />
           </label>
         </header>
-        <div className={styles.taskEditorContent}>
-          <section className={styles.taskEditorMain}>
-            <label>
-              <span>Description</span>
-              <textarea
-                defaultValue={task.description ?? ""}
-                maxLength={10000}
-                name="description"
-                placeholder="Add context, acceptance criteria or implementation notes…"
-                rows={8}
-              />
-            </label>
-          </section>
-          <TaskWorkPanel
-            availableRelatedTasks={availableParentTasks}
-            role={role}
-            task={task}
-            workspaceId={workspaceId}
-          />
-        </div>
         <aside className={styles.taskEditorDetails}>
           <div className={styles.taskEditorDetailsHeading}>
             <p>Task context</p>
@@ -3561,6 +3543,17 @@ function TaskEditorModal({
           </button>
         </div>
       </form>
+      <div className={styles.taskEditorWork}>
+        <TaskWorkPanel
+          availableRelatedTasks={availableParentTasks}
+          description={task.description}
+          editorFormId={`task-editor-${task.id}`}
+          role={role}
+          task={task}
+          workspaceId={workspaceId}
+        />
+      </div>
+      </div>
     </Modal>
   );
 }

@@ -1642,10 +1642,13 @@
 .taskTitleButton:hover {
   color: var(--brand);
 }
-.taskEditorForm {
+.taskEditorWorkspace {
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(0, 1fr) minmax(270px, 0.38fr);
+}
+.taskEditorForm {
+  display: contents;
 }
 .taskEditorHeader {
   border-bottom: 1px solid var(--line);
@@ -1722,7 +1725,14 @@
   background: #f7f9fb;
   border: 1px solid var(--line);
   border-radius: 10px;
+  grid-column: 2;
+  grid-row: 2;
   padding: 18px;
+}
+.taskEditorWork {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
 }
 .taskEditorDetailsHeading {
   border-bottom: 1px solid var(--line);
@@ -1782,6 +1792,7 @@
 }
 .taskEditorForm > .formActions {
   grid-column: 1 / -1;
+  grid-row: 3;
 }
 .taskDetail {
   max-width: 760px;
@@ -2142,7 +2153,13 @@
     flex-direction: column;
     gap: 12px;
   }
-  .taskEditorForm {
+  .taskEditorWorkspace {
     grid-template-columns: 1fr;
+  }
+  .taskEditorDetails,
+  .taskEditorWork,
+  .taskEditorForm > .formActions {
+    grid-column: 1;
+    grid-row: auto;
   }
 }

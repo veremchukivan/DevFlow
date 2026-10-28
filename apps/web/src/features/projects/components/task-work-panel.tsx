@@ -68,11 +68,15 @@ type AttachmentPreviewSelection = {
 
 export function TaskWorkPanel({
   availableRelatedTasks,
+  description,
+  editorFormId,
   role,
   task,
   workspaceId,
 }: {
   availableRelatedTasks: Task[];
+  description: string | null;
+  editorFormId: string;
   role: WorkspaceRole | undefined;
   task: Task;
   workspaceId: string;
@@ -478,6 +482,27 @@ export function TaskWorkPanel({
 
   return (
     <section className={styles.panel} aria-label="Task work">
+      <section className={styles.descriptionSection} aria-labelledby="description-title">
+        <div className={styles.sectionHeading}>
+          <div>
+            <h3 id="description-title">Description</h3>
+            <p>Context, acceptance criteria and implementation notes</p>
+          </div>
+          <Pencil aria-hidden="true" size={18} />
+        </div>
+        <label className={styles.srOnly} htmlFor={`task-description-${task.id}`}>
+          Description
+        </label>
+        <textarea
+          defaultValue={description ?? ""}
+          form={editorFormId}
+          id={`task-description-${task.id}`}
+          maxLength={10000}
+          name="description"
+          placeholder="Add context, acceptance criteria or implementation notes…"
+          rows={8}
+        />
+      </section>
       <section
         className={styles.checklistSection}
         aria-labelledby="checklist-title"
