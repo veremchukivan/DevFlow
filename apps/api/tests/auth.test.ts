@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { authTokens } from "../src/core/db/schema/auth-tokens.js";
@@ -355,5 +355,114 @@ describe("Auth Module Integration Tests", () => {
       code: "RATE_LIMIT_EXCEEDED",
       message: "Too many authentication attempts, please try again later",
     });
+  });
+
+  it("soft deletes an account after password confirmation and revokes its session", async () => {
+    const email = `delete-me-${Date.now()}@devflow.io`;
+    const registered = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Delete Me",
+      email,
+      password: "Password123!",
+    });
+    expect(registered.status).toBe(201);
+    const cookie = registered.headers["set-cookie"][0];
+
+    const authenticated = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Cookie", cookie);
+    expect(authenticated.body.user.id).toBe(registered.body.user.id);
+
+    const workspaceMembersBeforeDeletion = await db
+      .select({
+        userId: workspaceMembers.userId,
+        workspaceId: workspaces.id,
+      })
+      .from(workspaces)
+      .innerJoin(
+        workspaceMembers,
+        eq(workspaceMembers.workspaceId, workspaces.id),
+      )
+      .where(eq(workspaces.ownerUserId, registered.body.user.id));
+    expect(workspaceMembersBeforeDeletion).toEqual([
+      {
+        userId: registered.body.user.id,
+        workspaceId: expect.any(String),
+      },
+    ]);
+
+    const sharedWorkspaceMembers = await db
+      .select({
+        userId: workspaceMembers.userId,
+        workspaceId: workspaces.id,
+      })
+      .from(workspaces)
+      .innerJoin(
+        workspaceMembers,
+        and(
+          eq(workspaceMembers.workspaceId, workspaces.id),
+          eq(workspaceMembers.status, "active"),
+          ne(workspaceMembers.userId, registered.body.user.id),
+        ),
+      )
+      .where(eq(workspaces.ownerUserId, registered.body.user.id));
+    expect(sharedWorkspaceMembers).toEqual([]);
+
+    const deleted = await request(app)
+      .delete("/api/v1/auth/account")
+      .set("Cookie", cookie)
+      .send({ currentPassword: "Password123!" });
+    expect(deleted.status).toBe(204);
+
+    const me = await request(app).get("/api/v1/auth/me").set("Cookie", cookie);
+    expect(me.status).toBe(401);
+
+    const [user] = await db
+      .select({ deletedAt: users.deletedAt })
+      .from(users)
+      .where(eq(users.emailNormalized, email));
+    expect(user?.deletedAt).not.toBeNull();
+  });
+
+  it("requires transferring shared workspace ownership before account deletion", async () => {
+    const ownerEmail = `workspace-owner-${Date.now()}@devflow.io`;
+    const memberEmail = `workspace-member-${Date.now()}@devflow.io`;
+    const owner = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Workspace Owner",
+      email: ownerEmail,
+      password: "Password123!",
+    });
+    const member = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Workspace Member",
+      email: memberEmail,
+      password: "Password123!",
+    });
+    expect(owner.status).toBe(201);
+    expect(member.status).toBe(201);
+
+    const [workspace] = await db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.ownerUserId, owner.body.user.id));
+    expect(workspace?.id).toBeDefined();
+    await db.insert(workspaceMembers).values({
+      role: "member",
+      status: "active",
+      userId: member.body.user.id,
+      workspaceId: workspace!.id,
+    });
+
+    const deletion = await request(app)
+      .delete("/api/v1/auth/account")
+      .set("Cookie", owner.headers["set-cookie"][0])
+      .send({ currentPassword: "Password123!" });
+    expect(deletion.status).toBe(409);
+    expect(deletion.body.error.code).toBe(
+      "WORKSPACE_OWNERSHIP_TRANSFER_REQUIRED",
+    );
+
+    const me = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Cookie", owner.headers["set-cookie"][0]);
+    expect(me.status).toBe(200);
   });
 });

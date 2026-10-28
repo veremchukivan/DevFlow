@@ -18,6 +18,7 @@ import {
   consumeEmailVerificationToken,
   consumePasswordResetToken,
   deleteOtherSessionsForUser,
+  deleteAccountAndPersonalWorkspaces,
   deleteSessionForUser,
   deleteSessionByTokenHash,
   ensureDefaultWorkspaceForUser,
@@ -264,6 +265,30 @@ export async function changePassword(
   if (!updatedUser) {
     throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
   }
+}
+
+export async function deleteAccount(userId: string, currentPassword: string) {
+  const user = await findUserPasswordById(userId);
+  if (
+    !user?.passwordHash ||
+    !(await argon2.verify(user.passwordHash, currentPassword))
+  ) {
+    throw new AppError(
+      400,
+      "INVALID_CURRENT_PASSWORD",
+      "Current password is incorrect",
+    );
+  }
+  const result = await deleteAccountAndPersonalWorkspaces(userId);
+  if (result.kind === "shared_workspace")
+    throw new AppError(
+      409,
+      "WORKSPACE_OWNERSHIP_TRANSFER_REQUIRED",
+      "Transfer ownership of shared workspaces before deleting your account",
+    );
+  if (result.kind === "user_not_found")
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  await deleteStoredImage(result.avatarUrl);
 }
 
 export async function issueEmailVerificationToken(user: SessionUser) {

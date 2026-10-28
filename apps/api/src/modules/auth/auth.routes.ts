@@ -3,6 +3,7 @@ import {
   accountSessionParamsSchema,
   emailVerificationTokenRequestSchema,
   changePasswordRequestSchema,
+  deleteAccountRequestSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
@@ -26,6 +27,7 @@ import {
   getCurrentUser,
   exportAccountData,
   changePassword,
+  deleteAccount,
   issueEmailVerificationToken,
   login,
   logout,
@@ -177,6 +179,18 @@ authRouter.post(
     const input = changePasswordRequestSchema.parse(req.body);
     await changePassword(getAuthenticatedUser(req).id, input);
 
+    clearSessionCookie(res);
+    res.status(204).send();
+  },
+);
+
+authRouter.delete(
+  "/account",
+  requireAuth,
+  authRateLimiter,
+  async (req, res) => {
+    const input = deleteAccountRequestSchema.parse(req.body);
+    await deleteAccount(getAuthenticatedUser(req).id, input.currentPassword);
     clearSessionCookie(res);
     res.status(204).send();
   },

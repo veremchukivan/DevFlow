@@ -398,6 +398,47 @@ export async function updatePasswordAndDeleteSessions(
   });
 }
 
+export async function deleteAccountAndPersonalWorkspaces(userId: string) {
+  return db.transaction(async (tx) => {
+    const [sharedWorkspace] = await tx
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .innerJoin(
+        workspaceMembers,
+        and(
+          eq(workspaceMembers.workspaceId, workspaces.id),
+          eq(workspaceMembers.status, "active"),
+          ne(workspaceMembers.userId, userId),
+        ),
+      )
+      .where(
+        and(eq(workspaces.ownerUserId, userId), isNull(workspaces.deletedAt)),
+      )
+      .limit(1);
+    if (sharedWorkspace) return { kind: "shared_workspace" } as const;
+    const now = new Date();
+    await tx
+      .update(workspaces)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(
+        and(eq(workspaces.ownerUserId, userId), isNull(workspaces.deletedAt)),
+      );
+    const [user] = await tx
+      .select({ avatarUrl: users.avatarUrl })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .limit(1);
+    if (!user) return { kind: "user_not_found" } as const;
+    await tx
+      .update(users)
+      .set({ avatarUrl: null, deletedAt: now, updatedAt: now })
+      .where(eq(users.id, userId));
+    await tx.delete(sessions).where(eq(sessions.userId, userId));
+    await tx.delete(authTokens).where(eq(authTokens.userId, userId));
+    return { avatarUrl: user.avatarUrl, kind: "deleted" } as const;
+  });
+}
+
 export async function deleteExpiredSessions(now = new Date()) {
   return db
     .delete(sessions)
