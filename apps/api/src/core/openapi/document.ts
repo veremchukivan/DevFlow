@@ -11,6 +11,7 @@ import {
   createTaskRequestSchema,
   createWorkspaceInvitationRequestSchema,
   createWorkspaceRequestSchema,
+  deleteAccountRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
@@ -63,6 +64,7 @@ const schemas = {
   CreateTaskRequest: createTaskRequestSchema,
   CreateWorkspaceInvitationRequest: createWorkspaceInvitationRequestSchema,
   CreateWorkspaceRequest: createWorkspaceRequestSchema,
+  DeleteAccountRequest: deleteAccountRequestSchema,
   EmailVerificationTokenRequest: emailVerificationTokenRequestSchema,
   HealthResponse: healthResponseSchema,
   LoginRequest: loginRequestSchema,
@@ -323,6 +325,22 @@ export const openApiDocument = {
           "204": response("Password changed and sessions cleared"),
           ...commonErrors,
           "400": errorResponse("Current password is incorrect"),
+        },
+      },
+    },
+    "/api/v1/auth/account": {
+      delete: {
+        tags: ["Auth"],
+        operationId: "deleteAccount",
+        security: authenticated,
+        requestBody: requestBody("DeleteAccountRequest"),
+        responses: {
+          "204": response("Account deleted and sessions cleared"),
+          ...commonErrors,
+          "400": errorResponse("Current password is incorrect"),
+          "409": errorResponse(
+            "Transfer ownership of shared workspaces before deleting the account",
+          ),
         },
       },
     },
