@@ -540,4 +540,31 @@ describe("Auth Module Integration Tests", () => {
     expect(me.status).toBe(200);
     expect(me.body.user.email).toBe(registered.body.user.email);
   });
+
+  it("enforces read-only API token scopes", async () => {
+    const registered = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Read Only User",
+      email: `read-only-${Date.now()}@devflow.io`,
+      password: "Password123!",
+    });
+    const created = await request(app)
+      .post("/api/v1/auth/api-tokens")
+      .set("Cookie", registered.headers["set-cookie"][0])
+      .send({ name: "Read-only client", scopes: ["api:read"] });
+
+    expect(created.status).toBe(201);
+    expect(created.body.tokenInfo.scopes).toEqual(["api:read"]);
+
+    const readable = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Authorization", `Bearer ${created.body.token}`);
+    expect(readable.status).toBe(200);
+
+    const blocked = await request(app)
+      .post("/api/v1/workspaces")
+      .set("Authorization", `Bearer ${created.body.token}`)
+      .send({ name: "Blocked workspace", slug: `blocked-${Date.now()}` });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error.code).toBe("API_TOKEN_SCOPE_DENIED");
+  });
 });

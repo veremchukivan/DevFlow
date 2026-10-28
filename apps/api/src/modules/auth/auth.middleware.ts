@@ -22,6 +22,13 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
     }
 
     const apiToken = bearer ? await getCurrentUserByApiToken(bearer) : undefined;
+    if (apiToken && !hasMethodScope(apiToken.scopes, req.method)) {
+      throw new AppError(
+        403,
+        "API_TOKEN_SCOPE_DENIED",
+        "API token does not have permission for this request",
+      );
+    }
     const user = apiToken?.user ?? await getCurrentUser(token!);
     (req as AuthenticatedRequest).auth = { user, ...(apiToken ? { apiTokenScopes: apiToken.scopes } : {}) };
 
@@ -30,6 +37,15 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
     next(error);
   }
 };
+
+function hasMethodScope(scopes: string[], method: string) {
+  if (scopes.includes("api:access")) return true;
+
+  const requiredScope = ["GET", "HEAD", "OPTIONS"].includes(method)
+    ? "api:read"
+    : "api:write";
+  return scopes.includes(requiredScope);
+}
 
 export function requireApiScope(scope: string): RequestHandler {
   return (req, _res, next) => {

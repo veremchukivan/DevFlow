@@ -530,8 +530,15 @@ export async function deleteExpiredSessions(now = new Date()) {
     .returning({ id: sessions.id });
 }
 
-export async function createApiToken(input: { userId: string; name: string; tokenHash: string; tokenPrefix: string; expiresAt: Date | null }) {
-  const [token] = await db.insert(apiTokens).values({ ...input, scopes: ["api:access"] }).returning();
+export async function createApiToken(input: {
+  expiresAt: Date | null;
+  name: string;
+  scopes: string[];
+  tokenHash: string;
+  tokenPrefix: string;
+  userId: string;
+}) {
+  const [token] = await db.insert(apiTokens).values(input).returning();
   return token!;
 }
 export async function listApiTokens(userId: string) {

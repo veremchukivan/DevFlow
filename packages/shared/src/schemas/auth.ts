@@ -49,12 +49,20 @@ export const changeEmailRequestSchema = z.object({
 export const deleteAccountRequestSchema = z.object({
   currentPassword: z.string().min(1).max(256),
 });
+
+export const apiTokenScopeSchema = z.enum(["api:read", "api:write"]);
+
 export const createApiTokenRequestSchema = z.object({
   name: z.string().trim().min(1).max(80),
   expiresAt: z.string().datetime().nullable().optional(),
+  scopes: z
+    .array(apiTokenScopeSchema)
+    .min(1)
+    .max(2)
+    .default(["api:read", "api:write"]),
 });
 export const apiTokenSchema = z.object({
-  createdAt: z.string().datetime(), expiresAt: z.string().datetime().nullable(), id: z.uuid(), lastUsedAt: z.string().datetime().nullable(), name: z.string(), tokenPrefix: z.string(),
+  createdAt: z.string().datetime(), expiresAt: z.string().datetime().nullable(), id: z.uuid(), lastUsedAt: z.string().datetime().nullable(), name: z.string(), scopes: z.array(apiTokenScopeSchema), tokenPrefix: z.string(),
 });
 export const apiTokenListResponseSchema = z.object({ tokens: z.array(apiTokenSchema) });
 export const createApiTokenResponseSchema = z.object({ token: z.string().min(1), tokenInfo: apiTokenSchema });

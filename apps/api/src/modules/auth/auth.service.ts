@@ -310,6 +310,7 @@ export async function createPersonalApiToken(userId: string, input: CreateApiTok
   const token = await createApiToken({
     expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
     name: input.name,
+    scopes: input.scopes,
     tokenHash: hashToken(secret),
     tokenPrefix: secret.slice(0, 11),
     userId,
@@ -515,8 +516,29 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-function toApiTokenInfo(token: { id: string; name: string; tokenPrefix: string; createdAt: Date; expiresAt: Date | null; lastUsedAt: Date | null }) {
-  return { id: token.id, name: token.name, tokenPrefix: token.tokenPrefix, createdAt: token.createdAt.toISOString(), expiresAt: token.expiresAt?.toISOString() ?? null, lastUsedAt: token.lastUsedAt?.toISOString() ?? null };
+function toApiTokenInfo(token: {
+  createdAt: Date;
+  expiresAt: Date | null;
+  id: string;
+  lastUsedAt: Date | null;
+  name: string;
+  scopes: string[];
+  tokenPrefix: string;
+}) {
+  return {
+    createdAt: token.createdAt.toISOString(),
+    expiresAt: token.expiresAt?.toISOString() ?? null,
+    id: token.id,
+    lastUsedAt: token.lastUsedAt?.toISOString() ?? null,
+    name: token.name,
+    scopes: token.scopes.includes("api:access")
+      ? ["api:read", "api:write"]
+      : token.scopes.filter(
+          (scope): scope is "api:read" | "api:write" =>
+            scope === "api:read" || scope === "api:write",
+        ),
+    tokenPrefix: token.tokenPrefix,
+  };
 }
 
 function invalidCredentialsError() {
