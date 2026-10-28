@@ -24,6 +24,7 @@ import {
   ApiClientError,
   changePassword,
   deleteAccount,
+  deleteAiSettings,
   deleteProfileAvatar,
   getApiAssetUrl,
   getAccountDataExportUrl,
@@ -35,11 +36,13 @@ import {
   createApiToken,
   disconnectFigma,
   getApiTokens,
+  getAiSettings,
   getFigmaConnection,
   revokeApiToken,
   revokeAccountSession,
   revokeOtherAccountSessions,
   updateProfile,
+  updateAiSettings,
   uploadProfileAvatar,
 } from "@/shared/lib/api-client";
 import { notifyUserChanged } from "@/shared/lib/user-events";
@@ -910,17 +913,123 @@ function SetupPanel() {
   );
 }
 function AiPanel() {
+  const [settings, setSettings] = useState<{
+    configured: boolean;
+    model: string | null;
+    provider: "anthropic" | "openai" | null;
+    updatedAt: string | null;
+  }>();
+  const [error, setError] = useState<string>();
+  const [message, setMessage] = useState<string>();
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    void getAiSettings()
+      .then(setSettings)
+      .catch(() => setError("Unable to load AI settings."));
+  }, []);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setMessage(undefined);
+    setIsSaving(true);
+    const form = new FormData(event.currentTarget);
+
+    try {
+      const result = await updateAiSettings({
+        apiKey: String(form.get("apiKey") ?? ""),
+        model: String(form.get("model") ?? "").trim() || null,
+        provider: String(form.get("provider")) as "anthropic" | "openai",
+      });
+      setSettings(result);
+      event.currentTarget.reset();
+      setMessage("AI provider settings saved. Your API key is encrypted.");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to save AI settings.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <section className={styles.card}>
       <CardHeading
         icon={Bot}
-        subtitle="Configure AI features for your account"
-        title="AI"
+        subtitle="Use your personal provider key for future DevFlow AI features"
+        title="AI provider"
       />
-      <EmptyPanel icon={Bot} text="AI settings are not available yet">
-        Provider keys are never requested or stored in the browser. This section
-        will be connected after encrypted server-side storage is implemented.
-      </EmptyPanel>
+      {error ? <p className={styles.error}>{error}</p> : null}
+      {message ? <p className={styles.success}>{message}</p> : null}
+      {settings?.configured ? (
+        <div className={styles.infoRow}>
+          <span>
+            Connected: {settings.provider === "anthropic" ? "Anthropic" : "OpenAI"}
+            {settings.model ? ` · ${settings.model}` : " · default model"}
+          </span>
+          <button
+            className={styles.textButton}
+            onClick={() =>
+              void deleteAiSettings()
+                .then(() => {
+                  setSettings({
+                    configured: false,
+                    model: null,
+                    provider: null,
+                    updatedAt: null,
+                  });
+                  setMessage("AI provider settings removed.");
+                })
+                .catch(() => setError("Unable to remove AI settings."))
+            }
+            type="button"
+          >
+            Remove
+          </button>
+        </div>
+      ) : null}
+      <form className={styles.form} onSubmit={(event) => void onSubmit(event)}>
+        <label>
+          <span>Provider</span>
+          <select defaultValue={settings?.provider ?? "anthropic"} name="provider">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI</option>
+          </select>
+        </label>
+        <label>
+          <span>Model (optional)</span>
+          <input
+            defaultValue={settings?.model ?? ""}
+            maxLength={160}
+            name="model"
+            placeholder="Use provider default"
+          />
+        </label>
+        <label>
+          <span>API key</span>
+          <input
+            autoComplete="off"
+            minLength={8}
+            name="apiKey"
+            placeholder={settings?.configured ? "Enter a new key to replace the current one" : "Paste your provider API key"}
+            required
+            type="password"
+          />
+        </label>
+        <p className={styles.mutedCopy}>
+          The key is encrypted on the server and is never returned after saving.
+        </p>
+        <div className={styles.formFooter}>
+          <span />
+          <button className={styles.primaryButton} disabled={isSaving} type="submit">
+            {isSaving ? "Saving…" : "Save AI settings"}
+          </button>
+        </div>
+      </form>
     </section>
   );
 }
@@ -1014,23 +1123,6 @@ function CardHeading({
         <h2>{title}</h2>
         <p>{subtitle}</p>
       </div>
-    </div>
-  );
-}
-function EmptyPanel({
-  children,
-  icon: Icon,
-  text,
-}: {
-  children: string;
-  icon: LucideIcon;
-  text: string;
-}) {
-  return (
-    <div className={styles.emptyPanel}>
-      <Icon aria-hidden="true" size={23} />
-      <strong>{text}</strong>
-      <p>{children}</p>
     </div>
   );
 }

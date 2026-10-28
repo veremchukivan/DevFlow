@@ -1,4 +1,5 @@
 import {
+  aiSettingsSchema,
   authResponseSchema,
   accountSessionListResponseSchema,
   acceptInvitationResponseSchema,
@@ -56,6 +57,7 @@ import {
   taskRelationListResponseSchema,
   updateTaskCommentRequestSchema,
   updateTaskChecklistItemRequestSchema,
+  updateAiSettingsRequestSchema,
   taskResponseSchema,
   workspaceListResponseSchema,
   workspaceInvitationListResponseSchema,
@@ -64,6 +66,7 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   type AuthResponse,
+  type AiSettings,
   type AccountSessionListResponse,
   type AcceptInvitationResponse,
   type LabelListResponse,
@@ -79,6 +82,7 @@ import {
   type NotificationListResponse,
   type NotificationPreferences,
   type UpdateNotificationPreferencesRequest,
+  type UpdateAiSettingsRequest,
   type RegisterRequest,
   type CreateWorkspaceRequest,
   type UpdateWorkspaceRequest,
@@ -316,6 +320,27 @@ export async function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<AuthResponse> {
   return request("/api/v1/auth/me", { method: "GET" }, authResponseSchema);
+}
+
+export function getAiSettings(): Promise<AiSettings> {
+  return request("/api/v1/ai-settings", { method: "GET" }, aiSettingsSchema);
+}
+
+export function updateAiSettings(
+  input: UpdateAiSettingsRequest,
+): Promise<AiSettings> {
+  return request(
+    "/api/v1/ai-settings",
+    {
+      body: JSON.stringify(updateAiSettingsRequestSchema.parse(input)),
+      method: "PUT",
+    },
+    aiSettingsSchema,
+  );
+}
+
+export function deleteAiSettings(): Promise<void> {
+  return requestNoContent("/api/v1/ai-settings", { method: "DELETE" });
 }
 
 export function getAccountDataExportUrl() {
