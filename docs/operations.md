@@ -24,6 +24,14 @@ managed outside the repository.
 - The API drains active HTTP connections on `SIGTERM` and forcibly exits after
   `SHUTDOWN_TIMEOUT_MS` (10 seconds by default). Configure the orchestrator's
   termination grace period above that value.
+- Generate and retain one 32-byte `INTEGRATION_ENCRYPTION_KEY` for encrypted
+  Figma and AI credentials. Losing this key makes stored credentials
+  undecryptable; replacing it requires users to reconnect their integrations.
+- Before every production deployment, run the non-secret-printing validator:
+
+  ```bash
+  pnpm infra:verify-production
+  ```
 
 ## Backup
 
@@ -88,3 +96,12 @@ For PostgreSQL role passwords, update `POSTGRES_MIGRATOR_PASSWORD` and
 them, then run `db-bootstrap` through a Compose deployment. Rotate the
 bootstrap `POSTGRES_PASSWORD` in a maintenance window because it is also used
 by the PostgreSQL container initialization account.
+
+### Figma OAuth secret
+
+1. Regenerate the OAuth client secret in the Figma developer console.
+2. Update `FIGMA_CLIENT_SECRET` only in the deployment secret manager, then
+   restart the API service.
+3. Verify a new Figma connection. Existing Figma connections should be
+   re-authorized if the provider invalidates prior refresh tokens.
+4. Do not place the secret in tickets, chat messages, commit history, or logs.
