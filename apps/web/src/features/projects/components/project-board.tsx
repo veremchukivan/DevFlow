@@ -66,11 +66,15 @@ import {
   updateProjectViewPreferences,
   uploadProjectIcon,
   deleteProjectIcon,
+  createProjectFigmaLink,
+  deleteProjectFigmaLink,
+  getProjectFigmaLinks,
 } from "@/shared/lib/api-client";
 import type {
   Label,
   PageInfo,
   Project,
+  ProjectFigmaLink,
   Task,
   TaskType,
   UpdateTaskRequest,
@@ -146,6 +150,7 @@ export function ProjectBoard() {
   const { projectId, workspaceId } = params;
   const taskIdFromUrl = searchParams.get("taskId");
   const [project, setProject] = useState<Project>();
+  const [figmaLinks, setFigmaLinks] = useState<ProjectFigmaLink[]>([]);
   const [sprints, setSprints] = useState<ProjectSprint[]>([]);
   const [selectedSprintId, setSelectedSprintId] = useState<string | "backlog">(
     "backlog",
@@ -211,6 +216,7 @@ export function ProjectBoard() {
     useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isSavingProjectIcon, setIsSavingProjectIcon] = useState(false);
+  const [isSavingFigmaLink, setIsSavingFigmaLink] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isReorderingStatuses, setIsReorderingStatuses] = useState(false);
   const [view, setView] = useState<ProjectView>("board");
@@ -296,6 +302,7 @@ export function ProjectBoard() {
 
     void Promise.all([
       getProject(workspaceId, projectId),
+      getProjectFigmaLinks(workspaceId, projectId),
       getWorkspaceLabels(workspaceId),
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
@@ -306,6 +313,7 @@ export function ProjectBoard() {
       .then(
         async ([
           projectResponse,
+          figmaLinksResponse,
           labelsResponse,
           membersResponse,
           workspaceResponse,
@@ -324,6 +332,7 @@ export function ProjectBoard() {
           });
           if (!active) return;
           setProject(projectResponse.project);
+          setFigmaLinks(figmaLinksResponse.links);
           setTasks(taskResponse.tasks);
           setPageInfo(taskResponse.pageInfo);
           setSprints(sprintsResponse.sprints);
@@ -1121,6 +1130,43 @@ export function ProjectBoard() {
       );
     } finally {
       setIsSavingProject(false);
+    }
+  }
+
+  async function onProjectFigmaLinkSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setIsSavingFigmaLink(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await createProjectFigmaLink(workspaceId, projectId, {
+        name: String(form.get("figmaName") ?? ""),
+        url: String(form.get("figmaUrl") ?? ""),
+      });
+      setFigmaLinks((current) => [response.link, ...current]);
+      event.currentTarget.reset();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to add Figma link.",
+      );
+    } finally {
+      setIsSavingFigmaLink(false);
+    }
+  }
+
+  async function onProjectFigmaLinkDelete(linkId: string) {
+    setError(undefined);
+    try {
+      await deleteProjectFigmaLink(workspaceId, projectId, linkId);
+      setFigmaLinks((current) => current.filter((link) => link.id !== linkId));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to remove Figma link.",
+      );
     }
   }
 
@@ -1991,6 +2037,54 @@ export function ProjectBoard() {
               </button>
             </div>
           </form>
+          <section className={styles.workspaceSection}>
+            <div className={styles.sectionHeading}>
+              <div>
+                <h2>Figma links</h2>
+                <p>Shared design files, pages, and prototypes for this project.</p>
+              </div>
+            </div>
+            {figmaLinks.length > 0 ? (
+              <ul className={styles.sessionList}>
+                {figmaLinks.map((link) => (
+                  <li key={link.id}>
+                    <a href={link.url} rel="noreferrer" target="_blank">
+                      <strong>{link.name}</strong>
+                      <span>{link.url}</span>
+                    </a>
+                    {canUpdateProject ? (
+                      <button
+                        className={styles.textButton}
+                        onClick={() => void onProjectFigmaLinkDelete(link.id)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.mutedCopy}>No Figma links have been added.</p>
+            )}
+            {canUpdateProject ? (
+              <form className={styles.taskForm} onSubmit={onProjectFigmaLinkSubmit}>
+                <label>
+                  <span>Name</span>
+                  <input maxLength={160} name="figmaName" required />
+                </label>
+                <label>
+                  <span>Figma URL</span>
+                  <input name="figmaUrl" placeholder="https://www.figma.com/..." required type="url" />
+                </label>
+                <div className={styles.formActions}>
+                  <button className={styles.secondaryButton} disabled={isSavingFigmaLink} type="submit">
+                    {isSavingFigmaLink ? "Adding…" : "Add Figma link"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </section>
           <section className={styles.workspaceSection}>
             <div className={styles.sectionHeading}>
               <div>

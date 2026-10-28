@@ -36,6 +36,7 @@ import {
   createTaskRequestSchema,
   repositionTaskRequestSchema,
   projectListResponseSchema,
+  projectFigmaLinkListResponseSchema,
   projectMemberListResponseSchema,
   projectMemberResponseSchema,
   projectSprintListResponseSchema,
@@ -102,6 +103,7 @@ import {
   type CreateTaskRelationRequest,
   type CreateWorkspaceInvitationRequest,
   type ProjectListResponse,
+  type ProjectFigmaLink,
   type CreateProjectMemberRequest,
   type ProjectMember,
   type UpdateProjectMemberRequest,
@@ -747,6 +749,40 @@ export function getProject(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}`,
     { method: "GET" },
     projectResponseSchema,
+  );
+}
+
+export function getProjectFigmaLinks(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ links: ProjectFigmaLink[] }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/figma-links`,
+    { method: "GET" },
+    projectFigmaLinkListResponseSchema,
+  );
+}
+
+export function createProjectFigmaLink(
+  workspaceId: string,
+  projectId: string,
+  input: { name: string; url: string },
+): Promise<{ link: ProjectFigmaLink }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/figma-links`,
+    { body: JSON.stringify(input), method: "POST" },
+    z.object({ link: projectFigmaLinkListResponseSchema.shape.links.element }),
+  );
+}
+
+export function deleteProjectFigmaLink(
+  workspaceId: string,
+  projectId: string,
+  linkId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/figma-links/${linkId}`,
+    { method: "DELETE" },
   );
 }
 
