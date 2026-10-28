@@ -31,7 +31,11 @@ import {
   logout,
   resendEmailVerification,
   requestEmailChange,
-  getApiTokens, createApiToken, revokeApiToken,
+  createApiToken,
+  disconnectFigma,
+  getApiTokens,
+  getFigmaConnection,
+  revokeApiToken,
   revokeAccountSession,
   revokeOtherAccountSessions,
   updateProfile,
@@ -717,6 +721,16 @@ function SetupPanel() {
   const [secret, setSecret] = useState<string>();
   const [setupError, setSetupError] = useState<string>();
   const [setupMessage, setSetupMessage] = useState<string>();
+  const [figmaConnected, setFigmaConnected] = useState(false);
+  const [isLoadingFigma, setIsLoadingFigma] = useState(true);
+  const [isDisconnectingFigma, setIsDisconnectingFigma] = useState(false);
+
+  useEffect(() => {
+    void getFigmaConnection()
+      .then((response) => setFigmaConnected(response.connected))
+      .catch(() => setSetupError("Unable to load Figma connection status."))
+      .finally(() => setIsLoadingFigma(false));
+  }, []);
   useEffect(() => { void getApiTokens().then((response) => setTokens(response.tokens)).catch(() => setSetupError("Unable to load API tokens.")); }, []);
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -729,6 +743,48 @@ function SetupPanel() {
         subtitle="Connect developer tools to DevFlow"
         title="Developer setup"
       />
+      <div className={styles.infoRow}>
+        <span>
+          Figma{" "}
+          {isLoadingFigma
+            ? "connection is loading"
+            : figmaConnected
+              ? "connected"
+              : "not connected"}
+        </span>
+        {figmaConnected ? (
+          <button
+            className={styles.textButton}
+            disabled={isDisconnectingFigma}
+            onClick={() => {
+              setIsDisconnectingFigma(true);
+              void disconnectFigma()
+                .then(() => {
+                  setFigmaConnected(false);
+                  setSetupMessage("Figma account disconnected.");
+                })
+                .catch(() => setSetupError("Unable to disconnect Figma."))
+                .finally(() => setIsDisconnectingFigma(false));
+            }}
+            type="button"
+          >
+            {isDisconnectingFigma ? "Disconnecting…" : "Disconnect"}
+          </button>
+        ) : (
+          <a
+            aria-disabled={isLoadingFigma}
+            className={styles.secondaryButton}
+            href={
+              isLoadingFigma
+                ? undefined
+                : (getApiAssetUrl("/api/v1/integrations/figma/connect") ??
+                  undefined)
+            }
+          >
+            Connect Figma
+          </a>
+        )}
+      </div>
       {setupError ? <p className={styles.error}>{setupError}</p> : null}{setupMessage ? <p className={styles.success}>{setupMessage}</p> : null}
       {secret ? <p className={styles.success}>Copy this token now: <code>{secret}</code> <button className={styles.textButton} onClick={() => void navigator.clipboard.writeText(secret).then(() => setSetupMessage("Token copied."))} type="button">Copy</button></p> : null}
       <form className={styles.form} onSubmit={(event) => void create(event)}><label><span>Token name</span><input name="name" required maxLength={80} /></label><label><span>Expires</span><select name="expiresInDays"><option value="0">Never</option><option value="30">In 30 days</option><option value="90">In 90 days</option></select></label><div className={styles.formFooter}><span /><button className={styles.primaryButton} type="submit">Create API token</button></div></form>

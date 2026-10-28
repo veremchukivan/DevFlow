@@ -439,6 +439,29 @@ export function requestEmailChange(input: ChangeEmailRequest): Promise<void> {
 export function getApiTokens() { return request("/api/v1/auth/api-tokens", { method: "GET" }, apiTokenListResponseSchema); }
 export function createApiToken(input: unknown) { return request("/api/v1/auth/api-tokens", { body: JSON.stringify(createApiTokenRequestSchema.parse(input)), method: "POST" }, createApiTokenResponseSchema); }
 export function revokeApiToken(tokenId: string): Promise<void> { return requestNoContent(`/api/v1/auth/api-tokens/${tokenId}`, { method: "DELETE" }); }
+const figmaConnectionSchema = z.object({
+  connected: z.boolean(),
+  connection: z
+    .object({
+      connectedAt: z.string().datetime(),
+      expiresAt: z.string().datetime(),
+    })
+    .nullable(),
+});
+
+export function getFigmaConnection() {
+  return request(
+    "/api/v1/integrations/figma/connection",
+    { method: "GET" },
+    figmaConnectionSchema,
+  );
+}
+
+export function disconnectFigma(): Promise<void> {
+  return requestNoContent("/api/v1/integrations/figma/connection", {
+    method: "DELETE",
+  });
+}
 
 export function deleteAccount(input: DeleteAccountRequest): Promise<void> {
   return requestNoContent("/api/v1/auth/account", {

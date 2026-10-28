@@ -85,6 +85,7 @@ const envSchema = z
     FIGMA_CLIENT_ID: optionalNonEmptyString,
     FIGMA_CLIENT_SECRET: optionalNonEmptyString,
     FIGMA_REDIRECT_URI: z.url().optional(),
+    INTEGRATION_ENCRYPTION_KEY: optionalNonEmptyString,
     UPLOADS_DIR: z.string().min(1).default("uploads"),
   })
   .superRefine((value, context) => {
