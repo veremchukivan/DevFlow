@@ -31,6 +31,7 @@ import {
   logout,
   resendEmailVerification,
   requestEmailChange,
+  getApiTokens, createApiToken, revokeApiToken,
   revokeAccountSession,
   revokeOtherAccountSessions,
   updateProfile,
@@ -712,6 +713,16 @@ function BillingPanel() {
   );
 }
 function SetupPanel() {
+  const [tokens, setTokens] = useState<Array<{ id: string; name: string; tokenPrefix: string }>>([]);
+  const [secret, setSecret] = useState<string>();
+  useEffect(() => { void getApiTokens().then((response) => setTokens(response.tokens)); }, []);
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const response = await createApiToken({ name: String(new FormData(event.currentTarget).get("name") ?? "") });
+    setSecret(response.token);
+    setTokens((current) => [response.tokenInfo, ...current]);
+    event.currentTarget.reset();
+  }
   return (
     <section className={styles.card}>
       <CardHeading
@@ -719,10 +730,9 @@ function SetupPanel() {
         subtitle="Connect developer tools to DevFlow"
         title="Developer setup"
       />
-      <EmptyPanel icon={TerminalSquare} text="Integrations are being prepared">
-        When the integration API is ready, setup instructions and client
-        connections will be managed from this page.
-      </EmptyPanel>
+      {secret ? <p className={styles.success}>Copy this token now: <code>{secret}</code></p> : null}
+      <form className={styles.form} onSubmit={(event) => void create(event)}><label><span>Token name</span><input name="name" required maxLength={80} /></label><div className={styles.formFooter}><span /><button className={styles.primaryButton} type="submit">Create API token</button></div></form>
+      <ul className={styles.sessionList}>{tokens.map((token) => <li key={token.id}><strong>{token.name} · {token.tokenPrefix}…</strong><button className={styles.textButton} onClick={() => void revokeApiToken(token.id).then(() => setTokens((current) => current.filter((item) => item.id !== token.id)))} type="button">Revoke</button></li>)}</ul>
     </section>
   );
 }

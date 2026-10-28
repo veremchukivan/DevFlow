@@ -71,6 +71,7 @@ import {
   type UpdateLabelRequest,
   type ChangePasswordRequest,
   type ChangeEmailRequest,
+  createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
   type DeleteAccountRequest,
   type HealthResponse,
   type LoginRequest,
@@ -434,6 +435,10 @@ export function requestEmailChange(input: ChangeEmailRequest): Promise<void> {
     method: "POST",
   });
 }
+
+export function getApiTokens() { return request("/api/v1/auth/api-tokens", { method: "GET" }, apiTokenListResponseSchema); }
+export function createApiToken(input: unknown) { return request("/api/v1/auth/api-tokens", { body: JSON.stringify(createApiTokenRequestSchema.parse(input)), method: "POST" }, createApiTokenResponseSchema); }
+export function revokeApiToken(tokenId: string): Promise<void> { return requestNoContent(`/api/v1/auth/api-tokens/${tokenId}`, { method: "DELETE" }); }
 
 export function deleteAccount(input: DeleteAccountRequest): Promise<void> {
   return requestNoContent("/api/v1/auth/account", {
