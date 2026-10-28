@@ -1355,7 +1355,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
-  padding: 16px;
+  padding: 13px 14px;
   position: relative;
 }
 .taskBoard[data-card-color="blue"] .taskCard {
@@ -1463,10 +1463,24 @@
   text-transform: uppercase;
 }
 .taskAssignee {
+  align-items: center;
   color: var(--muted);
+  display: flex;
   font-size: 12px;
   font-weight: 700;
+  gap: 6px;
   margin: 10px 0 0;
+}
+.taskAssignee span {
+  align-items: center;
+  background: #e6f0fb;
+  border-radius: 50%;
+  color: #245078;
+  display: inline-flex;
+  font-size: 10px;
+  height: 21px;
+  justify-content: center;
+  width: 21px;
 }
 .taskCardMetrics {
   align-items: center;
@@ -1476,7 +1490,9 @@
   font-size: 12px;
   font-weight: 700;
   gap: 10px;
-  margin-top: 12px;
+  border-top: 1px solid #edf0f4;
+  margin-top: 11px;
+  padding-top: 9px;
 }
 .taskCardMetrics span {
   align-items: center;
@@ -1618,6 +1634,16 @@
   font-size: 15px;
   line-height: 1.35;
   margin: 10px 0 0;
+}
+.taskCard > p:not(.taskDueDate):not(.taskAssignee) {
+  color: var(--muted);
+  display: -webkit-box;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .taskLink {
   color: inherit;

@@ -3042,7 +3042,12 @@ export function ProjectBoard() {
                       ) : null}
                       {visibleTaskFields.includes("assignee") &&
                       task.assignee ? (
-                        <p className={styles.taskAssignee}>
+                        <p
+                          aria-label={`Assignee: ${task.assignee.displayName}`}
+                          className={styles.taskAssignee}
+                          title={task.assignee.displayName}
+                        >
+                          <span>{task.assignee.displayName.slice(0, 1).toUpperCase()}</span>
                           {task.assignee.displayName}
                         </p>
                       ) : null}
