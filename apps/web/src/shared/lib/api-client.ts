@@ -11,6 +11,7 @@ import {
   createTaskRelationRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
+  deleteAccountRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   loginRequestSchema,
@@ -68,6 +69,7 @@ import {
   type CreateLabelRequest,
   type UpdateLabelRequest,
   type ChangePasswordRequest,
+  type DeleteAccountRequest,
   type HealthResponse,
   type LoginRequest,
   type NotificationListResponse,
@@ -421,6 +423,13 @@ export function changePassword(input: ChangePasswordRequest): Promise<void> {
   return requestNoContent("/api/v1/auth/password/change", {
     body: JSON.stringify(changePasswordRequestSchema.parse(input)),
     method: "POST",
+  });
+}
+
+export function deleteAccount(input: DeleteAccountRequest): Promise<void> {
+  return requestNoContent("/api/v1/auth/account", {
+    body: JSON.stringify(deleteAccountRequestSchema.parse(input)),
+    method: "DELETE",
   });
 }
 

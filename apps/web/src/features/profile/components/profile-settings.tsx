@@ -22,6 +22,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import {
   ApiClientError,
   changePassword,
+  deleteAccount,
   deleteProfileAvatar,
   getApiAssetUrl,
   getAccountDataExportUrl,
@@ -66,6 +67,7 @@ export function ProfileSettings() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
@@ -185,6 +187,28 @@ export function ProfileSettings() {
     } catch (caughtError) {
       setError(toMessage(caughtError, "Unable to change your password."));
       setIsChangingPassword(false);
+    }
+  }
+
+  async function onDeleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    clearNotices();
+    const form = new FormData(event.currentTarget);
+    if (String(form.get("confirmation") ?? "") !== "DELETE") {
+      setError('Type "DELETE" to confirm account deletion.');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccount({
+        currentPassword: String(form.get("currentPassword") ?? ""),
+      });
+      router.replace("/login?reason=account-deleted");
+      router.refresh();
+    } catch (caughtError) {
+      setError(toMessage(caughtError, "Unable to delete your account."));
+      setIsDeletingAccount(false);
     }
   }
 
@@ -347,7 +371,12 @@ export function ProfileSettings() {
         {activeSection === "billing" ? <BillingPanel /> : null}
         {activeSection === "setup" ? <SetupPanel /> : null}
         {activeSection === "ai" ? <AiPanel /> : null}
-        {activeSection === "data" ? <DataPanel /> : null}
+        {activeSection === "data" ? (
+          <DataPanel
+            isDeletingAccount={isDeletingAccount}
+            onDeleteAccount={onDeleteAccount}
+          />
+        ) : null}
       </section>
     </main>
   );
@@ -656,7 +685,10 @@ function AiPanel() {
     </section>
   );
 }
-function DataPanel() {
+function DataPanel(props: {
+  isDeletingAccount: boolean;
+  onDeleteAccount: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+}) {
   return (
     <>
       <section className={styles.card}>
@@ -681,13 +713,47 @@ function DataPanel() {
       <section className={`${styles.card} ${styles.dangerCard}`}>
         <CardHeading
           icon={Database}
-          subtitle="Account deletion needs a server-side confirmation flow"
+          subtitle="Permanently remove your account and personal workspace"
           title="Delete account"
         />
         <p className={styles.mutedCopy}>
-          This action is intentionally unavailable until we can safely remove or
-          transfer workspace ownership and project data.
+          This cannot be undone. If you own a workspace with other active
+          members, transfer ownership first from its team settings.
         </p>
+        <form
+          className={`${styles.form} ${styles.dangerForm}`}
+          onSubmit={(event) => void props.onDeleteAccount(event)}
+        >
+          <label>
+            <span>Current password</span>
+            <input
+              autoComplete="current-password"
+              maxLength={256}
+              name="currentPassword"
+              required
+              type="password"
+            />
+          </label>
+          <label>
+            <span>Type DELETE to confirm</span>
+            <input
+              autoComplete="off"
+              maxLength={6}
+              name="confirmation"
+              required
+            />
+          </label>
+          <div className={styles.formFooter}>
+            <span />
+            <button
+              className={styles.dangerButton}
+              disabled={props.isDeletingAccount}
+              type="submit"
+            >
+              {props.isDeletingAccount ? "Deleting account" : "Delete account"}
+            </button>
+          </div>
+        </form>
       </section>
     </>
   );

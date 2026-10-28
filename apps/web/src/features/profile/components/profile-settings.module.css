@@ -384,6 +384,28 @@
 .dangerCard h2 {
   color: var(--danger);
 }
+.dangerForm {
+  border-top-color: #edc4c4;
+}
+.dangerButton {
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--bs-border-radius-sm);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 0 14px;
+}
+.dangerButton:hover:not(:disabled) {
+  background: #a42222;
+  border-color: #a42222;
+}
+.dangerButton:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
 .error,
 .success {
   align-items: center;
