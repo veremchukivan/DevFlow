@@ -715,13 +715,12 @@ function BillingPanel() {
 function SetupPanel() {
   const [tokens, setTokens] = useState<Array<{ id: string; name: string; tokenPrefix: string }>>([]);
   const [secret, setSecret] = useState<string>();
-  useEffect(() => { void getApiTokens().then((response) => setTokens(response.tokens)); }, []);
+  const [setupError, setSetupError] = useState<string>();
+  const [setupMessage, setSetupMessage] = useState<string>();
+  useEffect(() => { void getApiTokens().then((response) => setTokens(response.tokens)).catch(() => setSetupError("Unable to load API tokens.")); }, []);
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await createApiToken({ name: String(new FormData(event.currentTarget).get("name") ?? "") });
-    setSecret(response.token);
-    setTokens((current) => [response.tokenInfo, ...current]);
-    event.currentTarget.reset();
+    try { const response = await createApiToken({ name: String(new FormData(event.currentTarget).get("name") ?? "") }); setSecret(response.token); setTokens((current) => [response.tokenInfo, ...current]); event.currentTarget.reset(); setSetupMessage("Token created. Copy it now — it will not be shown again."); } catch { setSetupError("Unable to create API token."); }
   }
   return (
     <section className={styles.card}>
@@ -730,7 +729,8 @@ function SetupPanel() {
         subtitle="Connect developer tools to DevFlow"
         title="Developer setup"
       />
-      {secret ? <p className={styles.success}>Copy this token now: <code>{secret}</code></p> : null}
+      {setupError ? <p className={styles.error}>{setupError}</p> : null}{setupMessage ? <p className={styles.success}>{setupMessage}</p> : null}
+      {secret ? <p className={styles.success}>Copy this token now: <code>{secret}</code> <button className={styles.textButton} onClick={() => void navigator.clipboard.writeText(secret).then(() => setSetupMessage("Token copied."))} type="button">Copy</button></p> : null}
       <form className={styles.form} onSubmit={(event) => void create(event)}><label><span>Token name</span><input name="name" required maxLength={80} /></label><div className={styles.formFooter}><span /><button className={styles.primaryButton} type="submit">Create API token</button></div></form>
       <ul className={styles.sessionList}>{tokens.map((token) => <li key={token.id}><strong>{token.name} · {token.tokenPrefix}…</strong><button className={styles.textButton} onClick={() => void revokeApiToken(token.id).then(() => setTokens((current) => current.filter((item) => item.id !== token.id)))} type="button">Revoke</button></li>)}</ul>
     </section>
