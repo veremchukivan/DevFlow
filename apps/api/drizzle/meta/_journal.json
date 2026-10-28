@@ -219,6 +219,19 @@
       "tag": "0030_notification_preferences",
       "breakpoints": true
     },
-    { "idx": 31, "version": "7", "when": 1793120000000, "tag": "0031_invitation_notifications", "breakpoints": true }
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793120000000,
+      "tag": "0031_invitation_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793154948694,
+      "tag": "0032_tiny_tusk",
+      "breakpoints": true
+    }
   ]
 }

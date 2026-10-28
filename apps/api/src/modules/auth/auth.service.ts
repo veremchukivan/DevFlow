@@ -2,6 +2,7 @@ import argon2 from "argon2";
 import { createHash, randomBytes } from "node:crypto";
 import type {
   ChangePasswordRequest,
+  ChangeEmailRequest,
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
@@ -16,6 +17,7 @@ import {
   createUser,
   createUserWithDefaultWorkspace,
   consumeEmailVerificationToken,
+  consumeEmailChangeToken,
   consumePasswordResetToken,
   deleteOtherSessionsForUser,
   deleteAccountAndPersonalWorkspaces,
@@ -29,6 +31,7 @@ import {
   getAccountDataExport,
   listActiveSessionsForUser,
   replaceEmailVerificationToken,
+  replaceEmailChangeToken,
   replacePasswordResetToken,
   touchSession,
   updatePasswordAndDeleteSessions,
@@ -291,6 +294,46 @@ export async function deleteAccount(userId: string, currentPassword: string) {
   await deleteStoredImage(result.avatarUrl);
 }
 
+export async function requestEmailChange(
+  userId: string,
+  input: ChangeEmailRequest,
+) {
+  const user = await findUserPasswordById(userId);
+  if (
+    !user?.passwordHash ||
+    !(await argon2.verify(user.passwordHash, input.currentPassword))
+  ) {
+    throw new AppError(
+      400,
+      "INVALID_CURRENT_PASSWORD",
+      "Current password is incorrect",
+    );
+  }
+
+  const emailNormalized = normalizeEmail(input.email);
+  const currentUser = await findUserByEmailNormalized(emailNormalized);
+  if (currentUser) {
+    throw new AppError(
+      409,
+      "EMAIL_ALREADY_REGISTERED",
+      "A user with this email already exists",
+    );
+  }
+
+  const token = generateAuthToken();
+  const changedUser = await replaceEmailChangeToken({
+    email: input.email.trim(),
+    emailNormalized,
+    expiresAt: getEmailVerificationExpiresAt(),
+    tokenHash: hashToken(token),
+    userId,
+  });
+  if (!changedUser) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  return { email: input.email.trim(), token, user: changedUser };
+}
+
 export async function issueEmailVerificationToken(user: SessionUser) {
   if (user.emailVerifiedAt) {
     return null;
@@ -308,7 +351,10 @@ export async function issueEmailVerificationToken(user: SessionUser) {
 }
 
 export async function verifyEmail(token: string) {
-  const user = await consumeEmailVerificationToken(hashToken(token));
+  const tokenHash = hashToken(token);
+  const user =
+    (await consumeEmailVerificationToken(tokenHash)) ??
+    (await consumeEmailChangeToken(tokenHash));
 
   if (!user) {
     throw new AppError(

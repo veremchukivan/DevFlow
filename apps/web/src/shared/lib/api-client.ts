@@ -11,6 +11,7 @@ import {
   createTaskRelationRequestSchema,
   createWorkspaceInvitationRequestSchema,
   changePasswordRequestSchema,
+  changeEmailRequestSchema,
   deleteAccountRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
@@ -69,6 +70,7 @@ import {
   type CreateLabelRequest,
   type UpdateLabelRequest,
   type ChangePasswordRequest,
+  type ChangeEmailRequest,
   type DeleteAccountRequest,
   type HealthResponse,
   type LoginRequest,
@@ -422,6 +424,13 @@ export function deleteProfileAvatar(): Promise<AuthResponse> {
 export function changePassword(input: ChangePasswordRequest): Promise<void> {
   return requestNoContent("/api/v1/auth/password/change", {
     body: JSON.stringify(changePasswordRequestSchema.parse(input)),
+    method: "POST",
+  });
+}
+
+export function requestEmailChange(input: ChangeEmailRequest): Promise<void> {
+  return requestNoContent("/api/v1/auth/email/change", {
+    body: JSON.stringify(changeEmailRequestSchema.parse(input)),
     method: "POST",
   });
 }

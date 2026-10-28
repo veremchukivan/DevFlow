@@ -8,7 +8,11 @@ import { sessions } from "../src/core/db/schema/sessions.js";
 import { users } from "../src/core/db/schema/users.js";
 import { workspaceMembers } from "../src/core/db/schema/workspace-members.js";
 import { workspaces } from "../src/core/db/schema/workspaces.js";
-import { issueEmailVerificationToken } from "../src/modules/auth/auth.service.js";
+import {
+  issueEmailVerificationToken,
+  requestEmailChange,
+  verifyEmail,
+} from "../src/modules/auth/auth.service.js";
 import {
   cleanupDatabase,
   createTestApp,
@@ -464,5 +468,37 @@ describe("Auth Module Integration Tests", () => {
       .get("/api/v1/auth/me")
       .set("Cookie", owner.headers["set-cookie"][0]);
     expect(me.status).toBe(200);
+  });
+
+  it("changes an email only after confirmation and revokes existing sessions", async () => {
+    const oldEmail = `email-change-${Date.now()}@devflow.io`;
+    const newEmail = `new-email-${Date.now()}@devflow.io`;
+    const registered = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Email Change User",
+      email: oldEmail,
+      password: "Password123!",
+    });
+    expect(registered.status).toBe(201);
+    const cookie = registered.headers["set-cookie"][0];
+
+    const change = await requestEmailChange(registered.body.user.id, {
+      currentPassword: "Password123!",
+      email: newEmail,
+    });
+    const [pending] = await db
+      .select({ email: users.email, pendingEmail: users.pendingEmail })
+      .from(users)
+      .where(eq(users.id, registered.body.user.id));
+    expect(pending).toEqual({ email: oldEmail, pendingEmail: newEmail });
+
+    await verifyEmail(change.token);
+    const [updated] = await db
+      .select({ email: users.email, pendingEmail: users.pendingEmail })
+      .from(users)
+      .where(eq(users.id, registered.body.user.id));
+    expect(updated).toEqual({ email: newEmail, pendingEmail: null });
+
+    const me = await request(app).get("/api/v1/auth/me").set("Cookie", cookie);
+    expect(me.status).toBe(401);
   });
 });

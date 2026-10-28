@@ -30,6 +30,7 @@ import {
   getCurrentUser,
   logout,
   resendEmailVerification,
+  requestEmailChange,
   revokeAccountSession,
   revokeOtherAccountSessions,
   updateProfile,
@@ -70,6 +71,7 @@ export function ProfileSettings() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [isRequestingEmailChange, setIsRequestingEmailChange] = useState(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isRevokingOtherSessions, setIsRevokingOtherSessions] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string>();
@@ -236,6 +238,25 @@ export function ProfileSettings() {
     }
   }
 
+  async function onEmailChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    clearNotices();
+    const form = new FormData(event.currentTarget);
+    setIsRequestingEmailChange(true);
+    try {
+      await requestEmailChange({
+        currentPassword: String(form.get("currentPassword") ?? ""),
+        email: String(form.get("email") ?? ""),
+      });
+      event.currentTarget.reset();
+      setMessage("Confirmation link sent to your new email address.");
+    } catch (caughtError) {
+      setError(toMessage(caughtError, "Unable to request an email change."));
+    } finally {
+      setIsRequestingEmailChange(false);
+    }
+  }
+
   async function onRevokeSession(session: AccountSession) {
     clearNotices();
     setRevokingSessionId(session.id);
@@ -352,6 +373,8 @@ export function ProfileSettings() {
             onAvatarChange={onAvatarChange}
             onAvatarRemove={onAvatarRemove}
             onProfileSubmit={onProfileSubmit}
+            isRequestingEmailChange={isRequestingEmailChange}
+            onEmailChange={onEmailChange}
             onResendVerification={onResendVerification}
             user={user}
           />
@@ -388,6 +411,8 @@ function ProfilePanel(props: {
   isSavingProfile: boolean;
   onAvatarChange: (event: FormEvent<HTMLInputElement>) => Promise<void>;
   onAvatarRemove: () => Promise<void>;
+  isRequestingEmailChange: boolean;
+  onEmailChange: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onProfileSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onResendVerification: () => Promise<void>;
   user: AuthUser;
@@ -478,6 +503,37 @@ function ProfilePanel(props: {
             {props.isResendingVerification ? "Sending" : "Resend verification"}
           </button>
         ) : null}
+        <form
+          className={styles.form}
+          onSubmit={(event) => void props.onEmailChange(event)}
+        >
+          <label>
+            <span>New email address</span>
+            <input autoComplete="email" name="email" required type="email" />
+          </label>
+          <label>
+            <span>Current password</span>
+            <input
+              autoComplete="current-password"
+              maxLength={256}
+              name="currentPassword"
+              required
+              type="password"
+            />
+          </label>
+          <div className={styles.formFooter}>
+            <span />
+            <button
+              className={styles.secondaryButton}
+              disabled={props.isRequestingEmailChange}
+              type="submit"
+            >
+              {props.isRequestingEmailChange
+                ? "Sending confirmation"
+                : "Change email"}
+            </button>
+          </div>
+        </form>
       </section>
     </>
   );

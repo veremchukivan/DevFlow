@@ -398,6 +398,85 @@ export async function updatePasswordAndDeleteSessions(
   });
 }
 
+export async function replaceEmailChangeToken(input: {
+  email: string;
+  emailNormalized: string;
+  expiresAt: Date;
+  tokenHash: string;
+  userId: string;
+}) {
+  return db.transaction(async (tx) => {
+    await tx
+      .delete(authTokens)
+      .where(
+        and(
+          eq(authTokens.userId, input.userId),
+          eq(authTokens.type, "email_change"),
+          isNull(authTokens.consumedAt),
+        ),
+      );
+    const [user] = await tx
+      .update(users)
+      .set({
+        pendingEmail: input.email,
+        pendingEmailNormalized: input.emailNormalized,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, input.userId), isNull(users.deletedAt)))
+      .returning({ displayName: users.displayName, id: users.id });
+    if (!user) return null;
+    await tx.insert(authTokens).values({
+      expiresAt: input.expiresAt,
+      tokenHash: input.tokenHash,
+      type: "email_change",
+      userId: user.id,
+    });
+    return user;
+  });
+}
+
+export async function consumeEmailChangeToken(tokenHash: string) {
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const [token] = await tx
+      .update(authTokens)
+      .set({ consumedAt: now })
+      .where(
+        and(
+          eq(authTokens.tokenHash, tokenHash),
+          eq(authTokens.type, "email_change"),
+          gt(authTokens.expiresAt, now),
+          isNull(authTokens.consumedAt),
+        ),
+      )
+      .returning({ userId: authTokens.userId });
+    if (!token) return null;
+
+    const [pending] = await tx
+      .select({ email: users.pendingEmail, emailNormalized: users.pendingEmailNormalized })
+      .from(users)
+      .where(and(eq(users.id, token.userId), isNull(users.deletedAt)))
+      .for("update");
+    if (!pending?.email || !pending.emailNormalized) return null;
+
+    const [user] = await tx
+      .update(users)
+      .set({
+        email: pending.email,
+        emailNormalized: pending.emailNormalized,
+        emailVerifiedAt: now,
+        pendingEmail: null,
+        pendingEmailNormalized: null,
+        updatedAt: now,
+      })
+      .where(eq(users.id, token.userId))
+      .returning();
+    if (!user) return null;
+    await tx.delete(sessions).where(eq(sessions.userId, user.id));
+    return user;
+  });
+}
+
 export async function deleteAccountAndPersonalWorkspaces(userId: string) {
   return db.transaction(async (tx) => {
     const [sharedWorkspace] = await tx

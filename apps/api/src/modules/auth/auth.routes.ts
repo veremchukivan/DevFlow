@@ -3,6 +3,7 @@ import {
   accountSessionParamsSchema,
   emailVerificationTokenRequestSchema,
   changePasswordRequestSchema,
+  changeEmailRequestSchema,
   deleteAccountRequestSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
@@ -40,6 +41,7 @@ import {
   listAccountSessions,
   revokeAccountSession,
   revokeOtherAccountSessions,
+  requestEmailChange,
   verifyEmail,
 } from "./auth.service.js";
 
@@ -180,6 +182,22 @@ authRouter.post(
     await changePassword(getAuthenticatedUser(req).id, input);
 
     clearSessionCookie(res);
+    res.status(204).send();
+  },
+);
+
+authRouter.post(
+  "/email/change",
+  requireAuth,
+  authRateLimiter,
+  async (req, res) => {
+    const input = changeEmailRequestSchema.parse(req.body);
+    const result = await requestEmailChange(getAuthenticatedUser(req).id, input);
+    await sendEmailVerificationEmail({
+      displayName: result.user.displayName,
+      email: result.email,
+      token: result.token,
+    });
     res.status(204).send();
   },
 );
