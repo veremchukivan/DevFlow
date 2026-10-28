@@ -14,6 +14,7 @@ import {
 } from "react";
 import {
   CalendarDays,
+  CircleCheck,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -1599,107 +1600,6 @@ export function ProjectBoard() {
           </button>
         </div>
       </header>
-      <section
-        className={styles.activeSprintPanel}
-        aria-labelledby="active-sprint-title"
-      >
-        <div>
-          <p className={styles.eyebrow}>Active sprint</p>
-          <h2 id="active-sprint-title">
-            {activeSprint ? activeSprint.name : "No active sprint"}
-          </h2>
-          <p>
-            {activeSprint
-              ? formatSprintPeriod(activeSprint.startDate, activeSprint.endDate)
-              : "Start a sprint when the team is ready to focus on a new goal."}
-          </p>
-          {activeSprint?.goal ? (
-            <p className={styles.activeSprintGoal}>{activeSprint.goal}</p>
-          ) : null}
-        </div>
-        {activeSprint ? (
-          <div className={styles.sprintActions}>
-            <button
-              aria-label="Active sprint settings"
-              className={styles.secondaryButton}
-              disabled={!canUpdateProject}
-              onClick={() => {
-                if (selectedSprintId !== activeSprint.id) {
-                  void onSelectSprint(activeSprint.id).then(() =>
-                    setShowSprintSettings(true),
-                  );
-                  return;
-                }
-                setShowSprintSettings(true);
-              }}
-              type="button"
-            >
-              <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
-              Manage sprint
-            </button>
-            <button
-              className={styles.primaryButton}
-              disabled={!canUpdateProject}
-              onClick={() => {
-                if (selectedSprintId !== activeSprint.id) {
-                  void onSelectSprint(activeSprint.id).then(() =>
-                    setShowCompleteSprint(true),
-                  );
-                  return;
-                }
-                setShowCompleteSprint(true);
-              }}
-              type="button"
-            >
-              Complete sprint
-            </button>
-          </div>
-        ) : (
-          <button
-            className={styles.primaryButton}
-            disabled={!canUpdateProject}
-            onClick={() => setShowSprintForm(true)}
-            type="button"
-          >
-            Start sprint
-          </button>
-        )}
-      </section>
-      <div className={styles.sprintToolbar}>
-        <label>
-          <span>View tasks</span>
-          <select
-            disabled={isRefreshing}
-            onChange={(event) => void onSelectSprint(event.target.value)}
-            value={selectedSprintId}
-          >
-            {activeSprint ? (
-              <option value={activeSprint.id}>
-                Active sprint: {activeSprint.name}
-              </option>
-            ) : null}
-            <option value="backlog">Backlog</option>
-            {plannedSprints.length ? (
-              <optgroup label="Planned sprints">
-                {plannedSprints.map((sprint) => (
-                  <option key={sprint.id} value={sprint.id}>
-                    {sprint.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {completedSprints.length ? (
-              <optgroup label="Past sprints">
-                {completedSprints.map((sprint) => (
-                  <option key={sprint.id} value={sprint.id}>
-                    {sprint.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-          </select>
-        </label>
-      </div>
       {selectedSprint ? (
         <section
           className={styles.sprintAnalytics}
@@ -2506,6 +2406,83 @@ export function ProjectBoard() {
       </div>
 
       <form className={styles.boardToolbar} onSubmit={onFilter}>
+        <label className={styles.compactSprintPicker}>
+          <span className={styles.srOnly}>View sprint tasks</span>
+          <CalendarDays aria-hidden="true" size={16} strokeWidth={1.8} />
+          <select
+            disabled={isRefreshing}
+            onChange={(event) => void onSelectSprint(event.target.value)}
+            title={
+              activeSprint
+                ? `${activeSprint.name} · ${formatSprintPeriod(activeSprint.startDate, activeSprint.endDate)}`
+                : "Choose a sprint"
+            }
+            value={selectedSprintId}
+          >
+            {activeSprint ? (
+              <option value={activeSprint.id}>{activeSprint.name}</option>
+            ) : null}
+            <option value="backlog">Backlog</option>
+            {plannedSprints.length ? (
+              <optgroup label="Planned sprints">
+                {plannedSprints.map((sprint) => (
+                  <option key={sprint.id} value={sprint.id}>
+                    {sprint.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {completedSprints.length ? (
+              <optgroup label="Past sprints">
+                {completedSprints.map((sprint) => (
+                  <option key={sprint.id} value={sprint.id}>
+                    {sprint.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+          </select>
+        </label>
+        {activeSprint ? (
+          <>
+            <button
+              aria-label="Active sprint settings"
+              className={styles.iconButton}
+              disabled={!canUpdateProject}
+              onClick={() => {
+                if (selectedSprintId !== activeSprint.id) {
+                  void onSelectSprint(activeSprint.id).then(() =>
+                    setShowSprintSettings(true),
+                  );
+                  return;
+                }
+                setShowSprintSettings(true);
+              }}
+              title="Manage active sprint"
+              type="button"
+            >
+              <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+            </button>
+            <button
+              aria-label="Complete active sprint"
+              className={styles.iconButton}
+              disabled={!canUpdateProject}
+              onClick={() => {
+                if (selectedSprintId !== activeSprint.id) {
+                  void onSelectSprint(activeSprint.id).then(() =>
+                    setShowCompleteSprint(true),
+                  );
+                  return;
+                }
+                setShowCompleteSprint(true);
+              }}
+              title="Complete active sprint"
+              type="button"
+            >
+              <CircleCheck aria-hidden="true" size={17} strokeWidth={1.8} />
+            </button>
+          </>
+        ) : null}
         <label className={styles.boardSearch}>
           <span className={styles.srOnly}>Search tasks</span>
           <Search aria-hidden="true" size={17} strokeWidth={1.8} />
