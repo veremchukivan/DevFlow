@@ -147,9 +147,9 @@ export async function getCurrentUser(sessionToken: string) {
 }
 
 export async function getCurrentUserByApiToken(token: string) {
-  const user = await findUserByApiTokenHash(hashToken(token));
-  if (!user) throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
-  return user;
+  const result = await findUserByApiTokenHash(hashToken(token));
+  if (!result) throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  return result;
 }
 
 export async function logout(sessionToken: string) {

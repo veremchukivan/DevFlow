@@ -9,6 +9,7 @@ type AuthenticatedUser = Awaited<ReturnType<typeof getCurrentUser>>;
 export type AuthenticatedRequest = Request & {
   auth: {
     user: AuthenticatedUser;
+    apiTokenScopes?: string[];
   };
 };
 
@@ -20,11 +21,23 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
       throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
     }
 
-    const user = bearer ? await getCurrentUserByApiToken(bearer) : await getCurrentUser(token!);
-    (req as AuthenticatedRequest).auth = { user };
+    const apiToken = bearer ? await getCurrentUserByApiToken(bearer) : undefined;
+    const user = apiToken?.user ?? await getCurrentUser(token!);
+    (req as AuthenticatedRequest).auth = { user, ...(apiToken ? { apiTokenScopes: apiToken.scopes } : {}) };
 
     next();
   } catch (error) {
     next(error);
   }
 };
+
+export function requireApiScope(scope: string): RequestHandler {
+  return (req, _res, next) => {
+    const scopes = (req as AuthenticatedRequest).auth?.apiTokenScopes;
+    if (scopes && !scopes.includes(scope)) {
+      next(new AppError(403, "API_TOKEN_SCOPE_DENIED", "API token does not have the required scope"));
+      return;
+    }
+    next();
+  };
+}

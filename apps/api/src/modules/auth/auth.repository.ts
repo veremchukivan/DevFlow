@@ -545,7 +545,7 @@ export async function revokeApiToken(userId: string, tokenId: string) {
 export async function findUserByApiTokenHash(tokenHash: string) {
   const now = new Date();
   const [result] = await db
-    .select({ tokenId: apiTokens.id, user: { id: users.id, avatarUrl: users.avatarUrl, createdAt: users.createdAt, displayName: users.displayName, email: users.email, emailVerifiedAt: users.emailVerifiedAt, isPlatformAdmin: users.isPlatformAdmin } })
+    .select({ tokenId: apiTokens.id, scopes: apiTokens.scopes, user: { id: users.id, avatarUrl: users.avatarUrl, createdAt: users.createdAt, displayName: users.displayName, email: users.email, emailVerifiedAt: users.emailVerifiedAt, isPlatformAdmin: users.isPlatformAdmin } })
     .from(apiTokens)
     .innerJoin(users, eq(apiTokens.userId, users.id))
     .where(and(eq(apiTokens.tokenHash, tokenHash), isNull(apiTokens.revokedAt), isNull(users.deletedAt)))
@@ -554,7 +554,7 @@ export async function findUserByApiTokenHash(tokenHash: string) {
   const [token] = await db.select({ expiresAt: apiTokens.expiresAt }).from(apiTokens).where(eq(apiTokens.id, result.tokenId)).limit(1);
   if (token?.expiresAt && token.expiresAt <= now) return null;
   await db.update(apiTokens).set({ lastUsedAt: now }).where(eq(apiTokens.id, result.tokenId));
-  return result.user;
+  return { scopes: result.scopes, user: result.user };
 }
 
 export async function replaceEmailVerificationToken(input: {
