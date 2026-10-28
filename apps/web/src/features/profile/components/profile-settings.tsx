@@ -727,6 +727,7 @@ function SetupPanel() {
       id: string;
       lastUsedAt?: string | null;
       name: string;
+      scopes: Array<"api:read" | "api:write">;
       tokenPrefix: string;
     }>
   >([]);
@@ -755,6 +756,7 @@ function SetupPanel() {
     setSetupError(undefined);
     const form = new FormData(event.currentTarget);
     const days = Number(form.get("expiresInDays") ?? 0);
+    const access = String(form.get("access") ?? "read-write");
 
     try {
       const response = await createApiToken({
@@ -762,6 +764,7 @@ function SetupPanel() {
           ? new Date(Date.now() + days * 86_400_000).toISOString()
           : null,
         name: String(form.get("name") ?? ""),
+        scopes: access === "read-only" ? ["api:read"] : ["api:read", "api:write"],
       });
       setSecret(response.token);
       setTokens((current) => [response.tokenInfo, ...current]);
@@ -869,6 +872,13 @@ function SetupPanel() {
               <option value="90">In 90 days</option>
             </select>
           </label>
+          <label>
+            <span>Access</span>
+            <select defaultValue="read-write" name="access">
+              <option value="read-write">Read and write</option>
+              <option value="read-only">Read only</option>
+            </select>
+          </label>
           <div className={styles.formFooter}>
             <span />
             <button className={styles.primaryButton} type="submit">
@@ -890,6 +900,7 @@ function SetupPanel() {
                   {token.lastUsedAt
                     ? ` · Last used ${new Date(token.lastUsedAt).toLocaleDateString()}`
                     : " · Never used"}
+                  {` · ${token.scopes.includes("api:write") ? "Read and write" : "Read only"}`}
                 </span>
               </div>
               <button
