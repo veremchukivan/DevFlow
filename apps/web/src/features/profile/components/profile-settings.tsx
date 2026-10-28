@@ -734,6 +734,7 @@ function SetupPanel() {
   const [secret, setSecret] = useState<string>();
   const [setupError, setSetupError] = useState<string>();
   const [setupMessage, setSetupMessage] = useState<string>();
+  const [figmaConfigured, setFigmaConfigured] = useState(false);
   const [figmaConnected, setFigmaConnected] = useState(false);
   const [isLoadingFigma, setIsLoadingFigma] = useState(true);
   const [isDisconnectingFigma, setIsDisconnectingFigma] = useState(false);
@@ -743,7 +744,10 @@ function SetupPanel() {
 
   useEffect(() => {
     void getFigmaConnection()
-      .then((response) => setFigmaConnected(response.connected))
+      .then((response) => {
+        setFigmaConfigured(response.configured);
+        setFigmaConnected(response.connected);
+      })
       .catch(() => setSetupError("Unable to load Figma connection status."))
       .finally(() => setIsLoadingFigma(false));
   }, []);
@@ -797,6 +801,8 @@ function SetupPanel() {
                 ? "Checking your connection…"
                 : figmaConnected
                   ? "Your Figma account is connected. Its access remains personal."
+                  : !figmaConfigured
+                    ? "Figma OAuth is not configured for this deployment yet."
                   : "Connect your account to use Figma-powered features."}
             </span>
           </div>
@@ -818,7 +824,7 @@ function SetupPanel() {
             >
               {isDisconnectingFigma ? "Disconnecting…" : "Disconnect"}
             </button>
-          ) : (
+          ) : figmaConfigured ? (
             <a
               aria-disabled={isLoadingFigma}
               className={styles.secondaryButton}
@@ -831,6 +837,15 @@ function SetupPanel() {
             >
               Connect Figma
             </a>
+          ) : (
+            <button
+              className={styles.secondaryButton}
+              disabled
+              title="Add the Figma OAuth values to the deployment environment first."
+              type="button"
+            >
+              Figma setup required
+            </button>
           )}
         </div>
       </section>

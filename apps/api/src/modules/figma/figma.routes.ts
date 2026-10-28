@@ -11,6 +11,15 @@ import { type AuthenticatedRequest, requireAuth } from "../auth/auth.middleware.
 
 export const figmaRouter = Router();
 
+function isFigmaConfigured() {
+  return Boolean(
+    env.FIGMA_CLIENT_ID &&
+      env.FIGMA_CLIENT_SECRET &&
+      env.FIGMA_REDIRECT_URI &&
+      env.INTEGRATION_ENCRYPTION_KEY,
+  );
+}
+
 figmaRouter.get("/connect", requireAuth, (req, res) => {
   if (
     !env.FIGMA_CLIENT_ID ||
@@ -46,7 +55,11 @@ figmaRouter.get("/connection", requireAuth, async (req, res) => {
     .from(figmaConnections)
     .where(eq(figmaConnections.userId, userId));
 
-  res.json({ connected: Boolean(connection), connection: connection ?? null });
+  res.json({
+    configured: isFigmaConfigured(),
+    connected: Boolean(connection),
+    connection: connection ?? null,
+  });
 });
 
 figmaRouter.delete("/connection", requireAuth, async (req, res) => {

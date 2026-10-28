@@ -26,7 +26,11 @@ describe("Figma integration routes", () => {
       .set("Cookie", user.cookie);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ connected: false, connection: null });
+    expect(response.body).toEqual({
+      configured: false,
+      connected: false,
+      connection: null,
+    });
   });
 
   it("does not start OAuth when the integration is not configured", async () => {

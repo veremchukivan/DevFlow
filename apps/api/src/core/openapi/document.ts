@@ -1306,8 +1306,13 @@ export const openApiDocument = {
       },
       FigmaConnectionResponse: {
         type: "object",
-        required: ["connected", "connection"],
+        required: ["configured", "connected", "connection"],
         properties: {
+          configured: {
+            description:
+              "Whether the deployment has the Figma OAuth configuration required to connect an account.",
+            type: "boolean",
+          },
           connected: { type: "boolean" },
           connection: {
             oneOf: [

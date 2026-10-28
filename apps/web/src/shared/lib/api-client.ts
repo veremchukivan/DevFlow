@@ -468,6 +468,7 @@ export function getApiTokens() { return request("/api/v1/auth/api-tokens", { met
 export function createApiToken(input: unknown) { return request("/api/v1/auth/api-tokens", { body: JSON.stringify(createApiTokenRequestSchema.parse(input)), method: "POST" }, createApiTokenResponseSchema); }
 export function revokeApiToken(tokenId: string): Promise<void> { return requestNoContent(`/api/v1/auth/api-tokens/${tokenId}`, { method: "DELETE" }); }
 const figmaConnectionSchema = z.object({
+  configured: z.boolean(),
   connected: z.boolean(),
   connection: z
     .object({

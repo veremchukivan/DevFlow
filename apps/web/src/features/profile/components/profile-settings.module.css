@@ -257,6 +257,10 @@
 .secondaryButton:hover:not(:disabled) {
   background: #f3f7fa;
 }
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
 .secondaryButton input {
   display: none;
 }
