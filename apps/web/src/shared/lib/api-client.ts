@@ -38,6 +38,7 @@ import {
   repositionTaskRequestSchema,
   projectListResponseSchema,
   projectFigmaLinkListResponseSchema,
+  projectFigmaLinkResponseSchema,
   projectMemberListResponseSchema,
   projectMemberResponseSchema,
   projectSprintListResponseSchema,
@@ -796,7 +797,7 @@ export function createProjectFigmaLink(
   return request(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/figma-links`,
     { body: JSON.stringify(input), method: "POST" },
-    z.object({ link: projectFigmaLinkListResponseSchema.shape.links.element }),
+    projectFigmaLinkResponseSchema,
   );
 }
 

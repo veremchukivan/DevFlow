@@ -1,11 +1,13 @@
 import {
   acceptInvitationResponseSchema,
+  aiSettingsSchema,
   addWorkspaceMemberRequestSchema,
   authResponseSchema,
   changePasswordRequestSchema,
   changeEmailRequestSchema,
   createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
   createProjectRequestSchema,
+  createProjectFigmaLinkRequestSchema,
   createProjectSprintRequestSchema,
   createProjectStatusRequestSchema,
   createTaskCommentRequestSchema,
@@ -20,6 +22,8 @@ import {
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
   projectListResponseSchema,
+  projectFigmaLinkListResponseSchema,
+  projectFigmaLinkResponseSchema,
   projectSprintListResponseSchema,
   projectSprintResponseSchema,
   projectResponseSchema,
@@ -41,6 +45,7 @@ import {
   updateTaskCommentRequestSchema,
   updateTaskChecklistItemRequestSchema,
   updateTaskRequestSchema,
+  updateAiSettingsRequestSchema,
   updateWorkspaceMemberRequestSchema,
   transferWorkspaceOwnershipRequestSchema,
   updateWorkspaceRequestSchema,
@@ -61,8 +66,10 @@ const schemas = {
   ChangeEmailRequest: changeEmailRequestSchema,
   CreateApiTokenRequest: createApiTokenRequestSchema,
   ApiTokenListResponse: apiTokenListResponseSchema,
+  AiSettings: aiSettingsSchema,
   CreateApiTokenResponse: createApiTokenResponseSchema,
   CreateProjectRequest: createProjectRequestSchema,
+  CreateProjectFigmaLinkRequest: createProjectFigmaLinkRequestSchema,
   CreateProjectSprintRequest: createProjectSprintRequestSchema,
   CreateProjectStatusRequest: createProjectStatusRequestSchema,
   CreateTaskCommentRequest: createTaskCommentRequestSchema,
@@ -77,6 +84,8 @@ const schemas = {
   PasswordResetConfirmRequest: passwordResetConfirmRequestSchema,
   PasswordResetRequest: passwordResetRequestSchema,
   ProjectListResponse: projectListResponseSchema,
+  ProjectFigmaLinkListResponse: projectFigmaLinkListResponseSchema,
+  ProjectFigmaLinkResponse: projectFigmaLinkResponseSchema,
   ProjectSprintListResponse: projectSprintListResponseSchema,
   ProjectSprintResponse: projectSprintResponseSchema,
   ProjectResponse: projectResponseSchema,
@@ -98,6 +107,7 @@ const schemas = {
   UpdateTaskCommentRequest: updateTaskCommentRequestSchema,
   UpdateTaskChecklistItemRequest: updateTaskChecklistItemRequestSchema,
   UpdateTaskRequest: updateTaskRequestSchema,
+  UpdateAiSettingsRequest: updateAiSettingsRequestSchema,
   UpdateWorkspaceMemberRequest: updateWorkspaceMemberRequestSchema,
   TransferWorkspaceOwnershipRequest: transferWorkspaceOwnershipRequestSchema,
   UpdateWorkspaceRequest: updateWorkspaceRequestSchema,
@@ -110,7 +120,11 @@ const schemas = {
 };
 
 type SchemaName = keyof typeof schemas;
-type DocumentSchemaName = SchemaName | "ErrorResponse" | "ReadinessResponse";
+type DocumentSchemaName =
+  | SchemaName
+  | "ErrorResponse"
+  | "FigmaConnectionResponse"
+  | "ReadinessResponse";
 
 const json = (schema: DocumentSchemaName) => ({
   content: {
@@ -192,7 +206,7 @@ const pagination = [
   },
 ];
 
-const authenticated = [{ sessionCookie: [] }];
+const authenticated = [{ sessionCookie: [] }, { bearerAuth: [] }];
 const commonErrors = {
   "400": errorResponse("Invalid request"),
   "401": errorResponse("Authentication is required"),
@@ -223,6 +237,7 @@ export const openApiDocument = {
     { name: "Comments" },
     { name: "Checklists" },
     { name: "Activity" },
+    { name: "Integrations" },
   ],
   paths: {
     "/healthz": {
@@ -370,6 +385,60 @@ export const openApiDocument = {
     },
     "/api/v1/auth/api-tokens/{tokenId}": {
       delete: { tags: ["Auth"], operationId: "revokeApiToken", security: authenticated, parameters: [uuidPath("tokenId")], responses: { "204": response("API token revoked"), ...commonErrors } },
+    },
+    "/api/v1/ai-settings": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "getAiSettings",
+        security: authenticated,
+        responses: { "200": response("AI configuration metadata", "AiSettings"), ...commonErrors },
+      },
+      put: {
+        tags: ["Integrations"],
+        operationId: "updateAiSettings",
+        security: authenticated,
+        requestBody: requestBody("UpdateAiSettingsRequest"),
+        responses: {
+          "200": response("AI configuration saved", "AiSettings"),
+          "503": errorResponse("AI encryption is not configured"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Integrations"],
+        operationId: "deleteAiSettings",
+        security: authenticated,
+        responses: { "204": response("AI configuration removed"), ...commonErrors },
+      },
+    },
+    "/api/v1/integrations/figma/connect": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "connectFigma",
+        security: authenticated,
+        responses: {
+          "302": response("Redirect to Figma authorization"),
+          "503": errorResponse("Figma integration is not configured"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/integrations/figma/connection": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "getFigmaConnection",
+        security: authenticated,
+        responses: {
+          "200": response("Figma connection state", "FigmaConnectionResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Integrations"],
+        operationId: "disconnectFigma",
+        security: authenticated,
+        responses: { "204": response("Figma account disconnected"), ...commonErrors },
+      },
     },
     "/api/v1/auth/email-verification/resend": {
       post: {
@@ -695,6 +764,38 @@ export const openApiDocument = {
           "200": response("Project icon removed", "ProjectResponse"),
           ...commonErrors,
         },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/figma-links": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "listProjectFigmaLinks",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        responses: {
+          "200": response("Project Figma links", "ProjectFigmaLinkListResponse"),
+          ...commonErrors,
+        },
+      },
+      post: {
+        tags: ["Integrations"],
+        operationId: "createProjectFigmaLink",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: requestBody("CreateProjectFigmaLinkRequest"),
+        responses: {
+          "201": response("Figma link added", "ProjectFigmaLinkResponse"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/figma-links/{linkId}": {
+      delete: {
+        tags: ["Integrations"],
+        operationId: "deleteProjectFigmaLink",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("linkId")],
+        responses: { "204": response("Figma link removed"), ...commonErrors },
       },
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/sprints": {
@@ -1144,6 +1245,12 @@ export const openApiDocument = {
   },
   components: {
     securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "DevFlow API token",
+        description: "Personal API token generated in Profile > Setup.",
+      },
       sessionCookie: {
         type: "apiKey",
         in: "cookie",
@@ -1195,6 +1302,26 @@ export const openApiDocument = {
           },
           status: { type: "string", enum: ["ok", "error"] },
           timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      FigmaConnectionResponse: {
+        type: "object",
+        required: ["connected", "connection"],
+        properties: {
+          connected: { type: "boolean" },
+          connection: {
+            oneOf: [
+              { type: "null" },
+              {
+                type: "object",
+                required: ["connectedAt", "expiresAt"],
+                properties: {
+                  connectedAt: { type: "string", format: "date-time" },
+                  expiresAt: { type: "string", format: "date-time" },
+                },
+              },
+            ],
+          },
         },
       },
       ...Object.fromEntries(

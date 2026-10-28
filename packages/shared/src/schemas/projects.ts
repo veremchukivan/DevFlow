@@ -105,6 +105,10 @@ export const projectFigmaLinkListResponseSchema = z.object({
   links: z.array(projectFigmaLinkSchema)
 });
 
+export const projectFigmaLinkResponseSchema = z.object({
+  link: projectFigmaLinkSchema
+});
+
 export const projectSchema = z.object({
   iconUrl: z.string().max(500).nullable(),
   createdAt: z.string().datetime(),
