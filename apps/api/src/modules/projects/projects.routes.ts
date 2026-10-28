@@ -1,9 +1,11 @@
 import {
   createProjectRequestSchema,
+  createProjectFigmaLinkRequestSchema,
   createProjectMemberRequestSchema,
   createProjectStatusRequestSchema,
   paginationQuerySchema,
   projectParamsSchema,
+  projectFigmaLinkParamsSchema,
   projectMemberParamsSchema,
   projectMembersParamsSchema,
   projectStatusParamsSchema,
@@ -26,17 +28,20 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createProject,
+  addProjectFigmaLink,
   addMemberToProject,
   createProjectStatus,
   deleteProjectStatus,
   deleteProject,
   getProject,
+  getProjectFigmaLinks,
   getProjectMembers,
   listProjects,
   reorderProjectStatuses,
   updateProject,
   updateProjectIcon,
   removeProjectIcon,
+  removeProjectFigmaLink,
   removeMemberFromProject,
   updateProjectMember,
   updateProjectStatus,
@@ -131,6 +136,34 @@ projectsRouter.delete("/:projectId", async (req, res) => {
     workspaceId: params.workspaceId,
   });
 
+  res.status(204).send();
+});
+
+projectsRouter.get("/:projectId/figma-links", async (req, res) => {
+  const params = projectParamsSchema.parse(req.params);
+  const links = await getProjectFigmaLinks({
+    ...params,
+    userId: getAuthenticatedUserId(req),
+  });
+  res.json({ links: links.map(toProjectFigmaLinkDto) });
+});
+
+projectsRouter.post("/:projectId/figma-links", async (req, res) => {
+  const params = projectParamsSchema.parse(req.params);
+  const link = await addProjectFigmaLink({
+    ...params,
+    input: createProjectFigmaLinkRequestSchema.parse(req.body),
+    userId: getAuthenticatedUserId(req),
+  });
+  res.status(201).json({ link: toProjectFigmaLinkDto(link) });
+});
+
+projectsRouter.delete("/:projectId/figma-links/:linkId", async (req, res) => {
+  const params = projectFigmaLinkParamsSchema.parse(req.params);
+  await removeProjectFigmaLink({
+    ...params,
+    userId: getAuthenticatedUserId(req),
+  });
   res.status(204).send();
 });
 
@@ -249,6 +282,23 @@ function toProjectSummaryDto(project: {
     ownerUserId: project.ownerUserId,
     updatedAt: project.updatedAt.toISOString(),
     workspaceId: project.workspaceId,
+  };
+}
+
+function toProjectFigmaLinkDto(link: {
+  createdAt: Date;
+  createdByUserId: string | null;
+  id: string;
+  name: string;
+  projectId: string;
+  updatedAt: Date;
+  url: string;
+  workspaceId: string;
+}) {
+  return {
+    ...link,
+    createdAt: link.createdAt.toISOString(),
+    updatedAt: link.updatedAt.toISOString(),
   };
 }
 

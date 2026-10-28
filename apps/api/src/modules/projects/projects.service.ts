@@ -21,11 +21,14 @@ import {
   createProjectStatusInDb,
   countProjectStatuses,
   countTasksForProjectStatus,
+  createProjectFigmaLinkInDb,
   deleteProjectStatusInDb,
+  deleteProjectFigmaLinkInDb,
   findActiveWorkspaceMembership,
   findProjectByKey,
   findProjectInWorkspace,
   listProjectsForWorkspace,
+  listProjectFigmaLinks,
   listProjectStatuses,
   reorderProjectStatusesInDb,
   softDeleteProjectInDb,
@@ -126,6 +129,47 @@ export async function getProject(input: {
     ...project,
     statuses,
   };
+}
+
+export async function getProjectFigmaLinks(input: {
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await getProject(input);
+  return listProjectFigmaLinks(input);
+}
+
+export async function addProjectFigmaLink(input: {
+  input: { name: string; url: string };
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  const link = await createProjectFigmaLinkInDb({
+    ...input.input,
+    createdByUserId: input.userId,
+    projectId: input.projectId,
+    workspaceId: input.workspaceId,
+  });
+  if (!link) {
+    throw new Error("Failed to create Figma link");
+  }
+  return link;
+}
+
+export async function removeProjectFigmaLink(input: {
+  linkId: string;
+  projectId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireProjectUpdatePermission(input);
+  const deleted = await deleteProjectFigmaLinkInDb(input);
+  if (!deleted) {
+    throw new AppError(404, "FIGMA_LINK_NOT_FOUND", "Figma link not found");
+  }
 }
 
 export async function updateProject(input: {

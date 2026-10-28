@@ -7,6 +7,7 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
+import { projectFigmaLinks } from "../../core/db/schema/project-figma-links.js";
 import { projectMembers } from "../../core/db/schema/project-members.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
@@ -175,6 +176,51 @@ export async function findProjectInWorkspace(input: {
     .limit(1);
 
   return project;
+}
+
+export async function listProjectFigmaLinks(input: {
+  projectId: string;
+  workspaceId: string;
+}) {
+  return db
+    .select()
+    .from(projectFigmaLinks)
+    .where(
+      and(
+        eq(projectFigmaLinks.projectId, input.projectId),
+        eq(projectFigmaLinks.workspaceId, input.workspaceId),
+      ),
+    )
+    .orderBy(desc(projectFigmaLinks.createdAt));
+}
+
+export async function createProjectFigmaLinkInDb(input: {
+  createdByUserId: string;
+  name: string;
+  projectId: string;
+  url: string;
+  workspaceId: string;
+}) {
+  const [link] = await db.insert(projectFigmaLinks).values(input).returning();
+  return link;
+}
+
+export async function deleteProjectFigmaLinkInDb(input: {
+  linkId: string;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [link] = await db
+    .delete(projectFigmaLinks)
+    .where(
+      and(
+        eq(projectFigmaLinks.id, input.linkId),
+        eq(projectFigmaLinks.projectId, input.projectId),
+        eq(projectFigmaLinks.workspaceId, input.workspaceId),
+      ),
+    )
+    .returning();
+  return link;
 }
 
 export async function listProjectStatuses(input: {

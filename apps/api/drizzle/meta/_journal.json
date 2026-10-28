@@ -246,6 +246,13 @@
       "when": 1793158170729,
       "tag": "0034_blushing_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793207901660,
+      "tag": "0035_striped_redwing",
+      "breakpoints": true
     }
   ]
 }
