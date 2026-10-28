@@ -528,11 +528,11 @@ function stripEmbeddedMedia(value: string) {
   return value.replace(embeddedMediaPattern, "");
 }
 function appendEmbeddedMedia(value: string, media: EmbeddedMedia[]) {
-  const uniqueMedia = media.filter(
+  const allMedia = [...extractEmbeddedMedia(value), ...media];
+  const uniqueMedia = allMedia.filter(
     (item, index) =>
-      media.findIndex(
-        (candidate) => candidate.attachmentId === item.attachmentId,
-      ) === index,
+      allMedia.findIndex((candidate) => candidate.attachmentId === item.attachmentId) ===
+      index,
   );
   const tags = uniqueMedia
     .map(({ attachmentId, kind }) =>
