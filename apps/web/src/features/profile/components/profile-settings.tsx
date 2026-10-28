@@ -713,7 +713,7 @@ function BillingPanel() {
   );
 }
 function SetupPanel() {
-  const [tokens, setTokens] = useState<Array<{ id: string; name: string; tokenPrefix: string }>>([]);
+  const [tokens, setTokens] = useState<Array<{ id: string; name: string; tokenPrefix: string; expiresAt?: string | null; lastUsedAt?: string | null }>>([]);
   const [secret, setSecret] = useState<string>();
   const [setupError, setSetupError] = useState<string>();
   const [setupMessage, setSetupMessage] = useState<string>();
@@ -732,7 +732,7 @@ function SetupPanel() {
       {setupError ? <p className={styles.error}>{setupError}</p> : null}{setupMessage ? <p className={styles.success}>{setupMessage}</p> : null}
       {secret ? <p className={styles.success}>Copy this token now: <code>{secret}</code> <button className={styles.textButton} onClick={() => void navigator.clipboard.writeText(secret).then(() => setSetupMessage("Token copied."))} type="button">Copy</button></p> : null}
       <form className={styles.form} onSubmit={(event) => void create(event)}><label><span>Token name</span><input name="name" required maxLength={80} /></label><label><span>Expires</span><select name="expiresInDays"><option value="0">Never</option><option value="30">In 30 days</option><option value="90">In 90 days</option></select></label><div className={styles.formFooter}><span /><button className={styles.primaryButton} type="submit">Create API token</button></div></form>
-      <ul className={styles.sessionList}>{tokens.map((token) => <li key={token.id}><strong>{token.name} · {token.tokenPrefix}…</strong><button className={styles.textButton} onClick={() => void revokeApiToken(token.id).then(() => setTokens((current) => current.filter((item) => item.id !== token.id)))} type="button">Revoke</button></li>)}</ul>
+      <ul className={styles.sessionList}>{tokens.map((token) => <li key={token.id}><div><strong>{token.name} · {token.tokenPrefix}…</strong><span>{token.expiresAt ? `Expires ${new Date(token.expiresAt).toLocaleDateString()}` : "Never expires"}{token.lastUsedAt ? ` · Last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : " · Never used"}</span></div><button className={styles.textButton} onClick={() => void revokeApiToken(token.id).then(() => setTokens((current) => current.filter((item) => item.id !== token.id)))} type="button">Revoke</button></li>)}</ul>
     </section>
   );
 }
