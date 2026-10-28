@@ -2981,25 +2981,28 @@ export function ProjectBoard() {
                           {task.title}
                         </button>
                       </h3>
-                      {task.description ? <p>{task.description}</p> : null}
-                      {visibleTaskFields.includes("dueDate") && task.dueDate ? (
-                        <p
-                          className={`${styles.taskDueDate} ${isTaskOverdue(task.dueDate) ? styles.taskDueDateOverdue : ""}`}
-                        >
-                          <CalendarDays aria-hidden="true" size={14} />
-                          Due {task.dueDate}
-                        </p>
-                      ) : null}
-                      {visibleTaskFields.includes("assignee") &&
-                      task.assignee ? (
-                        <p
-                          aria-label={`Assignee: ${task.assignee.displayName}`}
-                          className={styles.taskAssignee}
-                          title={task.assignee.displayName}
-                        >
-                          <span>{task.assignee.displayName.slice(0, 1).toUpperCase()}</span>
-                          {task.assignee.displayName}
-                        </p>
+                      {(visibleTaskFields.includes("dueDate") && task.dueDate) ||
+                      (visibleTaskFields.includes("assignee") && task.assignee) ? (
+                        <div className={styles.taskCardFooter}>
+                          {visibleTaskFields.includes("dueDate") && task.dueDate ? (
+                            <p
+                              className={`${styles.taskDueDate} ${isTaskOverdue(task.dueDate) ? styles.taskDueDateOverdue : ""}`}
+                            >
+                              <CalendarDays aria-hidden="true" size={14} />
+                              {task.dueDate}
+                            </p>
+                          ) : null}
+                          {visibleTaskFields.includes("assignee") &&
+                          task.assignee ? (
+                            <p
+                              aria-label={`Assignee: ${task.assignee.displayName}`}
+                              className={styles.taskAssignee}
+                              title={task.assignee.displayName}
+                            >
+                              <span>{task.assignee.displayName.slice(0, 1).toUpperCase()}</span>
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
                       {task.metrics.attachmentCount ||
                       task.metrics.commentCount ||
@@ -3388,7 +3391,7 @@ function TaskEditorModal({
   }
 
   return (
-    <Modal isOpen onClose={onClose} title={`${task.key} details`} width="wide">
+    <Modal isOpen onClose={onClose} title={`${task.key} details`} width="extraWide">
       <form
         className={styles.taskEditorForm}
         onSubmit={(event) => void onSubmit(event)}
@@ -3421,19 +3424,31 @@ function TaskEditorModal({
             />
           </label>
         </header>
-        <section className={styles.taskEditorMain}>
-          <label>
-            <span>Description</span>
-            <textarea
-              defaultValue={task.description ?? ""}
-              maxLength={10000}
-              name="description"
-              rows={9}
-            />
-          </label>
-        </section>
+        <div className={styles.taskEditorContent}>
+          <section className={styles.taskEditorMain}>
+            <label>
+              <span>Description</span>
+              <textarea
+                defaultValue={task.description ?? ""}
+                maxLength={10000}
+                name="description"
+                placeholder="Add context, acceptance criteria or implementation notes…"
+                rows={8}
+              />
+            </label>
+          </section>
+          <TaskWorkPanel
+            availableRelatedTasks={availableParentTasks}
+            role={role}
+            task={task}
+            workspaceId={workspaceId}
+          />
+        </div>
         <aside className={styles.taskEditorDetails}>
-          <h3>Details</h3>
+          <div className={styles.taskEditorDetailsHeading}>
+            <p>Task context</p>
+            <h3>Details</h3>
+          </div>
           <label>
             <span>Status</span>
             <select defaultValue={task.statusId} name="statusId">
@@ -3513,13 +3528,21 @@ function TaskEditorModal({
               type="date"
             />
           </label>
+          <dl className={styles.taskEditorFacts}>
+            <div>
+              <dt>Project</dt>
+              <dd>{project.name}</dd>
+            </div>
+            <div>
+              <dt>Reporter</dt>
+              <dd>{task.reporter?.displayName ?? "Unknown"}</dd>
+            </div>
+            <div>
+              <dt>Created</dt>
+              <dd>{new Date(task.createdAt).toLocaleDateString()}</dd>
+            </div>
+          </dl>
         </aside>
-        <TaskWorkPanel
-          availableRelatedTasks={availableParentTasks}
-          role={role}
-          task={task}
-          workspaceId={workspaceId}
-        />
         <div className={styles.formActions}>
           <button
             className={styles.primaryButton}

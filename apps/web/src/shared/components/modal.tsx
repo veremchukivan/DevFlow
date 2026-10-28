@@ -10,7 +10,7 @@ type ModalProps = {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  width?: "compact" | "default" | "wide";
+  width?: "compact" | "default" | "wide" | "extraWide";
 };
 
 export function Modal({

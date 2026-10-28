@@ -18,6 +18,9 @@
 .wide {
   width: min(calc(100vw - 32px), 960px);
 }
+.extraWide {
+  width: min(calc(100vw - 32px), 1180px);
+}
 .header {
   align-items: center;
   border-bottom: 1px solid var(--line);

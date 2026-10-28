@@ -1355,7 +1355,8 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 2px 5px rgb(31 44 61 / 7%);
-  padding: 13px 14px;
+  min-height: 126px;
+  padding: 14px;
   position: relative;
 }
 .taskBoard[data-card-color="blue"] .taskCard {
@@ -1469,7 +1470,7 @@
   font-size: 12px;
   font-weight: 700;
   gap: 6px;
-  margin: 10px 0 0;
+  margin: 0;
 }
 .taskAssignee span {
   align-items: center;
@@ -1498,6 +1499,13 @@
   align-items: center;
   display: inline-flex;
   gap: 4px;
+}
+.taskCardFooter {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+  justify-content: space-between;
+  margin-top: 12px;
 }
 .taskCard:not([draggable="true"]),
 .taskCard[draggable="true"] {
@@ -1593,7 +1601,7 @@
   display: flex;
   font-size: 12px;
   gap: 5px;
-  margin-top: 10px;
+  margin: 0;
 }
 .taskDueDateOverdue {
   color: #b42318 !important;
@@ -1637,7 +1645,7 @@
 .taskEditorForm {
   display: grid;
   gap: 24px;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 0.38fr);
 }
 .taskEditorHeader {
   border-bottom: 1px solid var(--line);
@@ -1691,10 +1699,14 @@
   box-shadow: 0 2px 0 var(--brand);
 }
 .taskEditorMain,
-.taskEditorDetails {
+.taskEditorDetails,
+.taskEditorContent {
   align-content: start;
   display: grid;
   gap: 16px;
+}
+.taskEditorContent {
+  min-width: 0;
 }
 .taskEditorMain > label,
 .taskEditorDetails > label {
@@ -1712,9 +1724,21 @@
   border-radius: 10px;
   padding: 18px;
 }
+.taskEditorDetailsHeading {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 13px;
+}
+.taskEditorDetailsHeading p {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
 .taskEditorDetails h3 {
   font-size: 15px;
-  margin: 0 0 2px;
+  margin: 0;
 }
 .taskEditorMain input,
 .taskEditorMain textarea,
@@ -1732,6 +1756,29 @@
 .taskEditorMain textarea {
   padding: 10px;
   resize: vertical;
+}
+.taskEditorFacts {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding-top: 15px;
+}
+.taskEditorFacts div {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+.taskEditorFacts dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.taskEditorFacts dd {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0;
+  text-align: right;
 }
 .taskEditorForm > .formActions {
   grid-column: 1 / -1;
