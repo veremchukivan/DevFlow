@@ -4,6 +4,7 @@ import {
   authResponseSchema,
   changePasswordRequestSchema,
   changeEmailRequestSchema,
+  createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
   createProjectRequestSchema,
   createProjectSprintRequestSchema,
   createProjectStatusRequestSchema,
@@ -58,6 +59,9 @@ const schemas = {
   AuthResponse: authResponseSchema,
   ChangePasswordRequest: changePasswordRequestSchema,
   ChangeEmailRequest: changeEmailRequestSchema,
+  CreateApiTokenRequest: createApiTokenRequestSchema,
+  ApiTokenListResponse: apiTokenListResponseSchema,
+  CreateApiTokenResponse: createApiTokenResponseSchema,
   CreateProjectRequest: createProjectRequestSchema,
   CreateProjectSprintRequest: createProjectSprintRequestSchema,
   CreateProjectStatusRequest: createProjectStatusRequestSchema,
@@ -359,6 +363,13 @@ export const openApiDocument = {
           ),
         },
       },
+    },
+    "/api/v1/auth/api-tokens": {
+      get: { tags: ["Auth"], operationId: "listApiTokens", security: authenticated, responses: { "200": response("API tokens", "ApiTokenListResponse"), ...commonErrors } },
+      post: { tags: ["Auth"], operationId: "createApiToken", security: authenticated, requestBody: requestBody("CreateApiTokenRequest"), responses: { "201": response("API token created", "CreateApiTokenResponse"), ...commonErrors } },
+    },
+    "/api/v1/auth/api-tokens/{tokenId}": {
+      delete: { tags: ["Auth"], operationId: "revokeApiToken", security: authenticated, parameters: [uuidPath("tokenId")], responses: { "204": response("API token revoked"), ...commonErrors } },
     },
     "/api/v1/auth/email-verification/resend": {
       post: {
