@@ -6,7 +6,10 @@ import type {
 
 import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
-import { sanitizeOptionalRichText } from "../../core/rich-text/sanitize.js";
+import {
+  extractEmbeddedAttachmentReferences,
+  sanitizeOptionalRichText,
+} from "../../core/rich-text/sanitize.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
@@ -29,6 +32,7 @@ import {
   repositionTaskInProject,
   updateTaskInProject,
 } from "./tasks.repository.js";
+import { findTaskAttachment } from "../task-attachments/task-attachments.repository.js";
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -85,7 +89,7 @@ export async function createTask(input: {
     },
     assigneeUserId: input.input.assigneeUserId,
     description: input.input.description
-      ? sanitizeOptionalRichText(input.input.description) ?? undefined
+      ? (sanitizeOptionalRichText(input.input.description) ?? undefined)
       : undefined,
     dueDate: input.input.dueDate,
     parentTaskId: input.input.parentTaskId,
@@ -259,11 +263,15 @@ export async function updateTask(input: {
     }
   }
 
+  const description = sanitizeOptionalRichText(input.input.description);
+  if (description)
+    await requireValidDescriptionAttachments({ ...input, description });
+
   const result = await db.transaction(async (tx) => {
     const updatedTask = await updateTaskInProject(
       {
         assigneeUserId: input.input.assigneeUserId,
-        description: sanitizeOptionalRichText(input.input.description),
+        description,
         dueDate: input.input.dueDate,
         parentTaskId: input.input.parentTaskId,
         priority: input.input.priority,
@@ -342,6 +350,35 @@ export async function updateTask(input: {
     });
   }
   return result;
+}
+
+async function requireValidDescriptionAttachments(input: {
+  description: string;
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  for (const reference of extractEmbeddedAttachmentReferences(
+    input.description,
+  )) {
+    const attachment = await findTaskAttachment({
+      attachmentId: reference.attachmentId,
+      projectId: input.projectId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId,
+    });
+    const matchesMediaType =
+      (reference.kind === "img" && attachment?.mimeType.startsWith("image/")) ||
+      (reference.kind === "video" && attachment?.mimeType.startsWith("video/"));
+
+    if (!attachment || attachment.commentId || !matchesMediaType) {
+      throw new AppError(
+        400,
+        "DESCRIPTION_ATTACHMENT_INVALID",
+        "Description media must be an image or video attached to this task",
+      );
+    }
+  }
 }
 
 export async function deleteTask(input: {

@@ -150,6 +150,47 @@ describe("Task attachment integration tests", () => {
     expect(previewed.headers["accept-ranges"]).toBe("bytes");
   });
 
+  it("allows task media in a description only when the attachment belongs to that task", async () => {
+    const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
+    const uploaded = await request(app)
+      .post(basePath)
+      .set("Cookie", owner.cookie)
+      .attach(
+        "file",
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        { contentType: "image/png", filename: "embedded-plan.png" },
+      );
+    expect(uploaded.status).toBe(201);
+
+    const description = `<p>Latest design</p><img data-task-attachment-id="${uploaded.body.attachment.id}" alt="">`;
+    const updated = await request(app)
+      .patch(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`,
+      )
+      .set("Cookie", owner.cookie)
+      .set("If-Match", `"${task.version}"`)
+      .send({ description });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.task.description).toContain(
+      `data-task-attachment-id="${uploaded.body.attachment.id}"`,
+    );
+
+    const invalid = await request(app)
+      .patch(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`,
+      )
+      .set("Cookie", owner.cookie)
+      .set("If-Match", `"${updated.body.task.version}"`)
+      .send({
+        description:
+          '<img data-task-attachment-id="aab998ba-0a76-4c7c-925a-2d098adbd1cf" alt="">',
+      });
+
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("DESCRIPTION_ATTACHMENT_INVALID");
+  });
+
   it("rejects an attachment whose bytes do not match the declared type", async () => {
     const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
     const uploaded = await request(app)

@@ -315,6 +315,33 @@ export function TaskWorkPanel({
     }
   }
 
+  async function onDescriptionMediaUpload(files: File[]) {
+    setError(undefined);
+    setIsUploadingAttachment(true);
+    try {
+      const responses = await Promise.all(
+        files.map((file) =>
+          uploadTaskAttachment(workspaceId, task.projectId, task.id, file),
+        ),
+      );
+      const uploadedAttachments = responses.map(({ attachment }) => attachment);
+      setAttachments((currentAttachments) => [
+        ...currentAttachments,
+        ...uploadedAttachments.filter(
+          (attachment) =>
+            !currentAttachments.some((current) => current.id === attachment.id),
+        ),
+      ]);
+      await refreshActivity();
+      return uploadedAttachments;
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to upload description media."));
+      return [];
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  }
+
   async function onAttachmentDelete(attachmentId: string) {
     setError(undefined);
     setIsDeletingAttachmentId(attachmentId);
@@ -431,7 +458,12 @@ export function TaskWorkPanel({
     setError(undefined);
     setIsSubmittingComment(true);
     try {
-      const response = await createTaskComment(workspaceId, task.projectId, task.id, { body });
+      const response = await createTaskComment(
+        workspaceId,
+        task.projectId,
+        task.id,
+        { body },
+      );
       if (commentDraftFiles.length) {
         setIsUploadingCommentAttachments(true);
         await Promise.all(
@@ -508,7 +540,10 @@ export function TaskWorkPanel({
 
   return (
     <section className={styles.panel} aria-label="Task work">
-      <section className={styles.descriptionSection} aria-labelledby="description-title">
+      <section
+        className={styles.descriptionSection}
+        aria-labelledby="description-title"
+      >
         <div className={styles.sectionHeading}>
           <div>
             <h3 id="description-title">Description</h3>
@@ -516,15 +551,28 @@ export function TaskWorkPanel({
           </div>
           <Pencil aria-hidden="true" size={18} />
         </div>
-        <label className={styles.srOnly} htmlFor={`task-description-${task.id}`}>
+        <label
+          className={styles.srOnly}
+          htmlFor={`task-description-${task.id}`}
+        >
           Description
         </label>
         <RichTextEditor
+          attachments={attachments}
           defaultValue={description}
           form={editorFormId}
+          getAttachmentPreviewUrl={(attachmentId) =>
+            getTaskAttachmentPreviewUrl(
+              workspaceId,
+              task.projectId,
+              task.id,
+              attachmentId,
+            ) ?? undefined
+          }
           id={`task-description-${task.id}`}
           maxLength={10000}
           name="description"
+          onMediaUpload={canUpdateTask ? onDescriptionMediaUpload : undefined}
           placeholder="Add context, acceptance criteria or implementation notes…"
         />
       </section>
@@ -943,10 +991,14 @@ export function TaskWorkPanel({
                   <label className={styles.commentUploadButton}>
                     <input
                       accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-                      disabled={isSubmittingComment || isUploadingCommentAttachments}
+                      disabled={
+                        isSubmittingComment || isUploadingCommentAttachments
+                      }
                       multiple
                       onChange={(event) =>
-                        setCommentDraftFiles(Array.from(event.target.files ?? []))
+                        setCommentDraftFiles(
+                          Array.from(event.target.files ?? []),
+                        )
                       }
                       type="file"
                     />
@@ -954,7 +1006,9 @@ export function TaskWorkPanel({
                     Add media
                   </label>
                   <button
-                    disabled={isSubmittingComment || isUploadingCommentAttachments}
+                    disabled={
+                      isSubmittingComment || isUploadingCommentAttachments
+                    }
                     type="submit"
                   >
                     {isSubmittingComment || isUploadingCommentAttachments
@@ -966,7 +1020,8 @@ export function TaskWorkPanel({
                   <ul className={styles.commentDraftFiles}>
                     {commentDraftFiles.map((file) => (
                       <li key={`${file.name}-${file.lastModified}`}>
-                        {file.type.startsWith("video/") ? "Video" : "Image"}: {file.name}
+                        {file.type.startsWith("video/") ? "Video" : "Image"}:{" "}
+                        {file.name}
                       </li>
                     ))}
                   </ul>
@@ -1072,7 +1127,10 @@ export function TaskWorkPanel({
                                       attachment={attachment}
                                       onOpen={() => {
                                         if (previewUrl) {
-                                          setSelectedAttachment({ attachment, previewUrl });
+                                          setSelectedAttachment({
+                                            attachment,
+                                            previewUrl,
+                                          });
                                         }
                                       }}
                                       previewUrl={previewUrl ?? undefined}

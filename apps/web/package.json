@@ -13,6 +13,9 @@
   "dependencies": {
     "@devflow/shared": "workspace:*",
     "@platejs/basic-nodes": "^53.0.0",
+    "@platejs/basic-styles": "^53.0.0",
+    "@platejs/link": "^53.3.5",
+    "@platejs/list": "^53.3.13",
     "bootstrap": "^5.3.8",
     "lucide-react": "^1.61.0",
     "next": "^15.5.28",
