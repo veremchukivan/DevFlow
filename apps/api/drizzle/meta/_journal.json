@@ -267,6 +267,13 @@
       "when": 1793214625000,
       "tag": "0037_public_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793227660000,
+      "tag": "0038_remove_legacy_label_preferences",
+      "breakpoints": true
     }
   ]
 }

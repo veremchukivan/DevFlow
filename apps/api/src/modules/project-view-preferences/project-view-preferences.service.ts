@@ -78,7 +78,23 @@ function toPreferences(
       preferences.taskCardAccent as ProjectViewPreferences["taskCardAccent"],
     taskCardColor:
       preferences.taskCardColor as ProjectViewPreferences["taskCardColor"],
-    visibleTaskFields:
-      preferences.visibleTaskFields as ProjectViewPreferences["visibleTaskFields"],
+    visibleTaskFields: sanitizeVisibleTaskFields(preferences.visibleTaskFields),
   };
+}
+
+function sanitizeVisibleTaskFields(value: unknown): ProjectViewPreferences["visibleTaskFields"] {
+  const allowedFields = new Set([
+    "assignee",
+    "dueDate",
+    "priority",
+    "taskKey",
+    "taskType",
+  ]);
+
+  if (!Array.isArray(value)) return defaults.visibleTaskFields;
+
+  return value.filter(
+    (field): field is ProjectViewPreferences["visibleTaskFields"][number] =>
+      typeof field === "string" && allowedFields.has(field),
+  );
 }
