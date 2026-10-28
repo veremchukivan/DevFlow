@@ -3367,6 +3367,10 @@ function TaskEditorModal({
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<
     "automation" | "details" | "development" | null
   >("details");
+  const statusInputRef = useRef<HTMLInputElement>(null);
+  const reviewStatus = project.statuses.find((status) =>
+    /review|рев[ью]/i.test(status.name),
+  );
 
   async function copyTaskLink() {
     const taskUrl = new URL(
@@ -3431,16 +3435,29 @@ function TaskEditorModal({
           </label>
         </header>
         <aside className={styles.taskEditorDetails}>
-          <label className={styles.taskSidebarStatus}>
-            <span className={styles.srOnly}>Status</span>
-            <select defaultValue={task.statusId} name="statusId">
-              {project.statuses.map((status) => (
-                <option key={status.id} value={status.id}>
-                  {status.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <input defaultValue={task.statusId} name="statusId" ref={statusInputRef} type="hidden" />
+          <button
+            className={styles.taskReviewButton}
+            disabled={isSaving || !reviewStatus || task.statusId === reviewStatus.id}
+            onClick={() => {
+              if (reviewStatus && statusInputRef.current) {
+                statusInputRef.current.value = reviewStatus.id;
+              }
+            }}
+            title={
+              reviewStatus
+                ? undefined
+                : "Add an In review status to this project first"
+            }
+            type="submit"
+          >
+            <CircleCheck aria-hidden="true" size={17} />
+            {task.statusId === reviewStatus?.id
+              ? "In review"
+              : reviewStatus
+                ? "Send to review"
+                : "Review status unavailable"}
+          </button>
           <TaskSidebarSection
             isOpen={expandedSidebarSection === "details"}
             onToggle={() =>
