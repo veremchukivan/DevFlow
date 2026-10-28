@@ -1645,6 +1645,57 @@
   gap: 24px;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
 }
+.taskEditorHeader {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-column: 1 / -1;
+  padding-bottom: 20px;
+}
+.taskEditorIdentity,
+.taskEditorHeaderActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.taskEditorIdentity span {
+  background: #f0f4f8;
+  border-radius: 999px;
+  color: #516174;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 9px;
+  text-transform: capitalize;
+}
+.taskEditorIdentity span:first-child {
+  background: #e6f0fb;
+  color: #245078;
+  font-family: monospace;
+}
+.taskEditorIdentity span[data-priority="urgent"] {
+  background: #fff0f0;
+  color: #b42318;
+}
+.taskEditorIdentity span[data-priority="high"] {
+  background: #fff5e9;
+  color: #a15c08;
+}
+.taskEditorTitleField input {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  outline: 0;
+  padding: 2px 0;
+  width: 100%;
+}
+.taskEditorTitleField input:focus {
+  box-shadow: 0 2px 0 var(--brand);
+}
 .taskEditorMain,
 .taskEditorDetails {
   align-content: start;
@@ -1660,6 +1711,16 @@
 .taskEditorDetails > label > span {
   font-size: 13px;
   font-weight: 700;
+}
+.taskEditorDetails {
+  background: #f7f9fb;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+}
+.taskEditorDetails h3 {
+  font-size: 15px;
+  margin: 0 0 2px;
 }
 .taskEditorMain input,
 .taskEditorMain textarea,

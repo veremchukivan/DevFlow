@@ -3440,9 +3440,24 @@ function TaskEditorModal({
         className={styles.taskEditorForm}
         onSubmit={(event) => void onSubmit(event)}
       >
-        <section className={styles.taskEditorMain}>
-          <label>
-            <span>Title</span>
+        <header className={styles.taskEditorHeader}>
+          <div className={styles.taskEditorIdentity}>
+            <span>{task.key}</span>
+            <span>{task.type}</span>
+            <span data-priority={task.priority}>{task.priority} priority</span>
+          </div>
+          <div className={styles.taskEditorHeaderActions}>
+            <button
+              className={styles.textButton}
+              onClick={() => void copyTaskLink()}
+              type="button"
+            >
+              <Copy aria-hidden="true" size={16} />
+              {isLinkCopied ? "Link copied" : "Copy link"}
+            </button>
+          </div>
+          <label className={styles.taskEditorTitleField}>
+            <span className={styles.srOnly}>Title</span>
             <input
               autoFocus
               defaultValue={task.title}
@@ -3452,6 +3467,8 @@ function TaskEditorModal({
               required
             />
           </label>
+        </header>
+        <section className={styles.taskEditorMain}>
           <label>
             <span>Description</span>
             <textarea
@@ -3484,6 +3501,7 @@ function TaskEditorModal({
           </fieldset>
         </section>
         <aside className={styles.taskEditorDetails}>
+          <h3>Details</h3>
           <label>
             <span>Status</span>
             <select defaultValue={task.statusId} name="statusId">
@@ -3571,14 +3589,6 @@ function TaskEditorModal({
           workspaceId={workspaceId}
         />
         <div className={styles.formActions}>
-          <button
-            className={styles.textButton}
-            onClick={() => void copyTaskLink()}
-            type="button"
-          >
-            <Copy aria-hidden="true" size={16} />
-            {isLinkCopied ? "Link copied" : "Copy link"}
-          </button>
           <button
             className={styles.primaryButton}
             disabled={isSaving}
