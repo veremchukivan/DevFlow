@@ -35,6 +35,7 @@ import { workspaceMembersRouter } from "./modules/workspace-members/workspace-me
 import { workspacesRouter } from "./modules/workspaces/workspaces.routes.js";
 import { readinessRouter } from "./modules/health/readiness.routes.js";
 import { figmaRouter } from "./modules/figma/figma.routes.js";
+import { aiSettingsRouter } from "./modules/ai-settings/ai-settings.routes.js";
 
 export function createApp() {
   const app = express();
@@ -78,6 +79,7 @@ export function createApp() {
   app.use("/openapi.json", openApiRouter);
 
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/ai-settings", aiSettingsRouter);
   app.use("/api/v1/integrations/figma", figmaRouter);
   app.use("/api/v1/notifications", notificationsRouter);
   app.use("/api/v1/invitations", publicInvitationsRouter);

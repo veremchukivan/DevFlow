@@ -18,6 +18,7 @@ export * from "./task-comments.js";
 export * from "./task-relations.js";
 export * from "./tasks.js";
 export * from "./users.js";
+export * from "./user-ai-settings.js";
 export * from "./workspace-invitations.js";
 export * from "./workspace-members.js";
 export * from "./workspaces.js";

@@ -253,6 +253,13 @@
       "when": 1793207901660,
       "tag": "0035_striped_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793208562221,
+      "tag": "0036_hard_shiver_man",
+      "breakpoints": true
     }
   ]
 }
