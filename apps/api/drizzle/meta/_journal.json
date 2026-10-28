@@ -232,6 +232,13 @@
       "when": 1793154948694,
       "tag": "0032_tiny_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793155485269,
+      "tag": "0033_short_pestilence",
+      "breakpoints": true
     }
   ]
 }
