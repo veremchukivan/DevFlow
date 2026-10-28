@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { pageInfoSchema } from "./pagination.js";
+import { taskAttachmentSchema } from "./task-attachments.js";
 
 export const createTaskCommentRequestSchema = z.object({
   body: z.string().trim().min(1).max(5000)
@@ -20,6 +21,10 @@ export const taskCommentParamsSchema = taskCommentsParamsSchema.extend({
   commentId: z.uuid()
 });
 
+export const taskCommentAttachmentParamsSchema = taskCommentParamsSchema.extend({
+  attachmentId: z.uuid(),
+});
+
 export const taskCommentAuthorSchema = z.object({
   displayName: z.string(),
   id: z.uuid()
@@ -28,6 +33,7 @@ export const taskCommentAuthorSchema = z.object({
 export const taskCommentSchema = z.object({
   author: taskCommentAuthorSchema.nullable(),
   authorUserId: z.uuid().nullable(),
+  attachments: z.array(taskAttachmentSchema),
   body: z.string(),
   createdAt: z.string().datetime(),
   id: z.uuid(),

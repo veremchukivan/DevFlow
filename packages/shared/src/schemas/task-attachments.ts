@@ -11,6 +11,7 @@ export const taskAttachmentParamsSchema = taskAttachmentsParamsSchema.extend({
 });
 
 export const taskAttachmentSchema = z.object({
+  commentId: z.uuid().nullable(),
   createdAt: z.string().datetime(),
   id: z.uuid(),
   mimeType: z.string(),

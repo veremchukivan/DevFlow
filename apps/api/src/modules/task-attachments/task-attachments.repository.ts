@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "../../core/db/client.js";
@@ -63,7 +63,20 @@ export async function findTaskInProject(input: TaskScope) {
 
 export async function listTaskAttachments(input: TaskScope) {
   return attachmentSelect()
-    .where(attachmentConditions(input))
+    .where(and(attachmentConditions(input), isNull(taskAttachments.commentId)))
+    .orderBy(asc(taskAttachments.createdAt), asc(taskAttachments.id));
+}
+
+export async function listCommentAttachments(input: TaskScope & { commentIds: string[] }) {
+  if (input.commentIds.length === 0) return [];
+
+  return attachmentSelect()
+    .where(
+      and(
+        attachmentConditions(input),
+        inArray(taskAttachments.commentId, input.commentIds),
+      ),
+    )
     .orderBy(asc(taskAttachments.createdAt), asc(taskAttachments.id));
 }
 
@@ -83,6 +96,7 @@ export async function findTaskAttachment(
 
 export async function createTaskAttachment(
   input: TaskScope & {
+    commentId?: string;
     mimeType: string;
     originalFilename: string;
     sizeBytes: number;
@@ -125,6 +139,7 @@ function attachmentSelect() {
   return db
     .select({
       createdAt: taskAttachments.createdAt,
+      commentId: taskAttachments.commentId,
       id: taskAttachments.id,
       mimeType: taskAttachments.mimeType,
       originalFilename: taskAttachments.originalFilename,

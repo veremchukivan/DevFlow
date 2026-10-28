@@ -44,8 +44,13 @@ import {
   updateTaskChecklistItem,
   updateTaskComment,
   uploadTaskAttachment,
+  uploadTaskCommentAttachment,
 } from "@/shared/lib/api-client";
 import { Modal } from "@/shared/components/modal";
+import {
+  RichTextContent,
+  RichTextEditor,
+} from "@/shared/components/rich-text-editor";
 import type {
   Task,
   TaskActivityEvent,
@@ -93,6 +98,10 @@ export function TaskWorkPanel({
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isUploadingCommentAttachments, setIsUploadingCommentAttachments] =
+    useState(false);
+  const [commentDraftFiles, setCommentDraftFiles] = useState<File[]>([]);
+  const [commentEditorResetKey, setCommentEditorResetKey] = useState(0);
   const [isSubmittingChecklistItem, setIsSubmittingChecklistItem] =
     useState(false);
   const [isSavingItemId, setIsSavingItemId] = useState<string>();
@@ -422,12 +431,29 @@ export function TaskWorkPanel({
     setError(undefined);
     setIsSubmittingComment(true);
     try {
-      await createTaskComment(workspaceId, task.projectId, task.id, { body });
+      const response = await createTaskComment(workspaceId, task.projectId, task.id, { body });
+      if (commentDraftFiles.length) {
+        setIsUploadingCommentAttachments(true);
+        await Promise.all(
+          commentDraftFiles.map((file) =>
+            uploadTaskCommentAttachment(
+              workspaceId,
+              task.projectId,
+              task.id,
+              response.comment.id,
+              file,
+            ),
+          ),
+        );
+      }
       await Promise.all([refreshComments(), refreshActivity()]);
       form.reset();
+      setCommentDraftFiles([]);
+      setCommentEditorResetKey((current) => current + 1);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to add comment."));
     } finally {
+      setIsUploadingCommentAttachments(false);
       setIsSubmittingComment(false);
     }
   }
@@ -493,14 +519,13 @@ export function TaskWorkPanel({
         <label className={styles.srOnly} htmlFor={`task-description-${task.id}`}>
           Description
         </label>
-        <textarea
-          defaultValue={description ?? ""}
+        <RichTextEditor
+          defaultValue={description}
           form={editorFormId}
           id={`task-description-${task.id}`}
           maxLength={10000}
           name="description"
           placeholder="Add context, acceptance criteria or implementation notes…"
-          rows={8}
         />
       </section>
       <section
@@ -907,17 +932,45 @@ export function TaskWorkPanel({
                 <label className={styles.srOnly} htmlFor="comment-body">
                   New comment
                 </label>
-                <textarea
+                <RichTextEditor
                   id="comment-body"
                   maxLength={5000}
                   name="body"
                   placeholder="Write a comment…"
-                  required
-                  rows={3}
+                  resetKey={commentEditorResetKey}
                 />
-                <button disabled={isSubmittingComment} type="submit">
-                  {isSubmittingComment ? "Sending" : "Comment"}
-                </button>
+                <div className={styles.commentComposerActions}>
+                  <label className={styles.commentUploadButton}>
+                    <input
+                      accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+                      disabled={isSubmittingComment || isUploadingCommentAttachments}
+                      multiple
+                      onChange={(event) =>
+                        setCommentDraftFiles(Array.from(event.target.files ?? []))
+                      }
+                      type="file"
+                    />
+                    <Paperclip aria-hidden="true" size={15} />
+                    Add media
+                  </label>
+                  <button
+                    disabled={isSubmittingComment || isUploadingCommentAttachments}
+                    type="submit"
+                  >
+                    {isSubmittingComment || isUploadingCommentAttachments
+                      ? "Sending"
+                      : "Comment"}
+                  </button>
+                </div>
+                {commentDraftFiles.length ? (
+                  <ul className={styles.commentDraftFiles}>
+                    {commentDraftFiles.map((file) => (
+                      <li key={`${file.name}-${file.lastModified}`}>
+                        {file.type.startsWith("video/") ? "Video" : "Image"}: {file.name}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </form>
             ) : null}
             {isLoading ? (
@@ -977,12 +1030,12 @@ export function TaskWorkPanel({
                             void onCommentUpdate(event, comment.id)
                           }
                         >
-                          <textarea
+                          <RichTextEditor
                             defaultValue={comment.body}
+                            id={`comment-edit-${comment.id}`}
                             maxLength={5000}
                             name="body"
-                            required
-                            rows={3}
+                            placeholder="Edit comment…"
                           />
                           <div>
                             <button
@@ -1002,7 +1055,35 @@ export function TaskWorkPanel({
                           </div>
                         </form>
                       ) : (
-                        <p>{comment.body}</p>
+                        <>
+                          <RichTextContent value={comment.body} />
+                          {comment.attachments.length ? (
+                            <ul className={styles.commentAttachmentList}>
+                              {comment.attachments.map((attachment) => {
+                                const previewUrl = getTaskAttachmentPreviewUrl(
+                                  workspaceId,
+                                  task.projectId,
+                                  task.id,
+                                  attachment.id,
+                                );
+                                return (
+                                  <li key={attachment.id}>
+                                    <AttachmentPreview
+                                      attachment={attachment}
+                                      onOpen={() => {
+                                        if (previewUrl) {
+                                          setSelectedAttachment({ attachment, previewUrl });
+                                        }
+                                      }}
+                                      previewUrl={previewUrl ?? undefined}
+                                    />
+                                    <span>{attachment.originalFilename}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : null}
+                        </>
                       )}
                     </li>
                   );

@@ -6,6 +6,7 @@ import type {
 
 import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { sanitizeOptionalRichText } from "../../core/rich-text/sanitize.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
@@ -83,7 +84,9 @@ export async function createTask(input: {
       projectKey: project.key,
     },
     assigneeUserId: input.input.assigneeUserId,
-    description: input.input.description,
+    description: input.input.description
+      ? sanitizeOptionalRichText(input.input.description) ?? undefined
+      : undefined,
     dueDate: input.input.dueDate,
     parentTaskId: input.input.parentTaskId,
     priority: input.input.priority,
@@ -260,7 +263,7 @@ export async function updateTask(input: {
     const updatedTask = await updateTaskInProject(
       {
         assigneeUserId: input.input.assigneeUserId,
-        description: input.input.description,
+        description: sanitizeOptionalRichText(input.input.description),
         dueDate: input.input.dueDate,
         parentTaskId: input.input.parentTaskId,
         priority: input.input.priority,

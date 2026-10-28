@@ -177,6 +177,7 @@ function pipeStoredFile(
 }
 
 function toTaskAttachmentDto(attachment: {
+  commentId: string | null;
   createdAt: Date;
   id: string;
   mimeType: string;
@@ -189,6 +190,7 @@ function toTaskAttachmentDto(attachment: {
   workspaceId: string;
 }) {
   return {
+    commentId: attachment.commentId,
     createdAt: attachment.createdAt.toISOString(),
     id: attachment.id,
     mimeType: attachment.mimeType,

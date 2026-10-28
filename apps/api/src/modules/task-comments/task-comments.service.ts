@@ -6,6 +6,7 @@ import type {
 
 import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { sanitizeRichText } from "../../core/rich-text/sanitize.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import { notifyTaskCommented } from "../notifications/notifications.service.js";
@@ -23,6 +24,7 @@ import {
   softDeleteTaskComment,
   updateTaskComment,
 } from "./task-comments.repository.js";
+import { listCommentAttachments } from "../task-attachments/task-attachments.repository.js";
 
 export async function createComment(input: {
   input: CreateTaskCommentRequest;
@@ -47,7 +49,7 @@ export async function createComment(input: {
     const comment = await createTaskComment(
       {
         authorUserId: input.userId,
-        body: input.input.body,
+        body: sanitizeRichText(input.input.body, "Comment"),
         projectId: input.projectId,
         taskId: input.taskId,
         workspaceId: input.workspaceId,
@@ -84,7 +86,7 @@ export async function createComment(input: {
     taskTitle: task.title,
     workspaceId: input.workspaceId,
   });
-  return comment;
+  return (await hydrateComments([comment], input))[0]!;
 }
 
 export async function listComments(input: {
@@ -105,7 +107,7 @@ export async function listComments(input: {
   });
 
   return {
-    comments: result.items,
+    comments: await hydrateComments(result.items, input),
     pageInfo: buildPageInfo({ ...input.pagination, total: result.total }),
   };
 }
@@ -139,7 +141,7 @@ export async function updateComment(input: {
   return db.transaction(async (tx) => {
     const updatedComment = await updateTaskComment(
       {
-        body: input.input.body,
+        body: sanitizeRichText(input.input.body, "Comment"),
         commentId: input.commentId,
         projectId: input.projectId,
         taskId: input.taskId,
@@ -170,7 +172,9 @@ export async function updateComment(input: {
       tx,
     );
 
-    return updatedComment;
+    return hydrateComments([updatedComment], input).then(
+      (comments) => comments[0]!,
+    );
   });
 }
 
@@ -266,4 +270,26 @@ async function requireComment(input: {
   }
 
   return comment;
+}
+
+async function hydrateComments<
+  T extends { id: string; projectId: string; taskId: string; workspaceId: string },
+>(comments: T[], scope: { projectId: string; taskId: string; workspaceId: string }) {
+  const attachments = await listCommentAttachments({
+    ...scope,
+    commentIds: comments.map((comment) => comment.id),
+  });
+  const attachmentsByCommentId = new Map<string, typeof attachments>();
+
+  for (const attachment of attachments) {
+    if (!attachment.commentId) continue;
+    const current = attachmentsByCommentId.get(attachment.commentId) ?? [];
+    current.push(attachment);
+    attachmentsByCommentId.set(attachment.commentId, current);
+  }
+
+  return comments.map((comment) => ({
+    ...comment,
+    attachments: attachmentsByCommentId.get(comment.id) ?? [],
+  }));
 }

@@ -38,6 +38,10 @@
   width: 100%;
 }
 
+.descriptionSection > div:last-child {
+  margin-top: 16px;
+}
+
 .attachmentsSection {
   border: 0;
   border-radius: 0;
@@ -110,8 +114,8 @@
 }
 
 .inlineForm button,
-.commentForm button,
-.editCommentForm button {
+.commentComposerActions > button,
+.editCommentForm > div > button {
   background: var(--brand);
   border: 1px solid var(--brand);
   border-radius: 6px;
@@ -124,8 +128,8 @@
 }
 
 .inlineForm button:disabled,
-.commentForm button:disabled,
-.editCommentForm button:disabled {
+.commentComposerActions > button:disabled,
+.editCommentForm > div > button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
@@ -566,15 +570,84 @@
   margin-top: 16px;
 }
 
-.commentForm textarea,
-.editCommentForm textarea {
-  padding: 9px 10px;
-  resize: vertical;
-  width: 100%;
+.commentComposerActions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
 }
 
-.commentForm button {
-  justify-self: start;
+.commentUploadButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 11px;
+}
+
+.commentUploadButton:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.commentUploadButton input {
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.commentDraftFiles,
+.commentAttachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.commentDraftFiles li {
+  background: #f0f4f8;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+.commentAttachmentList {
+  margin-top: 12px;
+}
+
+.commentAttachmentList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 7px;
+  max-width: 220px;
+  overflow: hidden;
+  padding: 7px;
+}
+
+.commentAttachmentList .attachmentImageLink,
+.commentAttachmentList .attachmentVideo {
+  height: 110px;
+  max-width: 204px;
+}
+
+.commentAttachmentList li > span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .commentList > li {

@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { timestampColumns } from "./_common.js";
+import { taskComments } from "./task-comments.js";
 import { tasks } from "./tasks.js";
 import { users } from "./users.js";
 import { workspaces } from "./workspaces.js";
@@ -21,6 +22,7 @@ export const taskAttachments = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     projectId: uuid("project_id").notNull(),
     taskId: uuid("task_id").notNull(),
+    commentId: uuid("comment_id"),
     uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -36,6 +38,11 @@ export const taskAttachments = pgTable(
       foreignColumns: [tasks.workspaceId, tasks.projectId, tasks.id],
       name: "task_attachments_task_fk",
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.commentId],
+      foreignColumns: [taskComments.id],
+      name: "task_attachments_comment_fk",
+    }).onDelete("cascade"),
     index("task_attachments_task_created_at_idx").on(
       table.workspaceId,
       table.projectId,
@@ -44,6 +51,10 @@ export const taskAttachments = pgTable(
     ),
     index("task_attachments_uploaded_by_user_id_idx").on(
       table.uploadedByUserId,
+    ),
+    index("task_attachments_comment_created_at_idx").on(
+      table.commentId,
+      table.createdAt,
     ),
   ],
 );

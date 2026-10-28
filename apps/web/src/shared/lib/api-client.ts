@@ -1238,6 +1238,22 @@ export function uploadTaskAttachment(
   );
 }
 
+export function uploadTaskCommentAttachment(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  commentId: string,
+  file: File,
+): Promise<TaskAttachmentResponse> {
+  const form = new FormData();
+  form.set("file", file);
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/comments/${commentId}/attachments`,
+    { body: form, method: "POST" },
+    taskAttachmentResponseSchema,
+  );
+}
+
 export function deleteTaskAttachment(
   workspaceId: string,
   projectId: string,

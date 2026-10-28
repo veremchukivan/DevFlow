@@ -1,6 +1,7 @@
 import {
   createTaskCommentRequestSchema,
   paginationQuerySchema,
+  taskAttachmentResponseSchema,
   taskCommentParamsSchema,
   taskCommentsParamsSchema,
   updateTaskCommentRequestSchema,
@@ -8,6 +9,11 @@ import {
   type TaskCommentResponse
 } from "@devflow/shared";
 import { Router } from "express";
+
+import { AppError } from "../../core/errors/app-error.js";
+import { sanitizeRichText } from "../../core/rich-text/sanitize.js";
+import { taskAttachmentUpload } from "../../core/uploads/images.js";
+import { addCommentAttachment } from "../task-attachments/task-attachments.service.js";
 
 import {
   type AuthenticatedRequest,
@@ -55,6 +61,29 @@ taskCommentsRouter.get("/", async (req, res) => {
   } satisfies TaskCommentListResponse);
 });
 
+taskCommentsRouter.post(
+  "/:commentId/attachments",
+  taskAttachmentUpload.single("file"),
+  async (req, res) => {
+    const params = taskCommentParamsSchema.parse(req.params);
+    if (!req.file) {
+      throw new AppError(
+        400,
+        "COMMENT_ATTACHMENT_REQUIRED",
+        "Choose an image or video to upload",
+      );
+    }
+    const attachment = await addCommentAttachment({
+      ...params,
+      file: req.file,
+      userId: getAuthenticatedUserId(req),
+    });
+    res.status(201).json({
+      attachment: toTaskAttachmentDto(attachment),
+    } satisfies typeof taskAttachmentResponseSchema._output);
+  },
+);
+
 taskCommentsRouter.patch("/:commentId", async (req, res) => {
   const params = taskCommentParamsSchema.parse(req.params);
   const input = updateTaskCommentRequestSchema.parse(req.body);
@@ -96,6 +125,7 @@ function toTaskCommentResponse(
 }
 
 function toTaskCommentDto(comment: {
+  attachments: Array<Parameters<typeof toTaskAttachmentDto>[0]>;
   authorDisplayName: string | null;
   authorId: string | null;
   authorUserId: string | null;
@@ -116,12 +146,47 @@ function toTaskCommentDto(comment: {
           }
         : null,
     authorUserId: comment.authorUserId,
-    body: comment.body,
+    attachments: comment.attachments.map(toTaskAttachmentDto),
+    body: sanitizeRichText(comment.body, "Comment"),
     createdAt: comment.createdAt.toISOString(),
     id: comment.id,
     projectId: comment.projectId,
     taskId: comment.taskId,
     updatedAt: comment.updatedAt.toISOString(),
     workspaceId: comment.workspaceId
+  };
+}
+
+function toTaskAttachmentDto(attachment: {
+  commentId: string | null;
+  createdAt: Date;
+  id: string;
+  mimeType: string;
+  originalFilename: string;
+  projectId: string;
+  sizeBytes: number;
+  taskId: string;
+  uploadedBy?: { displayName: string | null; id: string | null } | null;
+  uploadedByUserId: string | null;
+  workspaceId: string;
+}) {
+  return {
+    commentId: attachment.commentId,
+    createdAt: attachment.createdAt.toISOString(),
+    id: attachment.id,
+    mimeType: attachment.mimeType,
+    originalFilename: attachment.originalFilename,
+    projectId: attachment.projectId,
+    sizeBytes: attachment.sizeBytes,
+    taskId: attachment.taskId,
+    uploadedBy:
+      attachment.uploadedBy?.id && attachment.uploadedBy.displayName
+        ? {
+            displayName: attachment.uploadedBy.displayName,
+            id: attachment.uploadedBy.id,
+          }
+        : null,
+    uploadedByUserId: attachment.uploadedByUserId,
+    workspaceId: attachment.workspaceId,
   };
 }

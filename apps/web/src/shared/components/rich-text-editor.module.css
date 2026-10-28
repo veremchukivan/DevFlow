@@ -1,0 +1,102 @@
+.editor {
+  border: 1px solid #b9c4d1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.editor:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent);
+}
+
+.toolbar {
+  align-items: center;
+  background: #f7f9fb;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 2px;
+  padding: 6px;
+}
+
+.toolbar button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.toolbar button:hover,
+.toolbar button:focus-visible {
+  background: #e7eef8;
+  color: var(--brand);
+  outline: 0;
+}
+
+.content {
+  background: var(--surface);
+  color: var(--ink);
+  line-height: 1.55;
+  min-height: 128px;
+  outline: 0;
+  padding: 11px;
+}
+
+.content:empty::before {
+  color: var(--muted);
+  content: attr(aria-label);
+  pointer-events: none;
+}
+
+.content p,
+.contentOutput p {
+  margin: 0 0 0.7em;
+}
+
+.content p:last-child,
+.contentOutput p:last-child {
+  margin-bottom: 0;
+}
+
+.content ul,
+.content ol,
+.contentOutput ul,
+.contentOutput ol {
+  margin: 0.45em 0;
+  padding-left: 1.4em;
+}
+
+.content blockquote,
+.contentOutput blockquote {
+  border-left: 3px solid var(--brand);
+  color: var(--muted);
+  margin: 0.5em 0;
+  padding-left: 0.8em;
+}
+
+.content a,
+.contentOutput a {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.hint {
+  background: #f7f9fb;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0;
+  padding: 5px 10px;
+  text-align: right;
+}
+
+.contentOutput {
+  line-height: 1.55;
+  margin-top: 9px;
+  overflow-wrap: anywhere;
+}
