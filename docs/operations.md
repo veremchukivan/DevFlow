@@ -30,8 +30,12 @@ managed outside the repository.
 - Before every production deployment, run the non-secret-printing validator:
 
   ```bash
-  pnpm infra:verify-production
+  pnpm infra:verify-production -- --env-file /secure/path/devflow.env
   ```
+
+Start from [`infra/.env.production.example`](../infra/.env.production.example)
+when creating the deployment environment. It contains placeholders only; keep
+the completed file in the deployment secret manager, not in the repository.
 
 ## Backup
 
