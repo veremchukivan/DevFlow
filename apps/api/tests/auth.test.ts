@@ -165,6 +165,10 @@ describe("Auth Module Integration Tests", () => {
     expect(uploaded.status).toBe(200);
     expect(uploaded.body.user.avatarUrl).toMatch(/^\/uploads\/avatars\//);
 
+    const image = await request(app).get(uploaded.body.user.avatarUrl);
+    expect(image.status).toBe(200);
+    expect(image.headers["cross-origin-resource-policy"]).toBe("cross-origin");
+
     const removed = await request(app)
       .delete("/api/v1/auth/profile/avatar")
       .set("Cookie", cookie);

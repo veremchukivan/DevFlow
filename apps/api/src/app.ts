@@ -60,6 +60,14 @@ export function createApp() {
   });
   app.use(
     "/uploads",
+    (_req, res, next) => {
+      // Avatars and project icons are displayed by the web app on a different
+      // local development origin (for example, port 3001 vs. API port 4000).
+      // Helmet defaults this header to same-origin, which makes browsers block
+      // otherwise public image resources.
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      next();
+    },
     express.static(env.UPLOADS_DIR, {
       fallthrough: false,
       maxAge: "30d",

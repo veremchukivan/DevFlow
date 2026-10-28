@@ -179,6 +179,12 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
       expect(uploaded.status).toBe(200);
       expect(uploaded.body.project.iconUrl).toMatch(/^\/uploads\/projects\//);
 
+      const image = await request(app).get(uploaded.body.project.iconUrl);
+      expect(image.status).toBe(200);
+      expect(image.headers["cross-origin-resource-policy"]).toBe(
+        "cross-origin",
+      );
+
       const removed = await request(app)
         .delete(
           `/api/v1/workspaces/${workspace.id}/projects/${project.id}/icon`,
