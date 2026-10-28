@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
@@ -3363,6 +3364,9 @@ function TaskEditorModal({
   workspaceId: string;
 }) {
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [expandedSidebarSection, setExpandedSidebarSection] = useState<
+    "automation" | "details" | "development" | null
+  >("details");
 
   async function copyTaskLink() {
     const taskUrl = new URL(
@@ -3393,11 +3397,11 @@ function TaskEditorModal({
   return (
     <Modal isOpen onClose={onClose} title={`${task.key} details`} width="extraWide">
       <div className={styles.taskEditorWorkspace}>
-      <form
-        className={styles.taskEditorForm}
-        id={`task-editor-${task.id}`}
-        onSubmit={(event) => void onSubmit(event)}
-      >
+        <form
+          className={styles.taskEditorForm}
+          id={`task-editor-${task.id}`}
+          onSubmit={(event) => void onSubmit(event)}
+        >
         <header className={styles.taskEditorHeader}>
           <div className={styles.taskEditorIdentity}>
             <span>{task.key}</span>
@@ -3427,12 +3431,8 @@ function TaskEditorModal({
           </label>
         </header>
         <aside className={styles.taskEditorDetails}>
-          <div className={styles.taskEditorDetailsHeading}>
-            <p>Task context</p>
-            <h3>Details</h3>
-          </div>
-          <label>
-            <span>Status</span>
+          <label className={styles.taskSidebarStatus}>
+            <span className={styles.srOnly}>Status</span>
             <select defaultValue={task.statusId} name="statusId">
               {project.statuses.map((status) => (
                 <option key={status.id} value={status.id}>
@@ -3441,89 +3441,115 @@ function TaskEditorModal({
               ))}
             </select>
           </label>
-          <label>
-            <span>Type</span>
-            <select defaultValue={task.type} name="type">
-              {taskTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type[0]!.toUpperCase() + type.slice(1)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Priority</span>
-            <select defaultValue={task.priority} name="priority">
-              {priorities.map((priority) => (
-                <option key={priority} value={priority}>
-                  {priority[0]!.toUpperCase() + priority.slice(1)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Assignee</span>
-            <select
-              defaultValue={task.assigneeUserId ?? ""}
-              name="assigneeUserId"
-            >
-              <option value="">Unassigned</option>
-              {members.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.user.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Sprint</span>
-            <select defaultValue={task.sprintId ?? ""} name="sprintId">
-              <option value="">Backlog</option>
-              {sprints.map((sprint) => (
-                <option key={sprint.id} value={sprint.id}>
-                  {sprint.name} ({sprint.status})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Parent task</span>
-            <select defaultValue={task.parentTaskId ?? ""} name="parentTaskId">
-              <option value="">No parent task</option>
-              {availableParentTasks
-                .filter(
-                  (candidate) =>
-                    candidate.id !== task.id && !candidate.parentTaskId,
-                )
-                .map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.key}: {candidate.title}
+          <TaskSidebarSection
+            isOpen={expandedSidebarSection === "details"}
+            onToggle={() =>
+              setExpandedSidebarSection((current) =>
+                current === "details" ? null : "details",
+              )
+            }
+            summary={`${task.assignee?.displayName ?? "Unassigned"} · ${task.dueDate ?? "No due date"}`}
+            title="Details"
+          >
+            <label>
+              <span>Type</span>
+              <select defaultValue={task.type} name="type">
+                {taskTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type[0]!.toUpperCase() + type.slice(1)}
                   </option>
                 ))}
-            </select>
-          </label>
-          <label>
-            <span>Due date</span>
-            <input
-              defaultValue={task.dueDate ?? ""}
-              name="dueDate"
-              type="date"
-            />
-          </label>
-          <dl className={styles.taskEditorFacts}>
-            <div>
-              <dt>Project</dt>
-              <dd>{project.name}</dd>
-            </div>
-            <div>
-              <dt>Reporter</dt>
-              <dd>{task.reporter?.displayName ?? "Unknown"}</dd>
-            </div>
-            <div>
-              <dt>Created</dt>
-              <dd>{new Date(task.createdAt).toLocaleDateString()}</dd>
-            </div>
-          </dl>
+              </select>
+            </label>
+            <label>
+              <span>Priority</span>
+              <select defaultValue={task.priority} name="priority">
+                {priorities.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority[0]!.toUpperCase() + priority.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Assignee</span>
+              <select defaultValue={task.assigneeUserId ?? ""} name="assigneeUserId">
+                <option value="">Unassigned</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.user.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Sprint</span>
+              <select defaultValue={task.sprintId ?? ""} name="sprintId">
+                <option value="">Backlog</option>
+                {sprints.map((sprint) => (
+                  <option key={sprint.id} value={sprint.id}>
+                    {sprint.name} ({sprint.status})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Parent task</span>
+              <select defaultValue={task.parentTaskId ?? ""} name="parentTaskId">
+                <option value="">No parent task</option>
+                {availableParentTasks
+                  .filter(
+                    (candidate) =>
+                      candidate.id !== task.id && !candidate.parentTaskId,
+                  )
+                  .map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.key}: {candidate.title}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              <span>Due date</span>
+              <input defaultValue={task.dueDate ?? ""} name="dueDate" type="date" />
+            </label>
+            <dl className={styles.taskEditorFacts}>
+              <div><dt>Project</dt><dd>{project.name}</dd></div>
+              <div><dt>Reporter</dt><dd>{task.reporter?.displayName ?? "Unknown"}</dd></div>
+              <div><dt>Created</dt><dd>{new Date(task.createdAt).toLocaleDateString()}</dd></div>
+            </dl>
+          </TaskSidebarSection>
+          <TaskSidebarSection
+            isOpen={expandedSidebarSection === "development"}
+            onToggle={() =>
+              setExpandedSidebarSection((current) =>
+                current === "development" ? null : "development",
+              )
+            }
+            summary="Figma and coding tools"
+            title="Development"
+          >
+            <p className={styles.taskSidebarHint}>
+              Connect personal tools from Setup. Project Figma links remain available in project settings.
+            </p>
+            <Link className={styles.taskSidebarLink} href="/profile">
+              Open integrations
+            </Link>
+          </TaskSidebarSection>
+          <TaskSidebarSection
+            isOpen={expandedSidebarSection === "automation"}
+            onToggle={() =>
+              setExpandedSidebarSection((current) =>
+                current === "automation" ? null : "automation",
+              )
+            }
+            summary="No rules configured"
+            title="Automation"
+          >
+            <p className={styles.taskSidebarHint}>
+              Automation rules will appear here when this project supports configured triggers.
+            </p>
+          </TaskSidebarSection>
         </aside>
         <div className={styles.formActions}>
           <button
@@ -3542,19 +3568,56 @@ function TaskEditorModal({
             Cancel
           </button>
         </div>
-      </form>
-      <div className={styles.taskEditorWork}>
-        <TaskWorkPanel
-          availableRelatedTasks={availableParentTasks}
-          description={task.description}
-          editorFormId={`task-editor-${task.id}`}
-          role={role}
-          task={task}
-          workspaceId={workspaceId}
-        />
-      </div>
+        </form>
+        <div className={styles.taskEditorWork}>
+          <TaskWorkPanel
+            availableRelatedTasks={availableParentTasks}
+            description={task.description}
+            editorFormId={`task-editor-${task.id}`}
+            role={role}
+            task={task}
+            workspaceId={workspaceId}
+          />
+        </div>
       </div>
     </Modal>
+  );
+}
+
+function TaskSidebarSection({
+  children,
+  isOpen,
+  onToggle,
+  summary,
+  title,
+}: {
+  children: ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+  summary: string;
+  title: string;
+}) {
+  return (
+    <section className={styles.taskSidebarSection}>
+      <button
+        aria-expanded={isOpen}
+        className={styles.taskSidebarSectionToggle}
+        onClick={onToggle}
+        type="button"
+      >
+        <ChevronRight
+          aria-hidden="true"
+          className={isOpen ? styles.taskSidebarChevronOpen : undefined}
+          size={17}
+          strokeWidth={1.8}
+        />
+        <span>{title}</span>
+        {!isOpen ? <small>{summary}</small> : null}
+      </button>
+      {isOpen ? (
+        <div className={styles.taskSidebarSectionContent}>{children}</div>
+      ) : null}
+    </section>
   );
 }
 
