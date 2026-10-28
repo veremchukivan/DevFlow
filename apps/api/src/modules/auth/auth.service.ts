@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type {
   ChangePasswordRequest,
   ChangeEmailRequest,
+  CreateApiTokenRequest,
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
@@ -14,6 +15,7 @@ import { AppError } from "../../core/errors/app-error.js";
 import { deleteStoredImage, saveImage } from "../../core/uploads/images.js";
 import {
   createSession,
+  createApiToken,
   createUser,
   createUserWithDefaultWorkspace,
   consumeEmailVerificationToken,
@@ -30,9 +32,11 @@ import {
   findUserAvatarById,
   getAccountDataExport,
   listActiveSessionsForUser,
+  listApiTokens,
   replaceEmailVerificationToken,
   replaceEmailChangeToken,
   replacePasswordResetToken,
+  revokeApiToken,
   touchSession,
   updatePasswordAndDeleteSessions,
   updateUserDisplayName,
@@ -294,6 +298,28 @@ export async function deleteAccount(userId: string, currentPassword: string) {
   await deleteStoredImage(result.avatarUrl);
 }
 
+export async function createPersonalApiToken(userId: string, input: CreateApiTokenRequest) {
+  const secret = `df_${randomBytes(32).toString("base64url")}`;
+  const token = await createApiToken({
+    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    name: input.name,
+    tokenHash: hashToken(secret),
+    tokenPrefix: secret.slice(0, 11),
+    userId,
+  });
+  return { token: secret, tokenInfo: toApiTokenInfo(token) };
+}
+
+export async function getPersonalApiTokens(userId: string) {
+  return (await listApiTokens(userId)).map(toApiTokenInfo);
+}
+
+export async function revokePersonalApiToken(userId: string, tokenId: string) {
+  if (!(await revokeApiToken(userId, tokenId))) {
+    throw new AppError(404, "API_TOKEN_NOT_FOUND", "API token was not found");
+  }
+}
+
 export async function requestEmailChange(
   userId: string,
   input: ChangeEmailRequest,
@@ -480,6 +506,10 @@ function getPasswordResetExpiresAt() {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function toApiTokenInfo(token: { id: string; name: string; tokenPrefix: string; createdAt: Date; expiresAt: Date | null; lastUsedAt: Date | null }) {
+  return { id: token.id, name: token.name, tokenPrefix: token.tokenPrefix, createdAt: token.createdAt.toISOString(), expiresAt: token.expiresAt?.toISOString() ?? null, lastUsedAt: token.lastUsedAt?.toISOString() ?? null };
 }
 
 function invalidCredentialsError() {

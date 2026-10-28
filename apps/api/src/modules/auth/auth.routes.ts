@@ -4,6 +4,7 @@ import {
   emailVerificationTokenRequestSchema,
   changePasswordRequestSchema,
   changeEmailRequestSchema,
+  createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
   deleteAccountRequestSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
@@ -42,6 +43,7 @@ import {
   revokeAccountSession,
   revokeOtherAccountSessions,
   requestEmailChange,
+  createPersonalApiToken, getPersonalApiTokens, revokePersonalApiToken,
   verifyEmail,
 } from "./auth.service.js";
 
@@ -213,6 +215,19 @@ authRouter.delete(
     res.status(204).send();
   },
 );
+
+authRouter.get("/api-tokens", requireAuth, async (req, res) => {
+  res.json(apiTokenListResponseSchema.parse({ tokens: await getPersonalApiTokens(getAuthenticatedUser(req).id) }));
+});
+authRouter.post("/api-tokens", requireAuth, authRateLimiter, async (req, res) => {
+  const result = await createPersonalApiToken(getAuthenticatedUser(req).id, createApiTokenRequestSchema.parse(req.body));
+  res.status(201).json(createApiTokenResponseSchema.parse(result));
+});
+authRouter.delete("/api-tokens/:tokenId", requireAuth, async (req, res) => {
+  const tokenId = String(req.params.tokenId ?? "");
+  await revokePersonalApiToken(getAuthenticatedUser(req).id, tokenId);
+  res.status(204).send();
+});
 
 authRouter.post(
   "/email-verification/resend",

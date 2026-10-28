@@ -517,4 +517,19 @@ describe("Auth Module Integration Tests", () => {
       }),
     ).rejects.toMatchObject({ code: "EMAIL_UNCHANGED", statusCode: 400 });
   });
+
+  it("creates, lists and revokes a personal API token", async () => {
+    const registered = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Token User", email: `token-${Date.now()}@devflow.io`, password: "Password123!",
+    });
+    const cookie = registered.headers["set-cookie"][0];
+    const created = await request(app).post("/api/v1/auth/api-tokens").set("Cookie", cookie).send({ name: "Codex" });
+    expect(created.status).toBe(201);
+    expect(created.body.token).toMatch(/^df_/);
+    const listed = await request(app).get("/api/v1/auth/api-tokens").set("Cookie", cookie);
+    expect(listed.body.tokens).toHaveLength(1);
+    expect(listed.body.tokens[0]).not.toHaveProperty("token");
+    const revoked = await request(app).delete(`/api/v1/auth/api-tokens/${created.body.tokenInfo.id}`).set("Cookie", cookie);
+    expect(revoked.status).toBe(204);
+  });
 });

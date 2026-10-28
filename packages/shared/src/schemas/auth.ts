@@ -49,6 +49,15 @@ export const changeEmailRequestSchema = z.object({
 export const deleteAccountRequestSchema = z.object({
   currentPassword: z.string().min(1).max(256),
 });
+export const createApiTokenRequestSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  expiresAt: z.string().datetime().nullable().optional(),
+});
+export const apiTokenSchema = z.object({
+  createdAt: z.string().datetime(), expiresAt: z.string().datetime().nullable(), id: z.uuid(), lastUsedAt: z.string().datetime().nullable(), name: z.string(), tokenPrefix: z.string(),
+});
+export const apiTokenListResponseSchema = z.object({ tokens: z.array(apiTokenSchema) });
+export const createApiTokenResponseSchema = z.object({ token: z.string().min(1), tokenInfo: apiTokenSchema });
 
 export const authResponseSchema = z.object({
   user: authUserSchema,
@@ -84,3 +93,4 @@ export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
 export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 export type ChangeEmailRequest = z.infer<typeof changeEmailRequestSchema>;
 export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;
+export type CreateApiTokenRequest = z.infer<typeof createApiTokenRequestSchema>;

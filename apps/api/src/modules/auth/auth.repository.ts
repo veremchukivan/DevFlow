@@ -2,6 +2,7 @@ import { and, desc, eq, gt, inArray, isNull, lte, ne } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { authTokens } from "../../core/db/schema/auth-tokens.js";
+import { apiTokens } from "../../core/db/schema/api-tokens.js";
 import { sessions } from "../../core/db/schema/sessions.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
@@ -527,6 +528,18 @@ export async function deleteExpiredSessions(now = new Date()) {
     .delete(sessions)
     .where(lte(sessions.expiresAt, now))
     .returning({ id: sessions.id });
+}
+
+export async function createApiToken(input: { userId: string; name: string; tokenHash: string; tokenPrefix: string; expiresAt: Date | null }) {
+  const [token] = await db.insert(apiTokens).values({ ...input, scopes: ["api:access"] }).returning();
+  return token!;
+}
+export async function listApiTokens(userId: string) {
+  return db.select().from(apiTokens).where(and(eq(apiTokens.userId, userId), isNull(apiTokens.revokedAt))).orderBy(desc(apiTokens.createdAt));
+}
+export async function revokeApiToken(userId: string, tokenId: string) {
+  const [token] = await db.update(apiTokens).set({ revokedAt: new Date() }).where(and(eq(apiTokens.id, tokenId), eq(apiTokens.userId, userId), isNull(apiTokens.revokedAt))).returning({ id: apiTokens.id });
+  return token ?? null;
 }
 
 export async function replaceEmailVerificationToken(input: {
