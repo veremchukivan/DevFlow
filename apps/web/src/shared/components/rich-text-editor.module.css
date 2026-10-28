@@ -1,12 +1,44 @@
 .editor {
+  width: 100%;
+}
+
+.editor:has(.toolbar) {
   border: 1px solid #b9c4d1;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.editor:focus-within {
+.editor:has(.toolbar):focus-within {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent);
+}
+
+.previewButton {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  cursor: text;
+  display: block;
+  font: inherit;
+  line-height: 1.55;
+  min-height: 28px;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.previewButton:hover .placeholder,
+.previewButton:focus-visible .placeholder {
+  color: var(--brand);
+}
+
+.previewButton:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 4px;
+}
+
+.placeholder {
+  color: var(--muted);
 }
 
 .toolbar {

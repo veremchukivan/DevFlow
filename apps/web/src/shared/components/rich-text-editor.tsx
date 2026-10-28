@@ -1,20 +1,14 @@
 "use client";
 
 import {
-  Bold,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  Quote,
-  Underline,
-} from "lucide-react";
-import {
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+  BlockquotePlugin,
+  BoldPlugin,
+  ItalicPlugin,
+  UnderlinePlugin,
+} from "@platejs/basic-nodes/react";
+import { Bold, Italic, Quote, Underline } from "lucide-react";
+import { Plate, PlateContent, usePlateEditor } from "platejs/react";
+import { type ReactNode, useRef, useState } from "react";
 
 import styles from "./rich-text-editor.module.css";
 
@@ -28,6 +22,15 @@ type RichTextEditorProps = {
   resetKey?: number;
 };
 
+type PlateNode = {
+  bold?: boolean;
+  children?: PlateNode[];
+  italic?: boolean;
+  text?: string;
+  type?: string;
+  underline?: boolean;
+};
+
 export function RichTextEditor({
   defaultValue,
   form,
@@ -37,89 +40,113 @@ export function RichTextEditor({
   placeholder,
   resetKey,
 }: RichTextEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [value, setValue] = useState(() => toEditorHtml(defaultValue));
+  const [value, setValue] = useState(() => normalizeHtml(defaultValue));
+  const [isActive, setIsActive] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resetRef = useRef(resetKey);
 
-  useEffect(() => {
-    const nextValue = toEditorHtml(defaultValue);
-    setValue(nextValue);
-    if (editorRef.current) editorRef.current.innerHTML = nextValue;
-  }, [defaultValue, resetKey]);
-
-  function syncValue() {
-    const html = editorRef.current?.innerHTML ?? "";
-    if (textLength(html) > maxLength) return;
-    setValue(html);
+  if (resetRef.current !== resetKey) {
+    resetRef.current = resetKey;
+    setValue(normalizeHtml(defaultValue));
+    setIsActive(false);
   }
 
-  function runCommand(command: string, commandValue?: string) {
-    editorRef.current?.focus();
-    document.execCommand(command, false, commandValue);
-    syncValue();
-  }
-
-  function addLink() {
-    const url = window.prompt("Paste a link");
-    if (!url) return;
-    try {
-      const parsedUrl = new URL(url, window.location.origin);
-      if (!['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) return;
-      runCommand("createLink", parsedUrl.href);
-    } catch {
-      // Ignore malformed links: the server performs final HTML sanitisation.
-    }
+  function closeIfFocusLeaves() {
+    window.setTimeout(() => {
+      if (!containerRef.current?.contains(document.activeElement)) {
+        setIsActive(false);
+      }
+    }, 0);
   }
 
   return (
-    <div className={styles.editor}>
+    <div className={styles.editor} onBlur={closeIfFocusLeaves} ref={containerRef}>
+      <input form={form} name={name} type="hidden" value={value} />
+      {isActive ? (
+        <PlateEditorSurface
+          id={id}
+          initialValue={value}
+          maxLength={maxLength}
+          onChange={setValue}
+          placeholder={placeholder}
+        />
+      ) : (
+        <button
+          aria-label={placeholder}
+          className={styles.previewButton}
+          onClick={() => setIsActive(true)}
+          type="button"
+        >
+          {hasText(value) ? (
+            <RichTextContent value={value} />
+          ) : (
+            <span className={styles.placeholder}>{placeholder}</span>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PlateEditorSurface({
+  id,
+  initialValue,
+  maxLength,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  initialValue: string;
+  maxLength: number;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  const editor = usePlateEditor({
+    plugins: [BoldPlugin, ItalicPlugin, UnderlinePlugin, BlockquotePlugin],
+    value: initialValue,
+  });
+
+  return (
+    <Plate
+      editor={editor}
+      onChange={({ value }) => {
+        const html = serializePlateValue(value as PlateNode[]);
+        if (plainTextLength(html) <= maxLength) onChange(html);
+      }}
+    >
       <div aria-label="Text formatting" className={styles.toolbar} role="toolbar">
-        <ToolbarButton label="Bold" onClick={() => runCommand("bold")}>
+        <ToolbarButton label="Bold" onMouseDown={() => editor.tf.bold.toggle()}>
           <Bold aria-hidden="true" size={15} />
         </ToolbarButton>
-        <ToolbarButton label="Italic" onClick={() => runCommand("italic")}>
+        <ToolbarButton label="Italic" onMouseDown={() => editor.tf.italic.toggle()}>
           <Italic aria-hidden="true" size={15} />
         </ToolbarButton>
-        <ToolbarButton label="Underline" onClick={() => runCommand("underline")}>
+        <ToolbarButton label="Underline" onMouseDown={() => editor.tf.underline.toggle()}>
           <Underline aria-hidden="true" size={15} />
         </ToolbarButton>
-        <ToolbarButton label="Bullet list" onClick={() => runCommand("insertUnorderedList")}>
-          <List aria-hidden="true" size={15} />
-        </ToolbarButton>
-        <ToolbarButton label="Numbered list" onClick={() => runCommand("insertOrderedList")}>
-          <ListOrdered aria-hidden="true" size={15} />
-        </ToolbarButton>
-        <ToolbarButton label="Quote" onClick={() => runCommand("formatBlock", "blockquote")}>
+        <ToolbarButton label="Quote" onMouseDown={() => editor.tf.blockquote.toggle()}>
           <Quote aria-hidden="true" size={15} />
         </ToolbarButton>
-        <ToolbarButton label="Add link" onClick={addLink}>
-          <Link2 aria-hidden="true" size={15} />
-        </ToolbarButton>
       </div>
-      <div
+      <PlateContent
         aria-describedby={`${id}-hint`}
         aria-label={placeholder}
         className={styles.content}
-        contentEditable
-        dangerouslySetInnerHTML={{ __html: value }}
         id={id}
-        onInput={syncValue}
-        ref={editorRef}
-        role="textbox"
-        suppressContentEditableWarning
+        placeholder={placeholder}
       />
-      <input form={form} name={name} type="hidden" value={value} />
       <p className={styles.hint} id={`${id}-hint`}>
-        {textLength(value)}/{maxLength}
+        {plainTextLength(serializePlateValue(editor.children as PlateNode[]))}/{maxLength}
       </p>
-    </div>
+    </Plate>
   );
 }
 
 export function RichTextContent({ value }: { value: string }) {
   return (
-    <div
+    <span
       className={styles.contentOutput}
-      dangerouslySetInnerHTML={{ __html: toEditorHtml(value) }}
+      dangerouslySetInnerHTML={{ __html: normalizeHtml(value) }}
     />
   );
 }
@@ -127,30 +154,58 @@ export function RichTextContent({ value }: { value: string }) {
 function ToolbarButton({
   children,
   label,
-  onClick,
+  onMouseDown,
 }: {
   children: ReactNode;
   label: string;
-  onClick: () => void;
+  onMouseDown: () => void;
 }) {
   return (
-    <button aria-label={label} onClick={onClick} title={label} type="button">
+    <button
+      aria-label={label}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onMouseDown();
+      }}
+      title={label}
+      type="button"
+    >
       {children}
     </button>
   );
 }
 
-function toEditorHtml(value: string | null | undefined) {
+function serializePlateValue(nodes: PlateNode[]) {
+  return nodes.map(serializeNode).join("");
+}
+
+function serializeNode(node: PlateNode): string {
+  if (typeof node.text === "string") {
+    let text = escapeHtml(node.text);
+    if (node.bold) text = `<strong>${text}</strong>`;
+    if (node.italic) text = `<em>${text}</em>`;
+    if (node.underline) text = `<u>${text}</u>`;
+    return text;
+  }
+
+  const children = (node.children ?? []).map(serializeNode).join("");
+  if (node.type === "blockquote") return `<blockquote>${children}</blockquote>`;
+  return `<p>${children || "<br>"}</p>`;
+}
+
+function normalizeHtml(value: string | null | undefined) {
   const source = value?.trim();
   if (!source) return "";
-  if (/<\/?(?:a|blockquote|br|code|em|li|ol|p|strong|u|ul)\b/i.test(source)) {
-    return source;
-  }
+  if (/<\/?(?:blockquote|br|em|p|strong|u)\b/i.test(source)) return source;
   return `<p>${escapeHtml(source).replace(/\n/g, "<br>")}</p>`;
 }
 
-function textLength(html: string) {
+function plainTextLength(html: string) {
   return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim().length;
+}
+
+function hasText(html: string) {
+  return plainTextLength(html) > 0;
 }
 
 function escapeHtml(value: string) {
