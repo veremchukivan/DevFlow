@@ -370,7 +370,11 @@ export async function findUserAvatarById(userId: string) {
 
 export async function findUserPasswordById(userId: string) {
   const [user] = await db
-    .select({ id: users.id, passwordHash: users.passwordHash })
+    .select({
+      emailNormalized: users.emailNormalized,
+      id: users.id,
+      passwordHash: users.passwordHash,
+    })
     .from(users)
     .where(and(eq(users.id, userId), isNull(users.deletedAt)))
     .limit(1);

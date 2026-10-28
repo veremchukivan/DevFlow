@@ -311,6 +311,13 @@ export async function requestEmailChange(
   }
 
   const emailNormalized = normalizeEmail(input.email);
+  if (emailNormalized === user.emailNormalized) {
+    throw new AppError(
+      400,
+      "EMAIL_UNCHANGED",
+      "Choose an email address different from your current one",
+    );
+  }
   const currentUser = await findUserByEmailNormalized(emailNormalized);
   if (currentUser) {
     throw new AppError(

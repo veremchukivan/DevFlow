@@ -501,4 +501,20 @@ describe("Auth Module Integration Tests", () => {
     const me = await request(app).get("/api/v1/auth/me").set("Cookie", cookie);
     expect(me.status).toBe(401);
   });
+
+  it("rejects an email change to the current email address", async () => {
+    const email = `unchanged-email-${Date.now()}@devflow.io`;
+    const registered = await request(app).post("/api/v1/auth/register").send({
+      displayName: "Unchanged Email User",
+      email,
+      password: "Password123!",
+    });
+
+    await expect(
+      requestEmailChange(registered.body.user.id, {
+        currentPassword: "Password123!",
+        email,
+      }),
+    ).rejects.toMatchObject({ code: "EMAIL_UNCHANGED", statusCode: 400 });
+  });
 });
