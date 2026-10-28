@@ -720,7 +720,7 @@ function SetupPanel() {
   useEffect(() => { void getApiTokens().then((response) => setTokens(response.tokens)).catch(() => setSetupError("Unable to load API tokens.")); }, []);
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    try { const response = await createApiToken({ name: String(new FormData(event.currentTarget).get("name") ?? "") }); setSecret(response.token); setTokens((current) => [response.tokenInfo, ...current]); event.currentTarget.reset(); setSetupMessage("Token created. Copy it now — it will not be shown again."); } catch { setSetupError("Unable to create API token."); }
+    try { const form = new FormData(event.currentTarget); const days = Number(form.get("expiresInDays") ?? 0); const response = await createApiToken({ name: String(form.get("name") ?? ""), expiresAt: days ? new Date(Date.now() + days * 86_400_000).toISOString() : null }); setSecret(response.token); setTokens((current) => [response.tokenInfo, ...current]); event.currentTarget.reset(); setSetupMessage("Token created. Copy it now — it will not be shown again."); } catch { setSetupError("Unable to create API token."); }
   }
   return (
     <section className={styles.card}>
@@ -731,7 +731,7 @@ function SetupPanel() {
       />
       {setupError ? <p className={styles.error}>{setupError}</p> : null}{setupMessage ? <p className={styles.success}>{setupMessage}</p> : null}
       {secret ? <p className={styles.success}>Copy this token now: <code>{secret}</code> <button className={styles.textButton} onClick={() => void navigator.clipboard.writeText(secret).then(() => setSetupMessage("Token copied."))} type="button">Copy</button></p> : null}
-      <form className={styles.form} onSubmit={(event) => void create(event)}><label><span>Token name</span><input name="name" required maxLength={80} /></label><div className={styles.formFooter}><span /><button className={styles.primaryButton} type="submit">Create API token</button></div></form>
+      <form className={styles.form} onSubmit={(event) => void create(event)}><label><span>Token name</span><input name="name" required maxLength={80} /></label><label><span>Expires</span><select name="expiresInDays"><option value="0">Never</option><option value="30">In 30 days</option><option value="90">In 90 days</option></select></label><div className={styles.formFooter}><span /><button className={styles.primaryButton} type="submit">Create API token</button></div></form>
       <ul className={styles.sessionList}>{tokens.map((token) => <li key={token.id}><strong>{token.name} · {token.tokenPrefix}…</strong><button className={styles.textButton} onClick={() => void revokeApiToken(token.id).then(() => setTokens((current) => current.filter((item) => item.id !== token.id)))} type="button">Revoke</button></li>)}</ul>
     </section>
   );
