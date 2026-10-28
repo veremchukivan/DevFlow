@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { validateCsrfOrigin } from "../src/core/http/csrf-protection.js";
+import {
+  isApiTokenAuthorization,
+  validateCsrfOrigin,
+} from "../src/core/http/csrf-protection.js";
 
 describe("CSRF origin validation", () => {
   const webOrigins = ["https://app.devflow.example"];
@@ -57,5 +60,11 @@ describe("CSRF origin validation", () => {
         webOrigins: [webOrigins[0]!, "http://127.0.0.1:3001"],
       }),
     ).toBe("valid");
+  });
+
+  it("recognizes DevFlow bearer tokens as non-cookie authentication", () => {
+    expect(isApiTokenAuthorization("Bearer df_safe-token_123")).toBe(true);
+    expect(isApiTokenAuthorization("Bearer invalid")).toBe(false);
+    expect(isApiTokenAuthorization(undefined)).toBe(false);
   });
 });

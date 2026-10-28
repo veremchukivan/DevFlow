@@ -11,6 +11,14 @@ export const csrfProtection: RequestHandler = (req, _res, next) => {
     return;
   }
 
+  // Bearer tokens are not attached automatically by browsers, unlike cookies.
+  // This allows server-side API clients to call state-changing routes without
+  // an Origin header while preserving CSRF validation for session cookies.
+  if (isApiTokenAuthorization(req.get("authorization"))) {
+    next();
+    return;
+  }
+
   const result = validateCsrfOrigin({
     nodeEnv: env.NODE_ENV,
     origin: req.get("origin"),
@@ -35,6 +43,10 @@ export const csrfProtection: RequestHandler = (req, _res, next) => {
     ),
   );
 };
+
+export function isApiTokenAuthorization(value: string | undefined) {
+  return /^Bearer df_[A-Za-z0-9_-]+$/.test(value ?? "");
+}
 
 export function validateCsrfOrigin({
   nodeEnv,
