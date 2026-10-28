@@ -13,6 +13,9 @@ managed outside the repository.
   and SMTP credentials.
 - Set `NODE_ENV=production`, a public `WEB_ORIGIN`, `COOKIE_SECURE=true`, and
   `TRUST_PROXY=1` only behind a trusted TLS reverse proxy.
+- Set `NEXT_PUBLIC_API_URL` to the public HTTPS API address. It is embedded
+  during the web image build, so rebuild and redeploy the web image whenever
+  that URL changes.
 - Production startup fails when `DATABASE_URL` or `WEB_ORIGIN` are missing,
   when `COOKIE_SECURE=false`, or when `SameSite=None` is used without a secure
   cookie.

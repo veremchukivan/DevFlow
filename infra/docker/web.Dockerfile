@@ -21,6 +21,10 @@ RUN turbo prune @devflow/web --docker
 FROM base AS builder
 WORKDIR /app
 
+# Next.js inlines NEXT_PUBLIC_* values during the production build.
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # First install dependencies (cached unless lockfile/manifests change)
 COPY --from=pruner /app/out/json/ .
 RUN pnpm install --frozen-lockfile
@@ -59,6 +63,8 @@ CMD ["pnpm", "--filter", "@devflow/web", "dev", "--hostname", "0.0.0.0"]
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"

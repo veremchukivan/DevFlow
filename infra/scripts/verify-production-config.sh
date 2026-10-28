@@ -55,11 +55,19 @@ require_value() {
 }
 
 require_value "WEB_ORIGIN"
+require_value "NEXT_PUBLIC_API_URL"
 require_value "COOKIE_SECURE"
 require_value "DOCKER_REDIS_URL"
 require_value "SMTP_FROM"
 require_value "DOCKER_SMTP_HOST"
 require_value "INTEGRATION_ENCRYPTION_KEY"
+require_value "POSTGRES_DB"
+require_value "POSTGRES_USER"
+require_value "POSTGRES_PASSWORD"
+require_value "POSTGRES_MIGRATOR_PASSWORD"
+require_value "POSTGRES_RUNTIME_PASSWORD"
+require_value "DOCKER_MIGRATION_DATABASE_URL"
+require_value "DOCKER_RUNTIME_DATABASE_URL"
 
 if [[ "$(get_value "NODE_ENV")" != "production" ]]; then
   printf 'NODE_ENV must be production\n' >&2
@@ -74,6 +82,12 @@ fi
 web_origin="$(get_value "WEB_ORIGIN")"
 if [[ -n "$web_origin" && ! "$web_origin" =~ ^https:// ]]; then
   printf 'WEB_ORIGIN must use https:// in production\n' >&2
+  errors=1
+fi
+
+public_api_url="$(get_value "NEXT_PUBLIC_API_URL")"
+if [[ -n "$public_api_url" && ! "$public_api_url" =~ ^https:// ]]; then
+  printf 'NEXT_PUBLIC_API_URL must use https:// in production\n' >&2
   errors=1
 fi
 
