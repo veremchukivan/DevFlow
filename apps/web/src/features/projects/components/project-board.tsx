@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Copy,
   CornerDownLeft,
+  ExternalLink,
   GripVertical,
   LayoutGrid,
   ListChecks,
@@ -1856,6 +1857,7 @@ export function ProjectBoard() {
       {selectedTask ? (
         <TaskEditorModal
           availableParentTasks={tasks}
+          figmaLinks={figmaLinks}
           isSaving={updatingTaskId === selectedTask.id}
           members={members}
           onClose={closeTaskEditor}
@@ -3407,6 +3409,7 @@ function formatRelativeTime(value: string) {
 
 function TaskEditorModal({
   availableParentTasks,
+  figmaLinks,
   isSaving,
   members,
   onClose,
@@ -3419,6 +3422,7 @@ function TaskEditorModal({
   workspaceId,
 }: {
   availableParentTasks: Task[];
+  figmaLinks: ProjectFigmaLink[];
   isSaving: boolean;
   members: WorkspaceMember[];
   onClose: () => void;
@@ -3646,10 +3650,23 @@ function TaskEditorModal({
               summary="Figma and coding tools"
               title="Development"
             >
-              <p className={styles.taskSidebarHint}>
-                Connect personal tools from Setup. Project Figma links remain
-                available in project settings.
-              </p>
+              {figmaLinks.length ? (
+                <ul className={styles.taskFigmaLinkList}>
+                  {figmaLinks.map((link) => (
+                    <li key={link.id}>
+                      <a href={link.url} rel="noreferrer" target="_blank">
+                        <span>{link.name}</span>
+                        <ExternalLink aria-hidden="true" size={14} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.taskSidebarHint}>
+                  No design links yet. Add shared Figma files in project
+                  settings.
+                </p>
+              )}
               <Link className={styles.taskSidebarLink} href="/profile">
                 Open integrations
               </Link>
