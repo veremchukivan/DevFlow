@@ -97,6 +97,7 @@ import { can } from "@devflow/shared";
 import { Modal } from "@/shared/components/modal";
 import { TaskWorkPanel } from "./task-work-panel";
 import { TaskWatchersPanel } from "./task-watchers-panel";
+import { TaskTimeTrackingPanel } from "./task-time-tracking-panel";
 import { ProjectTeamModal } from "./project-team-modal";
 import { notifyProjectsChanged } from "@/shared/lib/workspace-events";
 import styles from "@/shared/styles/ui.module.css";
@@ -3469,7 +3470,7 @@ function TaskEditorModal({
   const [selectedProjectFigmaLinkId, setSelectedProjectFigmaLinkId] =
     useState("");
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<
-    "automation" | "details" | "development" | "watching" | null
+    "automation" | "details" | "development" | "time" | "watching" | null
   >("details");
   const statusInputRef = useRef<HTMLInputElement>(null);
   const reviewStatus = project.statuses.find((status) =>
@@ -3798,6 +3799,26 @@ function TaskEditorModal({
                   <dd>{new Date(task.createdAt).toLocaleDateString()}</dd>
                 </div>
               </dl>
+            </TaskSidebarSection>
+            <TaskSidebarSection
+              isOpen={expandedSidebarSection === "time"}
+              onToggle={() =>
+                setExpandedSidebarSection((current) =>
+                  current === "time" ? null : "time",
+                )
+              }
+              summary={
+                task.estimateMinutes == null
+                  ? "No estimate"
+                  : `${task.estimateMinutes} min planned`
+              }
+              title="Time tracking"
+            >
+              <TaskTimeTrackingPanel
+                role={role}
+                task={task}
+                workspaceId={workspaceId}
+              />
             </TaskSidebarSection>
             <TaskSidebarSection
               isOpen={expandedSidebarSection === "watching"}
