@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import { eq } from "drizzle-orm";
+import { figmaFilePreviewQuerySchema, figmaFilePreviewResponseSchema } from "@devflow/shared";
 
 import { env } from "../../config/env.js";
 import { decryptIntegrationSecret, encryptIntegrationSecret } from "../../core/crypto/integrations.js";
@@ -8,6 +9,7 @@ import { db } from "../../core/db/client.js";
 import { figmaConnections } from "../../core/db/schema/figma-connections.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { type AuthenticatedRequest, requireAuth } from "../auth/auth.middleware.js";
+import { getFigmaFilePreview } from "./figma.service.js";
 
 export const figmaRouter = Router();
 
@@ -60,6 +62,15 @@ figmaRouter.get("/connection", requireAuth, async (req, res) => {
     connected: Boolean(connection),
     connection: connection ?? null,
   });
+});
+
+figmaRouter.get("/preview", requireAuth, async (req, res) => {
+  const { url } = figmaFilePreviewQuerySchema.parse(req.query);
+  const preview = await getFigmaFilePreview({
+    url,
+    userId: (req as AuthenticatedRequest).auth.user.id,
+  });
+  res.json({ preview } satisfies typeof figmaFilePreviewResponseSchema._output);
 });
 
 figmaRouter.delete("/connection", requireAuth, async (req, res) => {

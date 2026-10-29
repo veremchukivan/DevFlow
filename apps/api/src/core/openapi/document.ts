@@ -18,6 +18,7 @@ import {
   createWorkspaceRequestSchema,
   deleteAccountRequestSchema,
   emailVerificationTokenRequestSchema,
+  figmaFilePreviewResponseSchema,
   healthResponseSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
@@ -84,6 +85,7 @@ const schemas = {
   DeleteAccountRequest: deleteAccountRequestSchema,
   EmailVerificationTokenRequest: emailVerificationTokenRequestSchema,
   HealthResponse: healthResponseSchema,
+  FigmaFilePreviewResponse: figmaFilePreviewResponseSchema,
   LoginRequest: loginRequestSchema,
   PasswordResetConfirmRequest: passwordResetConfirmRequestSchema,
   PasswordResetRequest: passwordResetRequestSchema,
@@ -444,6 +446,26 @@ export const openApiDocument = {
         operationId: "disconnectFigma",
         security: authenticated,
         responses: { "204": response("Figma account disconnected"), ...commonErrors },
+      },
+    },
+    "/api/v1/integrations/figma/preview": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "getFigmaFilePreview",
+        security: authenticated,
+        parameters: [
+          {
+            in: "query",
+            name: "url",
+            required: true,
+            schema: { type: "string", format: "uri" },
+          },
+        ],
+        responses: {
+          "200": response("Figma file preview", "FigmaFilePreviewResponse"),
+          "409": errorResponse("Figma connection is required"),
+          ...commonErrors,
+        },
       },
     },
     "/api/v1/auth/email-verification/resend": {
