@@ -131,8 +131,11 @@ export function RichTextEditor({
     await onMediaChange?.(nextValue);
   }
 
-  function removeMedia(attachmentId: string) {
-    setValue((currentValue) => removeEmbeddedMedia(currentValue, attachmentId));
+  async function removeMedia(attachmentId: string) {
+    const nextValue = removeEmbeddedMedia(valueRef.current, attachmentId);
+    valueRef.current = nextValue;
+    setValue(nextValue);
+    await onMediaChange?.(nextValue);
   }
 
   function handlePreviewClick(event: MouseEvent<HTMLButtonElement>) {
@@ -600,7 +603,7 @@ function appendEmbeddedMedia(value: string, media: EmbeddedMedia[]) {
     .join("");
   return `${stripEmbeddedMedia(value).trim()}${tags}`;
 }
-function removeEmbeddedMedia(value: string, attachmentId: string) {
+export function removeEmbeddedMedia(value: string, attachmentId: string) {
   return value.replace(
     embeddedMediaPattern,
     (tag, _kind, currentAttachmentId) =>

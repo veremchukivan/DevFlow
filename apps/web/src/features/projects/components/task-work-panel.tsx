@@ -50,6 +50,7 @@ import { Modal } from "@/shared/components/modal";
 import {
   RichTextContent,
   RichTextEditor,
+  removeEmbeddedMedia,
 } from "@/shared/components/rich-text-editor";
 import type {
   Task,
@@ -359,6 +360,17 @@ export function TaskWorkPanel({
     setError(undefined);
     setIsDeletingAttachmentId(attachmentId);
     try {
+      const nextDescription = description
+        ? removeEmbeddedMedia(description, attachmentId)
+        : description;
+      if (
+        nextDescription !== description &&
+        nextDescription !== null &&
+        nextDescription !== undefined &&
+        onDescriptionMediaSave
+      ) {
+        await onDescriptionMediaSave(nextDescription);
+      }
       await deleteTaskAttachment(
         workspaceId,
         task.projectId,
