@@ -98,6 +98,7 @@ import { Modal } from "@/shared/components/modal";
 import { TaskWorkPanel } from "./task-work-panel";
 import { TaskWatchersPanel } from "./task-watchers-panel";
 import { TaskTimeTrackingPanel } from "./task-time-tracking-panel";
+import { TaskRelationsPanel } from "./task-relations-panel";
 import { ProjectTeamModal } from "./project-team-modal";
 import { notifyProjectsChanged } from "@/shared/lib/workspace-events";
 import styles from "@/shared/styles/ui.module.css";
@@ -3470,7 +3471,13 @@ function TaskEditorModal({
   const [selectedProjectFigmaLinkId, setSelectedProjectFigmaLinkId] =
     useState("");
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<
-    "automation" | "details" | "development" | "time" | "watching" | null
+    | "automation"
+    | "details"
+    | "development"
+    | "relations"
+    | "time"
+    | "watching"
+    | null
   >("details");
   const statusInputRef = useRef<HTMLInputElement>(null);
   const reviewStatus = project.statuses.find((status) =>
@@ -3799,6 +3806,22 @@ function TaskEditorModal({
                   <dd>{new Date(task.createdAt).toLocaleDateString()}</dd>
                 </div>
               </dl>
+            </TaskSidebarSection>
+            <TaskSidebarSection
+              isOpen={expandedSidebarSection === "relations"}
+              onToggle={() =>
+                setExpandedSidebarSection((current) =>
+                  current === "relations" ? null : "relations",
+                )
+              }
+              summary="Dependencies and linked tasks"
+              title="Linked work items"
+            >
+              <TaskRelationsPanel
+                role={role}
+                task={task}
+                workspaceId={workspaceId}
+              />
             </TaskSidebarSection>
             <TaskSidebarSection
               isOpen={expandedSidebarSection === "time"}
