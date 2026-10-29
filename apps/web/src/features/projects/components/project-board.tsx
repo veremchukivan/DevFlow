@@ -70,6 +70,7 @@ import {
   createProjectFigmaLink,
   deleteProjectFigmaLink,
   getProjectFigmaLinks,
+  getFigmaFilePreview,
   createTaskFigmaLink,
   deleteTaskFigmaLink,
   getTaskFigmaLinks,
@@ -79,6 +80,7 @@ import type {
   Project,
   ProjectFigmaLink,
   TaskFigmaLink,
+  FigmaFilePreview,
   Task,
   TaskType,
   UpdateTaskRequest,
@@ -3443,6 +3445,10 @@ function TaskEditorModal({
   const [isLoadingTaskFigmaLinks, setIsLoadingTaskFigmaLinks] = useState(true);
   const [isSavingTaskFigmaLink, setIsSavingTaskFigmaLink] = useState(false);
   const [taskFigmaLinkError, setTaskFigmaLinkError] = useState<string>();
+  const [taskFigmaPreviews, setTaskFigmaPreviews] = useState<
+    Record<string, FigmaFilePreview | undefined>
+  >({});
+  const [isLoadingTaskFigmaPreviewId, setIsLoadingTaskFigmaPreviewId] = useState<string>();
   const [selectedProjectFigmaLinkId, setSelectedProjectFigmaLinkId] = useState("");
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<
     "automation" | "details" | "development" | null
@@ -3538,6 +3544,23 @@ function TaskEditorModal({
           ? caughtError.message
           : "Unable to remove the task design link.",
       );
+    }
+  }
+
+  async function loadTaskFigmaPreview(link: TaskFigmaLink) {
+    setIsLoadingTaskFigmaPreviewId(link.id);
+    setTaskFigmaLinkError(undefined);
+    try {
+      const response = await getFigmaFilePreview(link.url);
+      setTaskFigmaPreviews((current) => ({ ...current, [link.id]: response.preview }));
+    } catch (caughtError) {
+      setTaskFigmaLinkError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to load the Figma preview.",
+      );
+    } finally {
+      setIsLoadingTaskFigmaPreviewId(undefined);
     }
   }
 
@@ -3758,19 +3781,36 @@ function TaskEditorModal({
                 <ul className={styles.taskFigmaLinkList}>
                   {taskFigmaLinks.map((link) => (
                     <li key={link.id}>
-                      <a href={link.url} rel="noreferrer" target="_blank">
-                        <span>{link.name}</span>
-                        <ExternalLink aria-hidden="true" size={14} />
-                      </a>
-                      {role && can(role, "task:update") ? (
+                      <div className={styles.taskFigmaLinkRow}>
+                        <a href={link.url} rel="noreferrer" target="_blank">
+                          <span>{link.name}</span>
+                          <ExternalLink aria-hidden="true" size={14} />
+                        </a>
                         <button
-                          aria-label={`Remove ${link.name}`}
-                          className={styles.taskFigmaLinkDelete}
-                          onClick={() => void removeTaskFigmaLink(link.id)}
+                          className={styles.taskFigmaPreviewButton}
+                          disabled={isLoadingTaskFigmaPreviewId === link.id}
+                          onClick={() => void loadTaskFigmaPreview(link)}
                           type="button"
                         >
-                          <X aria-hidden="true" size={14} />
+                          {isLoadingTaskFigmaPreviewId === link.id
+                            ? "Loading…"
+                            : taskFigmaPreviews[link.id]
+                              ? "Refresh preview"
+                              : "Preview design"}
                         </button>
+                        {role && can(role, "task:update") ? (
+                          <button
+                            aria-label={`Remove ${link.name}`}
+                            className={styles.taskFigmaLinkDelete}
+                            onClick={() => void removeTaskFigmaLink(link.id)}
+                            type="button"
+                          >
+                            <X aria-hidden="true" size={14} />
+                          </button>
+                        ) : null}
+                      </div>
+                      {taskFigmaPreviews[link.id] ? (
+                        <FigmaFilePreviewCard preview={taskFigmaPreviews[link.id]!} />
                       ) : null}
                     </li>
                   ))}
@@ -3917,6 +3957,31 @@ function TaskEditorModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+function FigmaFilePreviewCard({ preview }: { preview: FigmaFilePreview }) {
+  return (
+    <div className={styles.taskFigmaPreviewCard}>
+      {preview.thumbnailUrl ? (
+        <div
+          aria-hidden="true"
+          className={styles.taskFigmaPreviewImage}
+          style={{ backgroundImage: `url(${JSON.stringify(preview.thumbnailUrl)})` }}
+        />
+      ) : (
+        <div aria-hidden="true" className={styles.taskFigmaPreviewPlaceholder}>
+          Figma
+        </div>
+      )}
+      <div>
+        <strong>{preview.name}</strong>
+        <span>
+          {preview.editorType ?? "Figma file"} · updated{" "}
+          {new Date(preview.lastModified).toLocaleDateString()}
+        </span>
+      </div>
+    </div>
   );
 }
 

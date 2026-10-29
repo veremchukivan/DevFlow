@@ -12,6 +12,7 @@ import {
   deleteAccountRequestSchema,
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
+  figmaFilePreviewResponseSchema,
   loginRequestSchema,
   notificationListResponseSchema,
   notificationPreferencesSchema,
@@ -73,6 +74,7 @@ import {
   createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
   type DeleteAccountRequest,
   type HealthResponse,
+  type FigmaFilePreview,
   type LoginRequest,
   type NotificationListResponse,
   type NotificationPreferences,
@@ -485,6 +487,16 @@ export function disconnectFigma(): Promise<void> {
   return requestNoContent("/api/v1/integrations/figma/connection", {
     method: "DELETE",
   });
+}
+
+export function getFigmaFilePreview(
+  url: string,
+): Promise<{ preview: FigmaFilePreview }> {
+  return request(
+    `/api/v1/integrations/figma/preview?${new URLSearchParams({ url })}`,
+    { method: "GET" },
+    figmaFilePreviewResponseSchema,
+  );
 }
 
 export function deleteAccount(input: DeleteAccountRequest): Promise<void> {
