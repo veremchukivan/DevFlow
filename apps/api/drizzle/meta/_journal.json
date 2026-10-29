@@ -302,6 +302,13 @@
       "when": 1793310960991,
       "tag": "0042_dazzling_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793314200000,
+      "tag": "0043_workspace_automation",
+      "breakpoints": true
     }
   ]
 }
