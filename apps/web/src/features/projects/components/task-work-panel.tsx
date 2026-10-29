@@ -31,6 +31,7 @@ import {
   createTask,
   createTaskChecklistItem,
   createTaskComment,
+  addTaskWatcher,
   createManualTaskTimeEntry,
   createTaskRelation,
   deleteTaskAttachment,
@@ -48,6 +49,7 @@ import {
   getTaskRelations,
   getTaskTimeEntries,
   getTaskWatchers,
+  getWorkspaceMembers,
   getTasks,
   updateTaskChecklistItem,
   updateTaskComment,
@@ -56,6 +58,7 @@ import {
   startTaskTimer,
   stopTaskTimer,
   followTask,
+  removeTaskWatcher,
   unfollowTask,
 } from "@/shared/lib/api-client";
 import { Modal } from "@/shared/components/modal";
@@ -75,6 +78,7 @@ import type {
   TaskRelationType,
   TaskTimeEntry,
   TaskWatcher,
+  WorkspaceMember,
   WorkspaceRole,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
@@ -116,6 +120,7 @@ export function TaskWorkPanel({
   const [timeEntries, setTimeEntries] = useState<TaskTimeEntry[]>([]);
   const [watchers, setWatchers] = useState<TaskWatcher[]>([]);
   const [isWatching, setIsWatching] = useState(false);
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
   const [timeSummary, setTimeSummary] = useState<{
     activeEntry: TaskTimeEntry | null;
     estimateMinutes: number | null;
@@ -175,6 +180,7 @@ export function TaskWorkPanel({
         relationsResponse,
         timeEntriesResponse,
         watchersResponse,
+        membersResponse,
         userResponse,
       ] = await Promise.all([
         getTaskComments(workspaceId, task.projectId, task.id, { limit: 25 }),
@@ -184,6 +190,7 @@ export function TaskWorkPanel({
         getTaskRelations(workspaceId, task.projectId, task.id),
         getTaskTimeEntries(workspaceId, task.projectId, task.id),
         getTaskWatchers(workspaceId, task.projectId, task.id),
+        getWorkspaceMembers(workspaceId),
         getCurrentUser(),
       ]);
       setComments(commentsResponse.comments);
@@ -195,6 +202,7 @@ export function TaskWorkPanel({
       setTimeSummary(timeEntriesResponse.summary);
       setWatchers(watchersResponse.watchers);
       setIsWatching(watchersResponse.isWatching);
+      setWorkspaceMembers(membersResponse.members);
       setCurrentUserId(userResponse.user.id);
     } catch (caughtError) {
       setError(
@@ -316,6 +324,32 @@ export function TaskWorkPanel({
       setWatchers(response.watchers);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to update task watchers."));
+    } finally {
+      setIsUpdatingWatchers(false);
+    }
+  }
+
+  async function onAddWatcher(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const targetUserId = String(new FormData(event.currentTarget).get("userId") ?? "");
+    if (!targetUserId) return;
+    setIsUpdatingWatchers(true);
+    try {
+      const response = await addTaskWatcher(workspaceId, task.projectId, task.id, targetUserId);
+      setWatchers(response.watchers);
+      setIsWatching(response.isWatching);
+      event.currentTarget.reset();
+    } finally {
+      setIsUpdatingWatchers(false);
+    }
+  }
+
+  async function onRemoveWatcher(targetUserId: string) {
+    setIsUpdatingWatchers(true);
+    try {
+      const response = await removeTaskWatcher(workspaceId, task.projectId, task.id, targetUserId);
+      setWatchers(response.watchers);
+      setIsWatching(response.isWatching);
     } finally {
       setIsUpdatingWatchers(false);
     }
@@ -886,12 +920,14 @@ export function TaskWorkPanel({
             {isWatching ? "Stop watching" : "Watch task"}
           </button>
         </div>
+        {canUpdateTask ? <form className={styles.watcherForm} onSubmit={(event) => void onAddWatcher(event)}><select defaultValue="" name="userId"><option value="">Add participant…</option>{workspaceMembers.filter((member) => !watchers.some((watcher) => watcher.userId === member.userId)).map((member) => <option key={member.userId} value={member.userId}>{member.user.displayName}</option>)}</select><button type="submit">Add</button></form> : null}
         {watchers.length ? (
           <ul className={styles.watcherList}>
             {watchers.map((watcher) => (
               <li key={watcher.userId}>
                 <span>{initials(watcher.user.displayName)}</span>
                 {watcher.user.displayName}
+                {canUpdateTask && watcher.userId !== currentUserId ? <button aria-label={`Remove ${watcher.user.displayName}`} onClick={() => void onRemoveWatcher(watcher.userId)} type="button">×</button> : null}
               </li>
             ))}
           </ul>

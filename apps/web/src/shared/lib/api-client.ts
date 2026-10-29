@@ -1300,6 +1300,19 @@ export function followTask(
   );
 }
 
+export function addTaskWatcher(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  userId: string,
+): Promise<TaskWatcherListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/watchers`,
+    { body: JSON.stringify({ userId }), method: "POST" },
+    taskWatcherListResponseSchema,
+  );
+}
+
 export function unfollowTask(
   workspaceId: string,
   projectId: string,
@@ -1307,6 +1320,19 @@ export function unfollowTask(
 ): Promise<TaskWatcherListResponse> {
   return request(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/watchers/me`,
+    { method: "DELETE" },
+    taskWatcherListResponseSchema,
+  );
+}
+
+export function removeTaskWatcher(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  userId: string,
+): Promise<TaskWatcherListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/watchers/${userId}`,
     { method: "DELETE" },
     taskWatcherListResponseSchema,
   );
