@@ -68,6 +68,39 @@ export async function notifyTaskCommented(input: {
   });
 }
 
+export async function notifyTaskWatchers(input: {
+  actorUserId: string;
+  projectId: string;
+  recipientUserIds: Array<string | null>;
+  statusName?: string;
+  taskId: string;
+  taskKey: string;
+  taskTitle: string;
+  type: "task_commented" | "task_status_changed";
+  workspaceId: string;
+}) {
+  const recipients = [...new Set(input.recipientUserIds.filter((id): id is string => Boolean(id)))].filter(
+    (recipientUserId) => recipientUserId !== input.actorUserId,
+  );
+  await Promise.all(
+    recipients.map((recipientUserId) =>
+      createPreferredNotification({
+        actorUserId: input.actorUserId,
+        projectId: input.projectId,
+        recipientUserId,
+        taskId: input.taskId,
+        taskKey: input.taskKey,
+        taskTitle:
+          input.type === "task_status_changed" && input.statusName
+            ? `${input.taskTitle} · ${input.statusName}`
+            : input.taskTitle,
+        type: input.type,
+        workspaceId: input.workspaceId,
+      }),
+    ),
+  );
+}
+
 export async function notifyTaskStatusChanged(input: {
   actorUserId: string;
   projectId: string;

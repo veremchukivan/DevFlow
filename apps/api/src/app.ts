@@ -26,6 +26,7 @@ import { taskChecklistsRouter } from "./modules/task-checklists/task-checklists.
 import { taskCommentsRouter } from "./modules/task-comments/task-comments.routes.js";
 import { taskRelationsRouter } from "./modules/task-relations/task-relations.routes.js";
 import { taskTimeEntriesRouter } from "./modules/task-time-entries/task-time-entries.routes.js";
+import { taskWatchersRouter } from "./modules/task-watchers/task-watchers.routes.js";
 import { tasksRouter } from "./modules/tasks/tasks.routes.js";
 import {
   publicInvitationsRouter,
@@ -128,6 +129,10 @@ export function createApp() {
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/time-entries",
     taskTimeEntriesRouter,
+  );
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/watchers",
+    taskWatchersRouter,
   );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/sprints",

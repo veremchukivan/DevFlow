@@ -9,7 +9,8 @@ import { AppError } from "../../core/errors/app-error.js";
 import { sanitizeRichText } from "../../core/rich-text/sanitize.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
-import { notifyTaskCommented } from "../notifications/notifications.service.js";
+import { notifyTaskWatchers } from "../notifications/notifications.service.js";
+import { listTaskWatcherUserIds } from "../task-watchers/task-watchers.repository.js";
 import {
   canCreateTaskComment,
   canDeleteTaskComment,
@@ -77,13 +78,15 @@ export async function createComment(input: {
 
     return comment;
   });
-  await notifyTaskCommented({
+  const watcherUserIds = await listTaskWatcherUserIds(input);
+  await notifyTaskWatchers({
     actorUserId: input.userId,
     projectId: input.projectId,
-    recipientUserId: task.assigneeUserId,
+    recipientUserIds: [task.assigneeUserId, ...watcherUserIds],
     taskId: input.taskId,
     taskKey: `${task.projectKey}-${task.number}`,
     taskTitle: task.title,
+    type: "task_commented",
     workspaceId: input.workspaceId,
   });
   return (await hydrateComments([comment], input))[0]!;

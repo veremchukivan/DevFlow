@@ -14,8 +14,9 @@ import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
 import {
   notifyTaskAssigned,
-  notifyTaskStatusChanged,
+  notifyTaskWatchers,
 } from "../notifications/notifications.service.js";
+import { listTaskWatcherUserIds } from "../task-watchers/task-watchers.repository.js";
 import { canCreateTask, canDeleteTask, canUpdateTask } from "./tasks.policy.js";
 import { findProjectSprint } from "../project-sprints/project-sprints.repository.js";
 import {
@@ -398,14 +399,16 @@ export async function updateTask(input: {
     input.input.statusId !== existingTask.statusId &&
     input.input.assigneeUserId === undefined
   ) {
-    await notifyTaskStatusChanged({
+    const watcherUserIds = await listTaskWatcherUserIds(input);
+    await notifyTaskWatchers({
       actorUserId: input.userId,
       projectId: input.projectId,
-      recipientUserId: result.assigneeUserId,
+      recipientUserIds: [result.assigneeUserId, ...watcherUserIds],
       statusName: result.status.name,
       taskId: result.id,
       taskKey: `${existingTask.projectKey}-${result.number}`,
       taskTitle: result.title,
+      type: "task_status_changed",
       workspaceId: input.workspaceId,
     });
   }
