@@ -54,6 +54,10 @@ describe("Figma integration routes", () => {
     if (figmaConfigured) {
       expect(response.status).toBe(302);
       expect(response.headers.location).toMatch(/^https:\/\/www\.figma\.com\/oauth\?/);
+      const authorizationUrl = new URL(response.headers.location);
+      expect(authorizationUrl.searchParams.get("scope")).toBe(
+        "current_user:read file_content:read file_dev_resources:read file_dev_resources:write",
+      );
       return;
     }
 
