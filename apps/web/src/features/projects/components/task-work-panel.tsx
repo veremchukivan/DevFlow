@@ -470,6 +470,7 @@ export function TaskWorkPanel({
     const body = String(new FormData(form).get("body") ?? "");
     setError(undefined);
     setIsSubmittingComment(true);
+    let commentCreated = false;
     try {
       const response = await createTaskComment(
         workspaceId,
@@ -477,9 +478,15 @@ export function TaskWorkPanel({
         task.id,
         { body },
       );
+      commentCreated = true;
+      setComments((currentComments) => [...currentComments, response.comment]);
+      form.reset();
+      setCommentDraftFiles([]);
+      setCommentEditorResetKey((current) => current + 1);
+
       if (commentDraftFiles.length) {
         setIsUploadingCommentAttachments(true);
-        await Promise.all(
+        const attachmentResults = await Promise.allSettled(
           commentDraftFiles.map((file) =>
             uploadTaskCommentAttachment(
               workspaceId,
@@ -490,29 +497,50 @@ export function TaskWorkPanel({
             ),
           ),
         );
+        const uploadedAttachments = attachmentResults.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value.attachment] : [],
+        );
+        setComments((currentComments) =>
+          currentComments.map((comment) =>
+            comment.id === response.comment.id
+              ? {
+                  ...comment,
+                  attachments: [...comment.attachments, ...uploadedAttachments],
+                }
+              : comment,
+          ),
+        );
+        if (attachmentResults.some((result) => result.status === "rejected")) {
+          throw new Error("COMMENT_MEDIA_UPLOAD_FAILED");
+        }
       }
-      await Promise.all([refreshComments(), refreshActivity()]);
-      form.reset();
-      setCommentDraftFiles([]);
-      setCommentEditorResetKey((current) => current + 1);
+      await refreshActivity();
     } catch (caughtError) {
-      setError(messageFor(caughtError, "Unable to add comment."));
+      setError(
+        commentCreated
+          ? messageFor(
+              caughtError,
+              "Comment was sent, but some media could not be uploaded.",
+            )
+          : messageFor(caughtError, "Unable to add comment."),
+      );
     } finally {
       setIsUploadingCommentAttachments(false);
       setIsSubmittingComment(false);
     }
   }
 
-  async function refreshComments() {
-    const response = await getTaskComments(
-      workspaceId,
-      task.projectId,
-      task.id,
-      {
-        limit: 25,
-      },
+  function removeCommentDraftFile(fileToRemove: File) {
+    setCommentDraftFiles((currentFiles) =>
+      currentFiles.filter(
+        (file) =>
+          !(
+            file.name === fileToRemove.name &&
+            file.lastModified === fileToRemove.lastModified &&
+            file.size === fileToRemove.size
+          ),
+      ),
     );
-    setComments(response.comments);
   }
 
   async function onCommentUpdate(
@@ -524,10 +552,19 @@ export function TaskWorkPanel({
     setError(undefined);
     setIsSavingCommentId(commentId);
     try {
-      await updateTaskComment(workspaceId, task.projectId, task.id, commentId, {
-        body,
-      });
-      await Promise.all([refreshComments(), refreshActivity()]);
+      const response = await updateTaskComment(
+        workspaceId,
+        task.projectId,
+        task.id,
+        commentId,
+        { body },
+      );
+      setComments((currentComments) =>
+        currentComments.map((comment) =>
+          comment.id === commentId ? response.comment : comment,
+        ),
+      );
+      await refreshActivity();
       setEditingCommentId(undefined);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to update comment."));
@@ -543,7 +580,10 @@ export function TaskWorkPanel({
     setIsSavingCommentId(commentId);
     try {
       await deleteTaskComment(workspaceId, task.projectId, task.id, commentId);
-      await Promise.all([refreshComments(), refreshActivity()]);
+      setComments((currentComments) =>
+        currentComments.filter((comment) => comment.id !== commentId),
+      );
+      await refreshActivity();
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to delete comment."));
     } finally {
@@ -1034,8 +1074,20 @@ export function TaskWorkPanel({
                   <ul className={styles.commentDraftFiles}>
                     {commentDraftFiles.map((file) => (
                       <li key={`${file.name}-${file.lastModified}`}>
-                        {file.type.startsWith("video/") ? "Video" : "Image"}:{" "}
-                        {file.name}
+                        <span>
+                          {file.type.startsWith("video/") ? "Video" : "Image"}:{" "}
+                          {file.name}
+                        </span>
+                        <button
+                          aria-label={`Remove ${file.name}`}
+                          disabled={
+                            isSubmittingComment || isUploadingCommentAttachments
+                          }
+                          onClick={() => removeCommentDraftFile(file)}
+                          type="button"
+                        >
+                          <Trash2 aria-hidden="true" size={14} />
+                        </button>
                       </li>
                     ))}
                   </ul>
