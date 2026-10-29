@@ -1,0 +1,96 @@
+.panel {
+  display: grid;
+  gap: 12px;
+}
+.controls,
+.addForm,
+.list li {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.controls {
+  justify-content: space-between;
+}
+.controls > span,
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+.controls button,
+.addForm button,
+.list button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+.controls button:disabled,
+.addForm button:disabled,
+.list button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.addForm select {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+  padding: 8px;
+}
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 4px 6px 4px 4px;
+}
+.list li > span {
+  align-items: center;
+  background: var(--brand);
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  height: 23px;
+  justify-content: center;
+  width: 23px;
+}
+.list strong {
+  font-weight: 700;
+}
+.list button {
+  border: 0;
+  border-radius: 50%;
+  font-size: 16px;
+  min-height: 20px;
+  padding: 0;
+  width: 20px;
+}
+.error {
+  color: var(--danger, #b42318);
+  font-size: 13px;
+  margin: 0;
+}

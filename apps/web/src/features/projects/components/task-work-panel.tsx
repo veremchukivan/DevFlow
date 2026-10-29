@@ -5,8 +5,6 @@ import {
   ClipboardList,
   Clock3,
   Download,
-  Eye,
-  EyeOff,
   Link2,
   Maximize2,
   MessageSquare,
@@ -31,15 +29,14 @@ import {
   createTask,
   createTaskChecklistItem,
   createTaskComment,
-  addTaskWatcher,
   createManualTaskTimeEntry,
   createTaskRelation,
   deleteTaskAttachment,
   deleteTaskChecklistItem,
   deleteTaskComment,
   deleteTaskRelation,
-  getCurrentUser,
   getProjects,
+  getCurrentUser,
   getTaskActivity,
   getTaskAttachments,
   getTaskAttachmentDownloadUrl,
@@ -48,8 +45,6 @@ import {
   getTaskComments,
   getTaskRelations,
   getTaskTimeEntries,
-  getTaskWatchers,
-  getWorkspaceMembers,
   getTasks,
   updateTaskChecklistItem,
   updateTaskComment,
@@ -57,9 +52,6 @@ import {
   uploadTaskCommentAttachment,
   startTaskTimer,
   stopTaskTimer,
-  followTask,
-  removeTaskWatcher,
-  unfollowTask,
 } from "@/shared/lib/api-client";
 import { Modal } from "@/shared/components/modal";
 import {
@@ -77,8 +69,6 @@ import type {
   TaskRelation,
   TaskRelationType,
   TaskTimeEntry,
-  TaskWatcher,
-  WorkspaceMember,
   WorkspaceRole,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
@@ -118,16 +108,13 @@ export function TaskWorkPanel({
   );
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [timeEntries, setTimeEntries] = useState<TaskTimeEntry[]>([]);
-  const [watchers, setWatchers] = useState<TaskWatcher[]>([]);
-  const [isWatching, setIsWatching] = useState(false);
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>();
   const [timeSummary, setTimeSummary] = useState<{
     activeEntry: TaskTimeEntry | null;
     estimateMinutes: number | null;
     loggedMinutes: number;
     remainingMinutes: number | null;
   }>();
-  const [currentUserId, setCurrentUserId] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isUploadingCommentAttachments, setIsUploadingCommentAttachments] =
@@ -146,7 +133,6 @@ export function TaskWorkPanel({
   const [isCreatingRelation, setIsCreatingRelation] = useState(false);
   const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
   const [isSavingTime, setIsSavingTime] = useState(false);
-  const [isUpdatingWatchers, setIsUpdatingWatchers] = useState(false);
   const [isDeletingRelationId, setIsDeletingRelationId] = useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [editingChecklistItemId, setEditingChecklistItemId] =
@@ -179,8 +165,6 @@ export function TaskWorkPanel({
         attachmentsResponse,
         relationsResponse,
         timeEntriesResponse,
-        watchersResponse,
-        membersResponse,
         userResponse,
       ] = await Promise.all([
         getTaskComments(workspaceId, task.projectId, task.id, { limit: 25 }),
@@ -189,8 +173,6 @@ export function TaskWorkPanel({
         getTaskAttachments(workspaceId, task.projectId, task.id),
         getTaskRelations(workspaceId, task.projectId, task.id),
         getTaskTimeEntries(workspaceId, task.projectId, task.id),
-        getTaskWatchers(workspaceId, task.projectId, task.id),
-        getWorkspaceMembers(workspaceId),
         getCurrentUser(),
       ]);
       setComments(commentsResponse.comments);
@@ -200,9 +182,6 @@ export function TaskWorkPanel({
       setRelations(relationsResponse.relations);
       setTimeEntries(timeEntriesResponse.entries);
       setTimeSummary(timeEntriesResponse.summary);
-      setWatchers(watchersResponse.watchers);
-      setIsWatching(watchersResponse.isWatching);
-      setWorkspaceMembers(membersResponse.members);
       setCurrentUserId(userResponse.user.id);
     } catch (caughtError) {
       setError(
@@ -310,48 +289,6 @@ export function TaskWorkPanel({
       setError(messageFor(caughtError, "Unable to log time."));
     } finally {
       setIsSavingTime(false);
-    }
-  }
-
-  async function onWatchToggle() {
-    setError(undefined);
-    setIsUpdatingWatchers(true);
-    try {
-      const response = isWatching
-        ? await unfollowTask(workspaceId, task.projectId, task.id)
-        : await followTask(workspaceId, task.projectId, task.id);
-      setIsWatching(response.isWatching);
-      setWatchers(response.watchers);
-    } catch (caughtError) {
-      setError(messageFor(caughtError, "Unable to update task watchers."));
-    } finally {
-      setIsUpdatingWatchers(false);
-    }
-  }
-
-  async function onAddWatcher(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const targetUserId = String(new FormData(event.currentTarget).get("userId") ?? "");
-    if (!targetUserId) return;
-    setIsUpdatingWatchers(true);
-    try {
-      const response = await addTaskWatcher(workspaceId, task.projectId, task.id, targetUserId);
-      setWatchers(response.watchers);
-      setIsWatching(response.isWatching);
-      event.currentTarget.reset();
-    } finally {
-      setIsUpdatingWatchers(false);
-    }
-  }
-
-  async function onRemoveWatcher(targetUserId: string) {
-    setIsUpdatingWatchers(true);
-    try {
-      const response = await removeTaskWatcher(workspaceId, task.projectId, task.id, targetUserId);
-      setWatchers(response.watchers);
-      setIsWatching(response.isWatching);
-    } finally {
-      setIsUpdatingWatchers(false);
     }
   }
 
@@ -833,19 +770,25 @@ export function TaskWorkPanel({
           placeholder="Add context, acceptance criteria or implementation notes…"
         />
       </section>
-      <section className={styles.timeTrackingSection} aria-labelledby="time-tracking-title">
+      <section
+        className={styles.timeTrackingSection}
+        aria-labelledby="time-tracking-title"
+      >
         <div className={styles.sectionHeading}>
           <div>
             <h3 id="time-tracking-title">Time tracking</h3>
             <p>
-              {timeSummary?.estimateMinutes === null || timeSummary?.estimateMinutes === undefined
+              {timeSummary?.estimateMinutes === null ||
+              timeSummary?.estimateMinutes === undefined
                 ? "No estimate set"
                 : `${formatDuration(timeSummary.estimateMinutes)} planned`}
             </p>
           </div>
           <Clock3 aria-hidden="true" size={18} />
         </div>
-        {isLoading ? <p className={styles.empty}>Loading time entries…</p> : null}
+        {isLoading ? (
+          <p className={styles.empty}>Loading time entries…</p>
+        ) : null}
         {!isLoading ? (
           <div className={styles.timeSummary}>
             <div>
@@ -855,7 +798,8 @@ export function TaskWorkPanel({
             <div>
               <span>Remaining</span>
               <strong>
-                {timeSummary?.remainingMinutes === null || timeSummary?.remainingMinutes === undefined
+                {timeSummary?.remainingMinutes === null ||
+                timeSummary?.remainingMinutes === undefined
                   ? "—"
                   : formatDuration(timeSummary.remainingMinutes)}
               </strong>
@@ -867,7 +811,11 @@ export function TaskWorkPanel({
                 onClick={() => void onTimerToggle()}
                 type="button"
               >
-                {timeSummary?.activeEntry ? <Square aria-hidden="true" size={15} /> : <Play aria-hidden="true" size={15} />}
+                {timeSummary?.activeEntry ? (
+                  <Square aria-hidden="true" size={15} />
+                ) : (
+                  <Play aria-hidden="true" size={15} />
+                )}
                 {timeSummary?.activeEntry ? "Stop timer" : "Start timer"}
               </button>
             ) : null}
@@ -877,16 +825,31 @@ export function TaskWorkPanel({
           <p className={styles.activeTimer}>Timer is running for you.</p>
         ) : null}
         {canUpdateTask ? (
-          <form className={styles.timeEntryForm} onSubmit={(event) => void onManualTimeSubmit(event)}>
+          <form
+            className={styles.timeEntryForm}
+            onSubmit={(event) => void onManualTimeSubmit(event)}
+          >
             <label>
               <span>Minutes</span>
-              <input defaultValue={30} min={1} name="durationMinutes" required type="number" />
+              <input
+                defaultValue={30}
+                min={1}
+                name="durationMinutes"
+                required
+                type="number"
+              />
             </label>
             <label>
               <span>Note</span>
-              <input maxLength={1000} name="description" placeholder="What did you work on?" />
+              <input
+                maxLength={1000}
+                name="description"
+                placeholder="What did you work on?"
+              />
             </label>
-            <button disabled={isSavingTime} type="submit">Log time</button>
+            <button disabled={isSavingTime} type="submit">
+              Log time
+            </button>
           </form>
         ) : null}
         {timeEntries.length ? (
@@ -900,40 +863,6 @@ export function TaskWorkPanel({
             ))}
           </ul>
         ) : null}
-      </section>
-      <section className={styles.watchersSection} aria-labelledby="watchers-title">
-        <div className={styles.sectionHeading}>
-          <div>
-            <h3 id="watchers-title">Watching</h3>
-            <p>Followers receive notifications for comments and status updates.</p>
-          </div>
-          <Eye aria-hidden="true" size={18} />
-        </div>
-        <div className={styles.watcherControls}>
-          <span>{watchers.length} following</span>
-          <button
-            disabled={isUpdatingWatchers}
-            onClick={() => void onWatchToggle()}
-            type="button"
-          >
-            {isWatching ? <EyeOff aria-hidden="true" size={15} /> : <Eye aria-hidden="true" size={15} />}
-            {isWatching ? "Stop watching" : "Watch task"}
-          </button>
-        </div>
-        {canUpdateTask ? <form className={styles.watcherForm} onSubmit={(event) => void onAddWatcher(event)}><select defaultValue="" name="userId"><option value="">Add participant…</option>{workspaceMembers.filter((member) => !watchers.some((watcher) => watcher.userId === member.userId)).map((member) => <option key={member.userId} value={member.userId}>{member.user.displayName}</option>)}</select><button type="submit">Add</button></form> : null}
-        {watchers.length ? (
-          <ul className={styles.watcherList}>
-            {watchers.map((watcher) => (
-              <li key={watcher.userId}>
-                <span>{initials(watcher.user.displayName)}</span>
-                {watcher.user.displayName}
-                {canUpdateTask && watcher.userId !== currentUserId ? <button aria-label={`Remove ${watcher.user.displayName}`} onClick={() => void onRemoveWatcher(watcher.userId)} type="button">×</button> : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className={styles.empty}>No one is watching this task yet.</p>
-        )}
       </section>
       <section
         className={styles.checklistSection}

@@ -96,6 +96,7 @@ import type {
 import { can } from "@devflow/shared";
 import { Modal } from "@/shared/components/modal";
 import { TaskWorkPanel } from "./task-work-panel";
+import { TaskWatchersPanel } from "./task-watchers-panel";
 import { ProjectTeamModal } from "./project-team-modal";
 import { notifyProjectsChanged } from "@/shared/lib/workspace-events";
 import styles from "@/shared/styles/ui.module.css";
@@ -3463,10 +3464,12 @@ function TaskEditorModal({
   const [taskFigmaPreviews, setTaskFigmaPreviews] = useState<
     Record<string, FigmaFilePreview | undefined>
   >({});
-  const [isLoadingTaskFigmaPreviewId, setIsLoadingTaskFigmaPreviewId] = useState<string>();
-  const [selectedProjectFigmaLinkId, setSelectedProjectFigmaLinkId] = useState("");
+  const [isLoadingTaskFigmaPreviewId, setIsLoadingTaskFigmaPreviewId] =
+    useState<string>();
+  const [selectedProjectFigmaLinkId, setSelectedProjectFigmaLinkId] =
+    useState("");
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<
-    "automation" | "details" | "development" | null
+    "automation" | "details" | "development" | "watching" | null
   >("details");
   const statusInputRef = useRef<HTMLInputElement>(null);
   const reviewStatus = project.statuses.find((status) =>
@@ -3511,10 +3514,15 @@ function TaskEditorModal({
     setIsSavingTaskFigmaLink(true);
     setTaskFigmaLinkError(undefined);
     try {
-      const response = await createTaskFigmaLink(workspaceId, project.id, task.id, {
-        name,
-        url,
-      });
+      const response = await createTaskFigmaLink(
+        workspaceId,
+        project.id,
+        task.id,
+        {
+          name,
+          url,
+        },
+      );
       setTaskFigmaLinks((current) => [response.link, ...current]);
       return true;
     } catch (caughtError) {
@@ -3552,7 +3560,9 @@ function TaskEditorModal({
     setTaskFigmaLinkError(undefined);
     try {
       await deleteTaskFigmaLink(workspaceId, project.id, task.id, linkId);
-      setTaskFigmaLinks((current) => current.filter((link) => link.id !== linkId));
+      setTaskFigmaLinks((current) =>
+        current.filter((link) => link.id !== linkId),
+      );
     } catch (caughtError) {
       setTaskFigmaLinkError(
         caughtError instanceof ApiClientError
@@ -3567,7 +3577,10 @@ function TaskEditorModal({
     setTaskFigmaLinkError(undefined);
     try {
       const response = await getFigmaFilePreview(link.url);
-      setTaskFigmaPreviews((current) => ({ ...current, [link.id]: response.preview }));
+      setTaskFigmaPreviews((current) => ({
+        ...current,
+        [link.id]: response.preview,
+      }));
     } catch (caughtError) {
       setTaskFigmaLinkError(
         caughtError instanceof ApiClientError
@@ -3787,6 +3800,22 @@ function TaskEditorModal({
               </dl>
             </TaskSidebarSection>
             <TaskSidebarSection
+              isOpen={expandedSidebarSection === "watching"}
+              onToggle={() =>
+                setExpandedSidebarSection((current) =>
+                  current === "watching" ? null : "watching",
+                )
+              }
+              summary="Task notifications"
+              title="Watching"
+            >
+              <TaskWatchersPanel
+                role={role}
+                task={task}
+                workspaceId={workspaceId}
+              />
+            </TaskSidebarSection>
+            <TaskSidebarSection
               isOpen={expandedSidebarSection === "development"}
               onToggle={() =>
                 setExpandedSidebarSection((current) =>
@@ -3835,7 +3864,9 @@ function TaskEditorModal({
                         ) : null}
                       </div>
                       {taskFigmaPreviews[link.id] ? (
-                        <FigmaFilePreviewCard preview={taskFigmaPreviews[link.id]!} />
+                        <FigmaFilePreviewCard
+                          preview={taskFigmaPreviews[link.id]!}
+                        />
                       ) : null}
                     </li>
                   ))}
@@ -3869,7 +3900,9 @@ function TaskEditorModal({
                         </select>
                         <button
                           className={styles.secondaryButton}
-                          disabled={!selectedProjectFigmaLinkId || isSavingTaskFigmaLink}
+                          disabled={
+                            !selectedProjectFigmaLinkId || isSavingTaskFigmaLink
+                          }
                           onClick={() => void attachProjectFigmaLink()}
                           type="button"
                         >
@@ -3992,7 +4025,9 @@ function FigmaFilePreviewCard({ preview }: { preview: FigmaFilePreview }) {
         <div
           aria-hidden="true"
           className={styles.taskFigmaPreviewImage}
-          style={{ backgroundImage: `url(${JSON.stringify(preview.thumbnailUrl)})` }}
+          style={{
+            backgroundImage: `url(${JSON.stringify(preview.thumbnailUrl)})`,
+          }}
         />
       ) : (
         <div aria-hidden="true" className={styles.taskFigmaPreviewPlaceholder}>
