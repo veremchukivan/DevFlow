@@ -14,6 +14,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   type ChangeEvent,
+  type DragEvent,
   type FormEvent,
   useCallback,
   useEffect,
@@ -102,6 +103,7 @@ export function TaskWorkPanel({
   const [isSavingItemId, setIsSavingItemId] = useState<string>();
   const [isSavingCommentId, setIsSavingCommentId] = useState<string>();
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [isAttachmentDropActive, setIsAttachmentDropActive] = useState(false);
   const [isDeletingAttachmentId, setIsDeletingAttachmentId] =
     useState<string>();
   const [isReplacingAttachmentId, setIsReplacingAttachmentId] =
@@ -221,23 +223,43 @@ export function TaskWorkPanel({
     setAttachments(response.attachments);
   }
 
-  async function onAttachmentChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.currentTarget.files ?? []);
+  async function uploadAttachments(files: File[]) {
     if (!files.length) return;
 
     setError(undefined);
     setIsUploadingAttachment(true);
     try {
-      for (const file of files) {
-        await uploadTaskAttachment(workspaceId, task.projectId, task.id, file);
-      }
+      await Promise.all(
+        files.map((file) =>
+          uploadTaskAttachment(workspaceId, task.projectId, task.id, file),
+        ),
+      );
       await Promise.all([refreshAttachments(), refreshActivity()]);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to upload attachment."));
     } finally {
-      event.currentTarget.value = "";
       setIsUploadingAttachment(false);
     }
+  }
+
+  async function onAttachmentChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    await uploadAttachments(files);
+  }
+
+  function onAttachmentDragOver(event: DragEvent<HTMLElement>) {
+    if (!canUpdateTask || isUploadingAttachment) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsAttachmentDropActive(true);
+  }
+
+  function onAttachmentDrop(event: DragEvent<HTMLElement>) {
+    if (!canUpdateTask || isUploadingAttachment) return;
+    event.preventDefault();
+    setIsAttachmentDropActive(false);
+    void uploadAttachments(Array.from(event.dataTransfer.files));
   }
 
   async function onDescriptionMediaUpload(files: File[]) {
@@ -790,8 +812,11 @@ export function TaskWorkPanel({
       </section>
 
       <section
-        className={styles.attachmentsSection}
+        className={`${styles.attachmentsSection} ${isAttachmentDropActive ? styles.attachmentsSectionDragActive : ""}`}
         aria-labelledby="attachments-title"
+        onDragLeave={() => setIsAttachmentDropActive(false)}
+        onDragOver={onAttachmentDragOver}
+        onDrop={onAttachmentDrop}
       >
         <div className={styles.sectionHeading}>
           <div>
@@ -811,6 +836,11 @@ export function TaskWorkPanel({
             />
             {isUploadingAttachment ? "Uploading" : "Upload file"}
           </label>
+        ) : null}
+        {canUpdateTask ? (
+          <p className={styles.attachmentDropHint}>
+            Or drag files here to upload
+          </p>
         ) : null}
         {isLoading ? (
           <p className={styles.empty}>Loading attachments…</p>
