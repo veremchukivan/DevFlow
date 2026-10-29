@@ -42,15 +42,7 @@ figmaRouter.get("/connect", requireAuth, (req, res) => {
   authorizationUrl.searchParams.set("client_id", env.FIGMA_CLIENT_ID);
   authorizationUrl.searchParams.set("redirect_uri", env.FIGMA_REDIRECT_URI);
   authorizationUrl.searchParams.set("response_type", "code");
-  authorizationUrl.searchParams.set(
-    "scope",
-    [
-      "current_user:read",
-      "file_content:read",
-      "file_dev_resources:read",
-      "file_dev_resources:write",
-    ].join(" "),
-  );
+  authorizationUrl.searchParams.set("scope", "current_user:read file_content:read");
   authorizationUrl.searchParams.set("state", state);
   res.redirect(302, authorizationUrl.toString());
 });
