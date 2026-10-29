@@ -76,6 +76,7 @@ services:
       MP_DATA_FILE: /data/mailpit.db
 
   api-migrate:
+    image: devflow-api:latest
     build:
       context: ../..
       dockerfile: infra/docker/api.Dockerfile
@@ -113,6 +114,7 @@ services:
         condition: service_completed_successfully
 
   api:
+    image: devflow-api:latest
     build:
       context: ../..
       dockerfile: infra/docker/api.Dockerfile
