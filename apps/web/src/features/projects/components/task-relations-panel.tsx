@@ -12,6 +12,7 @@ import {
   getTaskRelations,
   getTasks,
 } from "@/shared/lib/api-client";
+import { notifyTaskActivityChanged } from "@/shared/lib/task-events";
 import type {
   Task,
   TaskRelation,
@@ -97,6 +98,7 @@ export function TaskRelationsPanel({
       });
       event.currentTarget.reset();
       await loadRelations();
+      notifyTaskActivityChanged(task.id);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to create task relation."));
     } finally {
@@ -114,6 +116,7 @@ export function TaskRelationsPanel({
         relationId,
       );
       await loadRelations();
+      notifyTaskActivityChanged(task.id);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to remove task relation."));
     } finally {

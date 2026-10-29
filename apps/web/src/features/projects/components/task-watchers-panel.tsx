@@ -13,6 +13,7 @@ import {
   removeTaskWatcher,
   unfollowTask,
 } from "@/shared/lib/api-client";
+import { notifyTaskActivityChanged } from "@/shared/lib/task-events";
 import type {
   Task,
   TaskWatcher,
@@ -83,6 +84,7 @@ export function TaskWatchersPanel({
           : await followTask(workspaceId, task.projectId, task.id),
       );
       setError(undefined);
+      notifyTaskActivityChanged(task.id);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to update task watchers."));
     } finally {
@@ -103,6 +105,7 @@ export function TaskWatchersPanel({
       );
       event.currentTarget.reset();
       setError(undefined);
+      notifyTaskActivityChanged(task.id);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to add the watcher."));
     } finally {
@@ -117,6 +120,7 @@ export function TaskWatchersPanel({
         await removeTaskWatcher(workspaceId, task.projectId, task.id, userId),
       );
       setError(undefined);
+      notifyTaskActivityChanged(task.id);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to remove the watcher."));
     } finally {

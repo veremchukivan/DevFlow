@@ -10,6 +10,7 @@ import {
   startTaskTimer,
   stopTaskTimer,
 } from "@/shared/lib/api-client";
+import { notifyTaskActivityChanged } from "@/shared/lib/task-events";
 import type { Task, TaskTimeEntry, WorkspaceRole } from "@devflow/shared";
 import { can } from "@devflow/shared";
 
@@ -74,6 +75,7 @@ export function TaskTimeTrackingPanel({
         await startTaskTimer(workspaceId, task.projectId, task.id);
       }
       await loadEntries();
+      notifyTaskActivityChanged(task.id);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to update the timer."));
     } finally {
@@ -96,6 +98,7 @@ export function TaskTimeTrackingPanel({
       });
       event.currentTarget.reset();
       await loadEntries();
+      notifyTaskActivityChanged(task.id);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to log time."));
     } finally {

@@ -41,6 +41,7 @@ import {
   uploadTaskCommentAttachment,
 } from "@/shared/lib/api-client";
 import { Modal } from "@/shared/components/modal";
+import { subscribeToTaskActivityChanges } from "@/shared/lib/task-events";
 import {
   RichTextContent,
   RichTextEditor,
@@ -165,7 +166,7 @@ export function TaskWorkPanel({
     void loadWork();
   }, [loadWork]);
 
-  async function refreshActivity() {
+  const refreshActivity = useCallback(async () => {
     const response = await getTaskActivity(
       workspaceId,
       task.projectId,
@@ -175,7 +176,12 @@ export function TaskWorkPanel({
       },
     );
     setActivity(response.events);
-  }
+  }, [task.id, task.projectId, workspaceId]);
+
+  useEffect(
+    () => subscribeToTaskActivityChanges(task.id, () => void refreshActivity()),
+    [refreshActivity, task.id],
+  );
 
   async function onChecklistSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
