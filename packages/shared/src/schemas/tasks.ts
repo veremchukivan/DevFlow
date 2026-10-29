@@ -49,6 +49,40 @@ export const taskParamsSchema = projectTasksParamsSchema.extend({
   taskId: z.uuid(),
 });
 
+export const taskFigmaLinkParamsSchema = taskParamsSchema.extend({
+  linkId: z.uuid(),
+});
+
+export const createTaskFigmaLinkRequestSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  url: z
+    .url()
+    .refine(
+      (value) => /^https?:\/\/(?:[a-z0-9-]+\.)*figma\.com(?:[/:?#]|$)/i.test(value),
+      { message: "Figma link must point to figma.com" },
+    ),
+});
+
+export const taskFigmaLinkSchema = z.object({
+  createdAt: z.string().datetime(),
+  createdByUserId: z.uuid().nullable(),
+  id: z.uuid(),
+  name: z.string(),
+  projectId: z.uuid(),
+  taskId: z.uuid(),
+  updatedAt: z.string().datetime(),
+  url: z.url(),
+  workspaceId: z.uuid(),
+});
+
+export const taskFigmaLinkListResponseSchema = z.object({
+  links: z.array(taskFigmaLinkSchema),
+});
+
+export const taskFigmaLinkResponseSchema = z.object({
+  link: taskFigmaLinkSchema,
+});
+
 // ---------------------------------------------------------------------------
 // List query filters
 // ---------------------------------------------------------------------------
@@ -82,6 +116,10 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
 export type TaskSortField = z.infer<typeof taskSortFieldSchema>;
 export type TaskSortOrder = z.infer<typeof taskSortOrderSchema>;
+export type CreateTaskFigmaLinkRequest = z.infer<
+  typeof createTaskFigmaLinkRequestSchema
+>;
+export type TaskFigmaLink = z.infer<typeof taskFigmaLinkSchema>;
 
 export const taskStatusSchema = z.object({
   category: projectStatusCategorySchema,

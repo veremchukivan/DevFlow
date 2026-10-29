@@ -17,6 +17,7 @@ import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { taskAttachments } from "../../core/db/schema/task-attachments.js";
 import { taskChecklistItems } from "../../core/db/schema/task-checklist-items.js";
 import { taskComments } from "../../core/db/schema/task-comments.js";
+import { taskFigmaLinks } from "../../core/db/schema/task-figma-links.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { users } from "../../core/db/schema/users.js";
@@ -96,6 +97,56 @@ export async function findProjectInWorkspace(input: {
     .limit(1);
 
   return project;
+}
+
+export async function listTaskFigmaLinks(input: {
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  return db
+    .select()
+    .from(taskFigmaLinks)
+    .where(
+      and(
+        eq(taskFigmaLinks.workspaceId, input.workspaceId),
+        eq(taskFigmaLinks.projectId, input.projectId),
+        eq(taskFigmaLinks.taskId, input.taskId),
+      ),
+    )
+    .orderBy(desc(taskFigmaLinks.createdAt));
+}
+
+export async function createTaskFigmaLinkInDb(input: {
+  createdByUserId: string;
+  name: string;
+  projectId: string;
+  taskId: string;
+  url: string;
+  workspaceId: string;
+}) {
+  const [link] = await db.insert(taskFigmaLinks).values(input).returning();
+  return link;
+}
+
+export async function deleteTaskFigmaLinkInDb(input: {
+  linkId: string;
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  const [link] = await db
+    .delete(taskFigmaLinks)
+    .where(
+      and(
+        eq(taskFigmaLinks.id, input.linkId),
+        eq(taskFigmaLinks.workspaceId, input.workspaceId),
+        eq(taskFigmaLinks.projectId, input.projectId),
+        eq(taskFigmaLinks.taskId, input.taskId),
+      ),
+    )
+    .returning();
+  return link;
 }
 
 export async function findProjectStatusInProject(input: {

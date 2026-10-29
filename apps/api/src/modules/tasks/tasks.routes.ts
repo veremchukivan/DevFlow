@@ -1,9 +1,11 @@
 import {
   createTaskRequestSchema,
+  createTaskFigmaLinkRequestSchema,
   listTasksQuerySchema,
   repositionTaskRequestSchema,
   projectTasksParamsSchema,
   taskParamsSchema,
+  taskFigmaLinkParamsSchema,
   updateTaskRequestSchema,
   type TaskListResponse,
   type TaskResponse,
@@ -17,12 +19,15 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createTask,
+  addTaskFigmaLink,
   deleteTask,
   restoreTask,
   getTask,
+  getTaskFigmaLinks,
   listTasks,
   repositionTask,
   updateTask,
+  removeTaskFigmaLink,
 } from "./tasks.service.js";
 
 export const tasksRouter = Router({ mergeParams: true });
@@ -70,6 +75,28 @@ tasksRouter.get("/:taskId", async (req, res) => {
 
   res.set("ETag", toTaskEtag(task.version));
   res.json(toTaskResponse(task));
+});
+
+tasksRouter.get("/:taskId/figma-links", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  const links = await getTaskFigmaLinks({ ...params, userId: getAuthenticatedUserId(req) });
+  res.json({ links: links.map(toTaskFigmaLinkDto) });
+});
+
+tasksRouter.post("/:taskId/figma-links", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  const link = await addTaskFigmaLink({
+    ...params,
+    input: createTaskFigmaLinkRequestSchema.parse(req.body),
+    userId: getAuthenticatedUserId(req),
+  });
+  res.status(201).json({ link: toTaskFigmaLinkDto(link) });
+});
+
+tasksRouter.delete("/:taskId/figma-links/:linkId", async (req, res) => {
+  const params = taskFigmaLinkParamsSchema.parse(req.params);
+  await removeTaskFigmaLink({ ...params, userId: getAuthenticatedUserId(req) });
+  res.status(204).send();
 });
 
 tasksRouter.patch("/:taskId", async (req, res) => {
@@ -123,6 +150,24 @@ tasksRouter.post("/:taskId/restore", async (req, res) => {
 
 function getAuthenticatedUserId(req: unknown) {
   return (req as AuthenticatedRequest).auth.user.id;
+}
+
+function toTaskFigmaLinkDto(link: {
+  createdAt: Date;
+  createdByUserId: string | null;
+  id: string;
+  name: string;
+  projectId: string;
+  taskId: string;
+  updatedAt: Date;
+  url: string;
+  workspaceId: string;
+}) {
+  return {
+    ...link,
+    createdAt: link.createdAt.toISOString(),
+    updatedAt: link.updatedAt.toISOString(),
+  };
 }
 
 function getExpectedTaskVersion(req: {

@@ -20,6 +20,8 @@ import { canCreateTask, canDeleteTask, canUpdateTask } from "./tasks.policy.js";
 import { findProjectSprint } from "../project-sprints/project-sprints.repository.js";
 import {
   createTaskWithNextNumber,
+  createTaskFigmaLinkInDb,
+  deleteTaskFigmaLinkInDb,
   findActiveWorkspaceMember,
   findActiveWorkspaceMembership,
   findDefaultProjectStatus,
@@ -27,6 +29,7 @@ import {
   findProjectStatusInProject,
   findTaskInProject,
   listTasksForProject,
+  listTaskFigmaLinks,
   softDeleteTaskInProject,
   restoreTaskInProject,
   repositionTaskInProject,
@@ -143,6 +146,61 @@ export async function listTasks(input: {
     }),
     tasks: result.tasks,
   };
+}
+
+export async function getTaskFigmaLinks(input: {
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireWorkspaceMembership(input);
+  await requireProject(input);
+  await requireTask(input);
+  return listTaskFigmaLinks(input);
+}
+
+export async function addTaskFigmaLink(input: {
+  input: { name: string; url: string };
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateTask(membership.role)) {
+    throw new AppError(403, "TASK_UPDATE_FORBIDDEN", "You cannot update tasks in this workspace");
+  }
+  await requireProject(input);
+  await requireTask(input);
+  const link = await createTaskFigmaLinkInDb({
+    ...input.input,
+    createdByUserId: input.userId,
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
+  if (!link) throw new Error("Failed to create task Figma link");
+  return link;
+}
+
+export async function removeTaskFigmaLink(input: {
+  linkId: string;
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateTask(membership.role)) {
+    throw new AppError(403, "TASK_UPDATE_FORBIDDEN", "You cannot update tasks in this workspace");
+  }
+  await requireProject(input);
+  await requireTask(input);
+  const deleted = await deleteTaskFigmaLinkInDb(input);
+  if (!deleted) {
+    throw new AppError(404, "TASK_FIGMA_LINK_NOT_FOUND", "Task Figma link not found");
+  }
 }
 
 export async function repositionTask(input: {
