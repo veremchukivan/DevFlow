@@ -17,6 +17,9 @@ export const taskActivityEventTypeSchema = z.enum([
   "task_checklist_item_added",
   "task_checklist_item_updated",
   "task_checklist_item_removed",
+  "task_time_logged",
+  "task_timer_started",
+  "task_timer_stopped",
 ]);
 
 export const taskActivityParamsSchema = z.object({

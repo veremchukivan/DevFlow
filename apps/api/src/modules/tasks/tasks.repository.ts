@@ -199,6 +199,7 @@ export async function createTaskWithNextNumber(input: {
   assigneeUserId?: string;
   description?: string;
   dueDate?: string;
+  estimateMinutes?: number;
   parentTaskId?: string;
   priority?: TaskPriority;
   sprintId?: string;
@@ -262,6 +263,9 @@ export async function createTaskWithNextNumber(input: {
       ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
       ...(input.description ? { description: input.description } : {}),
       ...(input.dueDate ? { dueDate: input.dueDate } : {}),
+      ...(input.estimateMinutes !== undefined
+        ? { estimateMinutes: input.estimateMinutes }
+        : {}),
       ...(input.priority ? { priority: input.priority } : {}),
       ...(input.sprintId ? { sprintId: input.sprintId } : {}),
       ...(input.type ? { type: input.type } : {}),
@@ -453,6 +457,7 @@ export async function updateTaskInProject(
     assigneeUserId?: string | null;
     description?: string | null;
     dueDate?: string | null;
+    estimateMinutes?: number | null;
     parentTaskId?: string | null;
     priority?: TaskPriority;
     projectId: string;
@@ -616,6 +621,7 @@ function taskSelect(executor: DbExecutor = db) {
       createdAt: tasks.createdAt,
       description: tasks.description,
       dueDate: tasks.dueDate,
+      estimateMinutes: tasks.estimateMinutes,
       attachmentCount: sql<number>`(select count(*)::int from ${taskAttachments} where ${taskAttachments.taskId} = ${tasks.id})`,
       checklistCompletedCount: sql<number>`(select count(*)::int from ${taskChecklistItems} where ${taskChecklistItems.taskId} = ${tasks.id} and ${taskChecklistItems.isCompleted} = true)`,
       checklistTotalCount: sql<number>`(select count(*)::int from ${taskChecklistItems} where ${taskChecklistItems.taskId} = ${tasks.id})`,
@@ -684,6 +690,7 @@ function toTaskUpdateValues(input: {
   assigneeUserId?: string | null;
   description?: string | null;
   dueDate?: string | null;
+  estimateMinutes?: number | null;
   parentTaskId?: string | null;
   priority?: TaskPriority;
   statusId?: string;
@@ -695,6 +702,7 @@ function toTaskUpdateValues(input: {
     assigneeUserId?: string | null;
     description?: string | null;
     dueDate?: string | null;
+    estimateMinutes?: number | null;
     parentTaskId?: string | null;
     priority?: TaskPriority;
     statusId?: string;
@@ -716,6 +724,10 @@ function toTaskUpdateValues(input: {
 
   if (input.dueDate !== undefined) {
     values.dueDate = input.dueDate;
+  }
+
+  if (input.estimateMinutes !== undefined) {
+    values.estimateMinutes = input.estimateMinutes;
   }
 
   if (input.parentTaskId !== undefined) {

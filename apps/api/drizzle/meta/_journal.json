@@ -288,6 +288,13 @@
       "when": 1793290312873,
       "tag": "0040_broad_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793294843448,
+      "tag": "0041_wandering_wolfsbane",
+      "breakpoints": true
     }
   ]
 }

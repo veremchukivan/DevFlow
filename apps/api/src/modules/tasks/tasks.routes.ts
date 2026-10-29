@@ -215,6 +215,7 @@ function toTaskDto(task: {
   createdAt: Date;
   description: string | null;
   dueDate: string | null;
+  estimateMinutes: number | null;
   id: string;
   number: number;
   position: number;
@@ -256,6 +257,7 @@ function toTaskDto(task: {
     createdAt: task.createdAt.toISOString(),
     description: task.description,
     dueDate: task.dueDate,
+    estimateMinutes: task.estimateMinutes,
     id: task.id,
     metrics: {
       attachmentCount: task.attachmentCount,

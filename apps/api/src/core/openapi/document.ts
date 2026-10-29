@@ -39,6 +39,9 @@ import {
   taskChecklistResponseSchema,
   taskFigmaLinkListResponseSchema,
   taskFigmaLinkResponseSchema,
+  taskTimeEntryListResponseSchema,
+  taskTimeEntryResponseSchema,
+  createManualTaskTimeEntryRequestSchema,
   taskListResponseSchema,
   taskResponseSchema,
   updateProfileRequestSchema,
@@ -106,6 +109,9 @@ const schemas = {
   TaskChecklistResponse: taskChecklistResponseSchema,
   TaskFigmaLinkListResponse: taskFigmaLinkListResponseSchema,
   TaskFigmaLinkResponse: taskFigmaLinkResponseSchema,
+  CreateManualTaskTimeEntryRequest: createManualTaskTimeEntryRequestSchema,
+  TaskTimeEntryListResponse: taskTimeEntryListResponseSchema,
+  TaskTimeEntryResponse: taskTimeEntryResponseSchema,
   TaskListResponse: taskListResponseSchema,
   TaskResponse: taskResponseSchema,
   UpdateProjectRequest: updateProjectRequestSchema,
@@ -1284,6 +1290,71 @@ export const openApiDocument = {
           },
         },
       },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/time-entries": {
+      get: {
+        tags: ["Time tracking"],
+        operationId: "listTaskTimeEntries",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+        ],
+        responses: {
+          "200": response("Task time entries and summary", "TaskTimeEntryListResponse"),
+          ...commonErrors,
+        },
+      },
+      post: {
+        tags: ["Time tracking"],
+        operationId: "createManualTaskTimeEntry",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+        ],
+        requestBody: requestBody("CreateManualTaskTimeEntryRequest"),
+        responses: {
+          "201": response("Time entry created", "TaskTimeEntryResponse"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/time-entries/start": {
+      post: {
+        tags: ["Time tracking"],
+        operationId: "startTaskTimer",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+        ],
+        responses: {
+          "201": response("Timer started", "TaskTimeEntryResponse"),
+          "409": errorResponse("A timer is already running"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/time-entries/{entryId}/stop": {
+      post: {
+        tags: ["Time tracking"],
+        operationId: "stopTaskTimer",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+          uuidPath("entryId"),
+        ],
+        responses: {
+          "200": response("Timer stopped", "TaskTimeEntryResponse"),
+          ...commonErrors,
+        },
+      },
+    },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/activity":
       {
         get: {

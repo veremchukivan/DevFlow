@@ -55,6 +55,7 @@ export const tasks = pgTable(
     title: varchar("title", { length: 200 }).notNull(),
     description: text("description"),
     dueDate: date("due_date"),
+    estimateMinutes: integer("estimate_minutes"),
     priority: taskPriorityEnum("priority").notNull().default("medium"),
     assigneeUserId: uuid("assignee_user_id").references(() => users.id, {
       onDelete: "set null",
@@ -129,6 +130,10 @@ export const tasks = pgTable(
     index("tasks_assignee_user_id_idx").on(table.assigneeUserId),
     index("tasks_reporter_user_id_idx").on(table.reporterUserId),
     check("tasks_number_positive_check", sql`${table.number} > 0`),
+    check(
+      "tasks_estimate_minutes_nonnegative_check",
+      sql`${table.estimateMinutes} is null or ${table.estimateMinutes} >= 0`,
+    ),
   ],
 );
 

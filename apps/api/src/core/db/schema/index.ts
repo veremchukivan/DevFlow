@@ -16,6 +16,7 @@ export * from "./task-checklist-items.js";
 export * from "./task-comments.js";
 export * from "./task-figma-links.js";
 export * from "./task-relations.js";
+export * from "./task-time-entries.js";
 export * from "./tasks.js";
 export * from "./users.js";
 export * from "./user-ai-settings.js";
