@@ -1392,6 +1392,17 @@ export function ProjectBoard() {
     const parentTaskId = String(form.get("parentTaskId") ?? "");
     const sprintId = String(form.get("sprintId") ?? "");
     const description = String(form.get("description") ?? "").trim();
+    const estimateValue = String(form.get("estimateMinutes") ?? "");
+    const estimateMinutes = estimateValue ? Number(estimateValue) : null;
+
+    if (
+      estimateMinutes !== null &&
+      (!Number.isInteger(estimateMinutes) || estimateMinutes < 0)
+    ) {
+      setError("Estimate must be a whole number of minutes.");
+      setUpdatingTaskId(undefined);
+      return;
+    }
 
     try {
       const response = await updateTask(
@@ -1402,6 +1413,7 @@ export function ProjectBoard() {
           assigneeUserId: assigneeUserId || null,
           description: description || null,
           dueDate: dueDate || null,
+          estimateMinutes,
           parentTaskId: parentTaskId || null,
           priority: form.get("priority") as TaskPriority,
           sprintId: sprintId || null,
@@ -3747,6 +3759,16 @@ function TaskEditorModal({
                   defaultValue={task.dueDate ?? ""}
                   name="dueDate"
                   type="date"
+                />
+              </label>
+              <label>
+                <span>Estimate (minutes)</span>
+                <input
+                  defaultValue={task.estimateMinutes ?? ""}
+                  min={0}
+                  name="estimateMinutes"
+                  placeholder="For example, 240"
+                  type="number"
                 />
               </label>
               <dl className={styles.taskEditorFacts}>
