@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 
 import { env } from "../src/config/env.js";
 import { encryptIntegrationSecret } from "../src/core/crypto/integrations.js";
@@ -118,5 +119,40 @@ describe("Figma integration routes", () => {
         headers: { Authorization: "Bearer figma-access-token" },
       }),
     );
+  });
+
+  it("refreshes an expired access token before requesting a Figma file", async () => {
+    await db
+      .update(figmaConnections)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(figmaConnections.userId, user.user.id));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ access_token: "renewed-access-token", expires_in: 3600 }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            lastModified: "2026-10-29T11:00:00.000Z",
+            name: "Renewed file access",
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await request(app)
+      .get("/api/v1/integrations/figma/preview")
+      .set("Cookie", user.cookie)
+      .query({ url: "https://www.figma.com/file/Abcd1234/Renewed" });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.figma.com/v1/oauth/token");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.figma.com/v1/files/Abcd1234?depth=1");
   });
 });

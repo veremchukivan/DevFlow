@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 
-import { decryptIntegrationSecret } from "../../core/crypto/integrations.js";
+import { env } from "../../config/env.js";
+import {
+  decryptIntegrationSecret,
+  encryptIntegrationSecret,
+} from "../../core/crypto/integrations.js";
 import { db } from "../../core/db/client.js";
 import { figmaConnections } from "../../core/db/schema/figma-connections.js";
 import { AppError } from "../../core/errors/app-error.js";
@@ -10,6 +14,12 @@ type FigmaFileResponse = {
   lastModified?: string;
   name?: string;
   thumbnailUrl?: string;
+};
+
+type FigmaRefreshResponse = {
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string;
 };
 
 export async function getFigmaFilePreview(input: {
@@ -29,6 +39,7 @@ export async function getFigmaFilePreview(input: {
     .select({
       accessTokenEncrypted: figmaConnections.accessTokenEncrypted,
       expiresAt: figmaConnections.expiresAt,
+      refreshTokenEncrypted: figmaConnections.refreshTokenEncrypted,
     })
     .from(figmaConnections)
     .where(eq(figmaConnections.userId, input.userId))
@@ -41,29 +52,25 @@ export async function getFigmaFilePreview(input: {
       "Connect your Figma account before previewing a file",
     );
   }
-  if (connection.expiresAt <= new Date()) {
-    throw new AppError(
-      401,
-      "FIGMA_CONNECTION_EXPIRED",
-      "Your Figma connection has expired. Reconnect it in Profile settings.",
-    );
+  let accessToken = decryptIntegrationSecret(connection.accessTokenEncrypted);
+  if (connection.expiresAt <= new Date(Date.now() + 60_000)) {
+    accessToken = await refreshFigmaAccessToken({
+      refreshTokenEncrypted: connection.refreshTokenEncrypted,
+      userId: input.userId,
+    });
   }
 
-  const response = await fetch(
-    `https://api.figma.com/v1/files/${encodeURIComponent(fileKey)}?depth=1`,
-    {
-      headers: {
-        Authorization: `Bearer ${decryptIntegrationSecret(connection.accessTokenEncrypted)}`,
-      },
-    },
-  );
+  let response = await requestFigmaFile(fileKey, accessToken);
 
   if (response.status === 401 || response.status === 403) {
-    throw new AppError(
-      401,
-      "FIGMA_CONNECTION_EXPIRED",
-      "Your Figma connection is no longer authorised. Reconnect it in Profile settings.",
-    );
+    accessToken = await refreshFigmaAccessToken({
+      refreshTokenEncrypted: connection.refreshTokenEncrypted,
+      userId: input.userId,
+    });
+    response = await requestFigmaFile(fileKey, accessToken);
+    if (response.status === 401 || response.status === 403) {
+      throw connectionExpiredError();
+    }
   }
   if (response.status === 404) {
     throw new AppError(404, "FIGMA_FILE_NOT_FOUND", "Figma file was not found");
@@ -92,6 +99,74 @@ export async function getFigmaFilePreview(input: {
     name: file.name,
     thumbnailUrl: file.thumbnailUrl ?? null,
   };
+}
+
+async function requestFigmaFile(fileKey: string, accessToken: string) {
+  return fetch(
+    `https://api.figma.com/v1/files/${encodeURIComponent(fileKey)}?depth=1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
+
+async function refreshFigmaAccessToken(input: {
+  refreshTokenEncrypted: string;
+  userId: string;
+}) {
+  if (!env.FIGMA_CLIENT_ID || !env.FIGMA_CLIENT_SECRET) {
+    throw new AppError(
+      503,
+      "FIGMA_NOT_CONFIGURED",
+      "Figma integration is not configured",
+    );
+  }
+
+  const basic = Buffer.from(
+    `${env.FIGMA_CLIENT_ID}:${env.FIGMA_CLIENT_SECRET}`,
+  ).toString("base64");
+  let response: Response;
+  try {
+    response = await fetch("https://api.figma.com/v1/oauth/token", {
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: decryptIntegrationSecret(input.refreshTokenEncrypted),
+      }),
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      method: "POST",
+    });
+  } catch {
+    throw new AppError(502, "FIGMA_TOKEN_REFRESH_FAILED", "Unable to refresh the Figma connection");
+  }
+
+  if (!response.ok) throw connectionExpiredError();
+  const token = (await response.json()) as FigmaRefreshResponse;
+  if (!token.access_token || !Number.isFinite(token.expires_in)) {
+    throw new AppError(502, "FIGMA_TOKEN_REFRESH_FAILED", "Figma returned an invalid token refresh response");
+  }
+
+  await db
+    .update(figmaConnections)
+    .set({
+      accessTokenEncrypted: encryptIntegrationSecret(token.access_token),
+      expiresAt: new Date(Date.now() + token.expires_in * 1000),
+      ...(token.refresh_token
+        ? { refreshTokenEncrypted: encryptIntegrationSecret(token.refresh_token) }
+        : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(figmaConnections.userId, input.userId));
+
+  return token.access_token;
+}
+
+function connectionExpiredError() {
+  return new AppError(
+    401,
+    "FIGMA_CONNECTION_EXPIRED",
+    "Your Figma connection has expired. Reconnect it in Profile settings.",
+  );
 }
 
 function getFigmaFileKey(value: string) {
