@@ -51,6 +51,7 @@ import {
   RichTextContent,
   RichTextEditor,
   removeEmbeddedMedia,
+  replaceEmbeddedMediaAttachment,
 } from "@/shared/components/rich-text-editor";
 import type {
   Task,
@@ -111,6 +112,8 @@ export function TaskWorkPanel({
   const [isSavingCommentId, setIsSavingCommentId] = useState<string>();
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isDeletingAttachmentId, setIsDeletingAttachmentId] =
+    useState<string>();
+  const [isReplacingAttachmentId, setIsReplacingAttachmentId] =
     useState<string>();
   const [isCreatingRelation, setIsCreatingRelation] = useState(false);
   const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
@@ -382,6 +385,57 @@ export function TaskWorkPanel({
       setError(messageFor(caughtError, "Unable to delete attachment."));
     } finally {
       setIsDeletingAttachmentId(undefined);
+    }
+  }
+
+  async function onAttachmentReplace(
+    event: ChangeEvent<HTMLInputElement>,
+    attachment: TaskAttachment,
+  ) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+
+    setError(undefined);
+    setIsReplacingAttachmentId(attachment.id);
+    try {
+      const response = await uploadTaskAttachment(
+        workspaceId,
+        task.projectId,
+        task.id,
+        file,
+      );
+      const nextDescription = description
+        ? replaceEmbeddedMediaAttachment(
+            description,
+            attachment.id,
+            response.attachment.id,
+          )
+        : description;
+      if (
+        nextDescription !== description &&
+        nextDescription !== null &&
+        nextDescription !== undefined &&
+        onDescriptionMediaSave
+      ) {
+        await onDescriptionMediaSave(nextDescription);
+      }
+      await deleteTaskAttachment(
+        workspaceId,
+        task.projectId,
+        task.id,
+        attachment.id,
+      );
+      setAttachments((currentAttachments) =>
+        currentAttachments.map((current) =>
+          current.id === attachment.id ? response.attachment : current,
+        ),
+      );
+      await refreshActivity();
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to replace attachment."));
+    } finally {
+      setIsReplacingAttachmentId(undefined);
     }
   }
 
@@ -903,10 +957,41 @@ export function TaskWorkPanel({
                       <Download aria-hidden="true" size={16} />
                     </a>
                     {canUpdateTask ? (
+                      <label
+                        className={styles.replaceAttachmentButton}
+                        title="Replace attachment"
+                      >
+                        <input
+                          accept={
+                            attachment.mimeType.startsWith("image/")
+                              ? "image/jpeg,image/png,image/webp"
+                              : attachment.mimeType.startsWith("video/")
+                                ? "video/mp4,video/webm"
+                                : "application/pdf"
+                          }
+                          disabled={
+                            isReplacingAttachmentId === attachment.id ||
+                            isDeletingAttachmentId === attachment.id
+                          }
+                          onChange={(event) =>
+                            void onAttachmentReplace(event, attachment)
+                          }
+                          type="file"
+                        />
+                        <Pencil aria-hidden="true" size={15} />
+                        <span className={styles.srOnly}>
+                          Replace {attachment.originalFilename}
+                        </span>
+                      </label>
+                    ) : null}
+                    {canUpdateTask ? (
                       <button
                         aria-label={`Delete ${attachment.originalFilename}`}
                         className={styles.deleteButton}
-                        disabled={isDeletingAttachmentId === attachment.id}
+                        disabled={
+                          isDeletingAttachmentId === attachment.id ||
+                          isReplacingAttachmentId === attachment.id
+                        }
                         onClick={() => void onAttachmentDelete(attachment.id)}
                         title="Delete attachment"
                         type="button"

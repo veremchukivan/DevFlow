@@ -610,6 +610,20 @@ export function removeEmbeddedMedia(value: string, attachmentId: string) {
       currentAttachmentId === attachmentId ? "" : tag,
   );
 }
+
+export function replaceEmbeddedMediaAttachment(
+  value: string,
+  currentAttachmentId: string,
+  nextAttachmentId: string,
+) {
+  return value.replace(
+    new RegExp(
+      `(data-task-attachment-id=["'])${escapeRegExp(currentAttachmentId)}(["'])`,
+      "g",
+    ),
+    `$1${nextAttachmentId}$2`,
+  );
+}
 function resolveEmbeddedMedia(
   html: string,
   attachments: RichTextAttachment[],
@@ -665,4 +679,8 @@ function escapeHtml(value: string) {
 }
 function escapeAttribute(value: string) {
   return escapeHtml(value);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

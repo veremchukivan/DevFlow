@@ -271,6 +271,37 @@
   color: var(--brand);
 }
 
+.replaceAttachmentButton {
+  align-items: center;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  position: relative;
+  width: 30px;
+}
+
+.replaceAttachmentButton:hover,
+.replaceAttachmentButton:focus-within {
+  color: var(--brand);
+}
+
+.replaceAttachmentButton input {
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.replaceAttachmentButton:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .attachmentPreviewDialog {
   display: grid;
   gap: 14px;
