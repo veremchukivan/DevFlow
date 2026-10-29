@@ -5,6 +5,8 @@ import {
   ClipboardList,
   Clock3,
   Download,
+  Eye,
+  EyeOff,
   Link2,
   Maximize2,
   MessageSquare,
@@ -45,6 +47,7 @@ import {
   getTaskComments,
   getTaskRelations,
   getTaskTimeEntries,
+  getTaskWatchers,
   getTasks,
   updateTaskChecklistItem,
   updateTaskComment,
@@ -52,6 +55,8 @@ import {
   uploadTaskCommentAttachment,
   startTaskTimer,
   stopTaskTimer,
+  followTask,
+  unfollowTask,
 } from "@/shared/lib/api-client";
 import { Modal } from "@/shared/components/modal";
 import {
@@ -69,6 +74,7 @@ import type {
   TaskRelation,
   TaskRelationType,
   TaskTimeEntry,
+  TaskWatcher,
   WorkspaceRole,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
@@ -108,6 +114,8 @@ export function TaskWorkPanel({
   );
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [timeEntries, setTimeEntries] = useState<TaskTimeEntry[]>([]);
+  const [watchers, setWatchers] = useState<TaskWatcher[]>([]);
+  const [isWatching, setIsWatching] = useState(false);
   const [timeSummary, setTimeSummary] = useState<{
     activeEntry: TaskTimeEntry | null;
     estimateMinutes: number | null;
@@ -133,6 +141,7 @@ export function TaskWorkPanel({
   const [isCreatingRelation, setIsCreatingRelation] = useState(false);
   const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
   const [isSavingTime, setIsSavingTime] = useState(false);
+  const [isUpdatingWatchers, setIsUpdatingWatchers] = useState(false);
   const [isDeletingRelationId, setIsDeletingRelationId] = useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [editingChecklistItemId, setEditingChecklistItemId] =
@@ -165,6 +174,7 @@ export function TaskWorkPanel({
         attachmentsResponse,
         relationsResponse,
         timeEntriesResponse,
+        watchersResponse,
         userResponse,
       ] = await Promise.all([
         getTaskComments(workspaceId, task.projectId, task.id, { limit: 25 }),
@@ -173,6 +183,7 @@ export function TaskWorkPanel({
         getTaskAttachments(workspaceId, task.projectId, task.id),
         getTaskRelations(workspaceId, task.projectId, task.id),
         getTaskTimeEntries(workspaceId, task.projectId, task.id),
+        getTaskWatchers(workspaceId, task.projectId, task.id),
         getCurrentUser(),
       ]);
       setComments(commentsResponse.comments);
@@ -182,6 +193,8 @@ export function TaskWorkPanel({
       setRelations(relationsResponse.relations);
       setTimeEntries(timeEntriesResponse.entries);
       setTimeSummary(timeEntriesResponse.summary);
+      setWatchers(watchersResponse.watchers);
+      setIsWatching(watchersResponse.isWatching);
       setCurrentUserId(userResponse.user.id);
     } catch (caughtError) {
       setError(
@@ -289,6 +302,22 @@ export function TaskWorkPanel({
       setError(messageFor(caughtError, "Unable to log time."));
     } finally {
       setIsSavingTime(false);
+    }
+  }
+
+  async function onWatchToggle() {
+    setError(undefined);
+    setIsUpdatingWatchers(true);
+    try {
+      const response = isWatching
+        ? await unfollowTask(workspaceId, task.projectId, task.id)
+        : await followTask(workspaceId, task.projectId, task.id);
+      setIsWatching(response.isWatching);
+      setWatchers(response.watchers);
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to update task watchers."));
+    } finally {
+      setIsUpdatingWatchers(false);
     }
   }
 
@@ -837,6 +866,38 @@ export function TaskWorkPanel({
             ))}
           </ul>
         ) : null}
+      </section>
+      <section className={styles.watchersSection} aria-labelledby="watchers-title">
+        <div className={styles.sectionHeading}>
+          <div>
+            <h3 id="watchers-title">Watching</h3>
+            <p>Followers receive notifications for comments and status updates.</p>
+          </div>
+          <Eye aria-hidden="true" size={18} />
+        </div>
+        <div className={styles.watcherControls}>
+          <span>{watchers.length} following</span>
+          <button
+            disabled={isUpdatingWatchers}
+            onClick={() => void onWatchToggle()}
+            type="button"
+          >
+            {isWatching ? <EyeOff aria-hidden="true" size={15} /> : <Eye aria-hidden="true" size={15} />}
+            {isWatching ? "Stop watching" : "Watch task"}
+          </button>
+        </div>
+        {watchers.length ? (
+          <ul className={styles.watcherList}>
+            {watchers.map((watcher) => (
+              <li key={watcher.userId}>
+                <span>{initials(watcher.user.displayName)}</span>
+                {watcher.user.displayName}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.empty}>No one is watching this task yet.</p>
+        )}
       </section>
       <section
         className={styles.checklistSection}
@@ -1702,4 +1763,13 @@ function formatDuration(minutes: number) {
 
 function formatRelationType(relationType: TaskRelation["relationType"]) {
   return relationType.replaceAll("_", " ");
+}
+
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }

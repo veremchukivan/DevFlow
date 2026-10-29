@@ -57,6 +57,7 @@ import {
   taskTimeEntryListResponseSchema,
   taskTimeEntryResponseSchema,
   createManualTaskTimeEntryRequestSchema,
+  taskWatcherListResponseSchema,
   taskRelationListResponseSchema,
   updateTaskCommentRequestSchema,
   updateTaskChecklistItemRequestSchema,
@@ -130,6 +131,7 @@ import {
   type CreateManualTaskTimeEntryRequest,
   type TaskTimeEntryListResponse,
   type TaskTimeEntryResponse,
+  type TaskWatcherListResponse,
   type TaskRelationListResponse,
   type UpdateTaskCommentRequest,
   type UpdateTaskChecklistItemRequest,
@@ -1271,6 +1273,42 @@ export function createManualTaskTimeEntry(
       method: "POST",
     },
     taskTimeEntryResponseSchema,
+  );
+}
+
+export function getTaskWatchers(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskWatcherListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/watchers`,
+    { method: "GET" },
+    taskWatcherListResponseSchema,
+  );
+}
+
+export function followTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskWatcherListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/watchers/me`,
+    { method: "POST" },
+    taskWatcherListResponseSchema,
+  );
+}
+
+export function unfollowTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskWatcherListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/watchers/me`,
+    { method: "DELETE" },
+    taskWatcherListResponseSchema,
   );
 }
 

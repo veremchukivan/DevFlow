@@ -11,6 +11,7 @@
 .subtasksSection,
 .attachmentsSection,
 .timeTrackingSection,
+.watchersSection,
 .relationsSection,
 .activitySection {
   border: 1px solid var(--line);
@@ -61,9 +62,18 @@
   grid-row: 4;
 }
 
+.watchersSection {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+
 .subtasksSection {
   grid-column: 2;
-  grid-row: 4;
+  grid-row: 5;
+}
+
+.checklistSection {
+  grid-row: 5;
 }
 
 .relationsSection,
@@ -240,6 +250,72 @@
 
 .timeEntryList li span:first-child {
   color: var(--muted);
+}
+
+.watcherControls {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+}
+
+.watcherControls > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.watcherControls button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.watcherControls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.watcherList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.watcherList li {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 6px;
+  padding: 4px 9px 4px 4px;
+}
+
+.watcherList li span {
+  align-items: center;
+  background: var(--brand);
+  border-radius: 50%;
+  color: white;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
 }
 
 .uploadButton {
@@ -925,6 +1001,7 @@
   .descriptionSection,
   .attachmentsSection,
   .timeTrackingSection,
+  .watchersSection,
   .checklistSection,
   .subtasksSection,
   .relationsSection,
