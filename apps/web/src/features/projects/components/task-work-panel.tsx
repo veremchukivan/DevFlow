@@ -3,12 +3,15 @@
 import {
   Check,
   ClipboardList,
+  Clock3,
   Download,
   Link2,
   Maximize2,
   MessageSquare,
   Pencil,
   Paperclip,
+  Play,
+  Square,
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
@@ -26,6 +29,7 @@ import {
   createTask,
   createTaskChecklistItem,
   createTaskComment,
+  createManualTaskTimeEntry,
   createTaskRelation,
   deleteTaskAttachment,
   deleteTaskChecklistItem,
@@ -40,11 +44,14 @@ import {
   getTaskChecklist,
   getTaskComments,
   getTaskRelations,
+  getTaskTimeEntries,
   getTasks,
   updateTaskChecklistItem,
   updateTaskComment,
   uploadTaskAttachment,
   uploadTaskCommentAttachment,
+  startTaskTimer,
+  stopTaskTimer,
 } from "@/shared/lib/api-client";
 import { Modal } from "@/shared/components/modal";
 import {
@@ -61,6 +68,7 @@ import type {
   TaskComment,
   TaskRelation,
   TaskRelationType,
+  TaskTimeEntry,
   WorkspaceRole,
 } from "@devflow/shared";
 import { can } from "@devflow/shared";
@@ -99,6 +107,13 @@ export function TaskWorkPanel({
     availableRelatedTasks,
   );
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TaskTimeEntry[]>([]);
+  const [timeSummary, setTimeSummary] = useState<{
+    activeEntry: TaskTimeEntry | null;
+    estimateMinutes: number | null;
+    loggedMinutes: number;
+    remainingMinutes: number | null;
+  }>();
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -117,6 +132,7 @@ export function TaskWorkPanel({
     useState<string>();
   const [isCreatingRelation, setIsCreatingRelation] = useState(false);
   const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
+  const [isSavingTime, setIsSavingTime] = useState(false);
   const [isDeletingRelationId, setIsDeletingRelationId] = useState<string>();
   const [editingCommentId, setEditingCommentId] = useState<string>();
   const [editingChecklistItemId, setEditingChecklistItemId] =
@@ -148,6 +164,7 @@ export function TaskWorkPanel({
         activityResponse,
         attachmentsResponse,
         relationsResponse,
+        timeEntriesResponse,
         userResponse,
       ] = await Promise.all([
         getTaskComments(workspaceId, task.projectId, task.id, { limit: 25 }),
@@ -155,6 +172,7 @@ export function TaskWorkPanel({
         getTaskActivity(workspaceId, task.projectId, task.id, { limit: 25 }),
         getTaskAttachments(workspaceId, task.projectId, task.id),
         getTaskRelations(workspaceId, task.projectId, task.id),
+        getTaskTimeEntries(workspaceId, task.projectId, task.id),
         getCurrentUser(),
       ]);
       setComments(commentsResponse.comments);
@@ -162,6 +180,8 @@ export function TaskWorkPanel({
       setActivity(activityResponse.events);
       setAttachments(attachmentsResponse.attachments);
       setRelations(relationsResponse.relations);
+      setTimeEntries(timeEntriesResponse.entries);
+      setTimeSummary(timeEntriesResponse.summary);
       setCurrentUserId(userResponse.user.id);
     } catch (caughtError) {
       setError(
@@ -216,6 +236,60 @@ export function TaskWorkPanel({
       },
     );
     setActivity(response.events);
+  }
+
+  async function refreshTimeEntries() {
+    const response = await getTaskTimeEntries(
+      workspaceId,
+      task.projectId,
+      task.id,
+    );
+    setTimeEntries(response.entries);
+    setTimeSummary(response.summary);
+  }
+
+  async function onTimerToggle() {
+    setError(undefined);
+    setIsSavingTime(true);
+    try {
+      if (timeSummary?.activeEntry) {
+        await stopTaskTimer(
+          workspaceId,
+          task.projectId,
+          task.id,
+          timeSummary.activeEntry.id,
+        );
+      } else {
+        await startTaskTimer(workspaceId, task.projectId, task.id);
+      }
+      await Promise.all([refreshTimeEntries(), refreshActivity()]);
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to update the timer."));
+    } finally {
+      setIsSavingTime(false);
+    }
+  }
+
+  async function onManualTimeSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const durationMinutes = Number(form.get("durationMinutes"));
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 1) return;
+    setError(undefined);
+    setIsSavingTime(true);
+    try {
+      await createManualTaskTimeEntry(workspaceId, task.projectId, task.id, {
+        description: String(form.get("description") ?? "").trim() || undefined,
+        durationMinutes,
+        startedAt: new Date().toISOString(),
+      });
+      event.currentTarget.reset();
+      await Promise.all([refreshTimeEntries(), refreshActivity()]);
+    } catch (caughtError) {
+      setError(messageFor(caughtError, "Unable to log time."));
+    } finally {
+      setIsSavingTime(false);
+    }
   }
 
   async function onChecklistSubmit(event: FormEvent<HTMLFormElement>) {
@@ -695,6 +769,74 @@ export function TaskWorkPanel({
           onMediaUpload={canUpdateTask ? onDescriptionMediaUpload : undefined}
           placeholder="Add context, acceptance criteria or implementation notes…"
         />
+      </section>
+      <section className={styles.timeTrackingSection} aria-labelledby="time-tracking-title">
+        <div className={styles.sectionHeading}>
+          <div>
+            <h3 id="time-tracking-title">Time tracking</h3>
+            <p>
+              {timeSummary?.estimateMinutes === null || timeSummary?.estimateMinutes === undefined
+                ? "No estimate set"
+                : `${formatDuration(timeSummary.estimateMinutes)} planned`}
+            </p>
+          </div>
+          <Clock3 aria-hidden="true" size={18} />
+        </div>
+        {isLoading ? <p className={styles.empty}>Loading time entries…</p> : null}
+        {!isLoading ? (
+          <div className={styles.timeSummary}>
+            <div>
+              <span>Logged</span>
+              <strong>{formatDuration(timeSummary?.loggedMinutes ?? 0)}</strong>
+            </div>
+            <div>
+              <span>Remaining</span>
+              <strong>
+                {timeSummary?.remainingMinutes === null || timeSummary?.remainingMinutes === undefined
+                  ? "—"
+                  : formatDuration(timeSummary.remainingMinutes)}
+              </strong>
+            </div>
+            {canUpdateTask ? (
+              <button
+                className={styles.timerButton}
+                disabled={isSavingTime}
+                onClick={() => void onTimerToggle()}
+                type="button"
+              >
+                {timeSummary?.activeEntry ? <Square aria-hidden="true" size={15} /> : <Play aria-hidden="true" size={15} />}
+                {timeSummary?.activeEntry ? "Stop timer" : "Start timer"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {timeSummary?.activeEntry ? (
+          <p className={styles.activeTimer}>Timer is running for you.</p>
+        ) : null}
+        {canUpdateTask ? (
+          <form className={styles.timeEntryForm} onSubmit={(event) => void onManualTimeSubmit(event)}>
+            <label>
+              <span>Minutes</span>
+              <input defaultValue={30} min={1} name="durationMinutes" required type="number" />
+            </label>
+            <label>
+              <span>Note</span>
+              <input maxLength={1000} name="description" placeholder="What did you work on?" />
+            </label>
+            <button disabled={isSavingTime} type="submit">Log time</button>
+          </form>
+        ) : null}
+        {timeEntries.length ? (
+          <ul className={styles.timeEntryList}>
+            {timeEntries.slice(0, 3).map((entry) => (
+              <li key={entry.id}>
+                <span>{entry.user.displayName}</span>
+                <span>{entry.description || "Time entry"}</span>
+                <strong>{formatDuration(entry.durationMinutes)}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
       <section
         className={styles.checklistSection}
@@ -1482,6 +1624,9 @@ function describeActivity(event: TaskActivityEvent) {
     task_checklist_item_added: `added checklist item “${activityValue(event, "content", "Untitled")}”`,
     task_checklist_item_updated: describeChecklistUpdate(event),
     task_checklist_item_removed: `removed checklist item “${activityValue(event, "content", "Untitled")}”`,
+    task_time_logged: `logged ${formatDuration(Number(event.data.minutes) || 0)}`,
+    task_timer_started: "started the timer",
+    task_timer_stopped: `stopped the timer after ${formatDuration(Number(event.data.minutes) || 0)}`,
   };
   return `${actor} ${descriptions[event.eventType]}`;
 }
@@ -1545,6 +1690,14 @@ function formatDateTime(value: string) {
 function formatFileSize(sizeBytes: number) {
   if (sizeBytes < 1024 * 1024) return `${Math.ceil(sizeBytes / 1024)} KB`;
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (!hours) return `${remainingMinutes}m`;
+  if (!remainingMinutes) return `${hours}h`;
+  return `${hours}h ${remainingMinutes}m`;
 }
 
 function formatRelationType(relationType: TaskRelation["relationType"]) {

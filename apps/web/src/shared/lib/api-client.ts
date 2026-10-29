@@ -54,6 +54,9 @@ import {
   taskChecklistResponseSchema,
   taskFigmaLinkListResponseSchema,
   taskFigmaLinkResponseSchema,
+  taskTimeEntryListResponseSchema,
+  taskTimeEntryResponseSchema,
+  createManualTaskTimeEntryRequestSchema,
   taskRelationListResponseSchema,
   updateTaskCommentRequestSchema,
   updateTaskChecklistItemRequestSchema,
@@ -124,6 +127,9 @@ import {
   type TaskChecklistListResponse,
   type TaskChecklistResponse,
   type TaskFigmaLink,
+  type CreateManualTaskTimeEntryRequest,
+  type TaskTimeEntryListResponse,
+  type TaskTimeEntryResponse,
   type TaskRelationListResponse,
   type UpdateTaskCommentRequest,
   type UpdateTaskChecklistItemRequest,
@@ -1212,6 +1218,59 @@ export function deleteTaskChecklistItem(
   return requestNoContent(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist/${itemId}`,
     { method: "DELETE" },
+  );
+}
+
+export function getTaskTimeEntries(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskTimeEntryListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/time-entries`,
+    { method: "GET" },
+    taskTimeEntryListResponseSchema,
+  );
+}
+
+export function startTaskTimer(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskTimeEntryResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/time-entries/start`,
+    { method: "POST" },
+    taskTimeEntryResponseSchema,
+  );
+}
+
+export function stopTaskTimer(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  entryId: string,
+): Promise<TaskTimeEntryResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/time-entries/${entryId}/stop`,
+    { method: "POST" },
+    taskTimeEntryResponseSchema,
+  );
+}
+
+export function createManualTaskTimeEntry(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: CreateManualTaskTimeEntryRequest,
+): Promise<TaskTimeEntryResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/time-entries`,
+    {
+      body: JSON.stringify(createManualTaskTimeEntryRequestSchema.parse(input)),
+      method: "POST",
+    },
+    taskTimeEntryResponseSchema,
   );
 }
 

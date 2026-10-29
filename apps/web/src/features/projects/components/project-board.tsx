@@ -3357,6 +3357,9 @@ function describeProjectActivity(event: TaskActivityEvent) {
     task_checklist_item_added: "added a checklist item to ",
     task_checklist_item_updated: describeProjectChecklistUpdate(event),
     task_checklist_item_removed: "removed a checklist item from ",
+    task_time_logged: "logged time on ",
+    task_timer_started: "started a timer on ",
+    task_timer_stopped: "stopped a timer on ",
   };
 
   return `${actor} ${details[event.eventType]}`;
