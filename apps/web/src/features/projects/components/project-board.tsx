@@ -3443,12 +3443,17 @@ function TaskEditorModal({
   const [isLoadingTaskFigmaLinks, setIsLoadingTaskFigmaLinks] = useState(true);
   const [isSavingTaskFigmaLink, setIsSavingTaskFigmaLink] = useState(false);
   const [taskFigmaLinkError, setTaskFigmaLinkError] = useState<string>();
+  const [selectedProjectFigmaLinkId, setSelectedProjectFigmaLinkId] = useState("");
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<
     "automation" | "details" | "development" | null
   >("details");
   const statusInputRef = useRef<HTMLInputElement>(null);
   const reviewStatus = project.statuses.find((status) =>
     /review|рев[ью]/i.test(status.name),
+  );
+  const attachableProjectFigmaLinks = figmaLinks.filter(
+    (projectLink) =>
+      !taskFigmaLinks.some((taskLink) => taskLink.url === projectLink.url),
   );
 
   useEffect(() => {
@@ -3478,12 +3483,8 @@ function TaskEditorModal({
     };
   }, [project.id, task.id, workspaceId]);
 
-  async function addTaskFigmaLink(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const name = String(data.get("taskFigmaName") ?? "").trim();
-    const url = String(data.get("taskFigmaUrl") ?? "").trim();
+  async function createTaskDesignLink(input: { name: string; url: string }) {
+    const { name, url } = input;
     if (!name || !url) return;
 
     setIsSavingTaskFigmaLink(true);
@@ -3494,7 +3495,7 @@ function TaskEditorModal({
         url,
       });
       setTaskFigmaLinks((current) => [response.link, ...current]);
-      form.reset();
+      return true;
     } catch (caughtError) {
       setTaskFigmaLinkError(
         caughtError instanceof ApiClientError
@@ -3504,6 +3505,26 @@ function TaskEditorModal({
     } finally {
       setIsSavingTaskFigmaLink(false);
     }
+  }
+
+  async function addTaskFigmaLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const didCreate = await createTaskDesignLink({
+      name: String(data.get("taskFigmaName") ?? "").trim(),
+      url: String(data.get("taskFigmaUrl") ?? "").trim(),
+    });
+    if (didCreate) form.reset();
+  }
+
+  async function attachProjectFigmaLink() {
+    const projectLink = figmaLinks.find(
+      (link) => link.id === selectedProjectFigmaLinkId,
+    );
+    if (!projectLink) return;
+    const didCreate = await createTaskDesignLink(projectLink);
+    if (didCreate) setSelectedProjectFigmaLinkId("");
   }
 
   async function removeTaskFigmaLink(linkId: string) {
@@ -3760,33 +3781,67 @@ function TaskEditorModal({
                 </p>
               )}
               {role && can(role, "task:update") ? (
-                <form
-                  className={styles.taskFigmaLinkForm}
-                  onSubmit={(event) => void addTaskFigmaLink(event)}
-                >
-                  <input
-                    aria-label="Figma link name"
-                    maxLength={160}
-                    name="taskFigmaName"
-                    placeholder="Design screen name"
-                    required
-                  />
-                  <input
-                    aria-label="Figma URL"
-                    name="taskFigmaUrl"
-                    placeholder="https://figma.com/..."
-                    required
-                    type="url"
-                  />
-                  <button
-                    className={styles.secondaryButton}
-                    disabled={isSavingTaskFigmaLink}
-                    type="submit"
+                <>
+                  {attachableProjectFigmaLinks.length ? (
+                    <div className={styles.taskFigmaProjectAttach}>
+                      <label htmlFor={`project-figma-link-${task.id}`}>
+                        Attach an existing project file
+                      </label>
+                      <div>
+                        <select
+                          id={`project-figma-link-${task.id}`}
+                          onChange={(event) =>
+                            setSelectedProjectFigmaLinkId(event.target.value)
+                          }
+                          value={selectedProjectFigmaLinkId}
+                        >
+                          <option value="">Choose a project Figma file</option>
+                          {attachableProjectFigmaLinks.map((link) => (
+                            <option key={link.id} value={link.id}>
+                              {link.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className={styles.secondaryButton}
+                          disabled={!selectedProjectFigmaLinkId || isSavingTaskFigmaLink}
+                          onClick={() => void attachProjectFigmaLink()}
+                          type="button"
+                        >
+                          <Plus aria-hidden="true" size={15} />
+                          Attach
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <form
+                    className={styles.taskFigmaLinkForm}
+                    onSubmit={(event) => void addTaskFigmaLink(event)}
                   >
-                    <Plus aria-hidden="true" size={15} />
-                    {isSavingTaskFigmaLink ? "Adding…" : "Add Figma link"}
-                  </button>
-                </form>
+                    <input
+                      aria-label="Figma link name"
+                      maxLength={160}
+                      name="taskFigmaName"
+                      placeholder="Design screen name"
+                      required
+                    />
+                    <input
+                      aria-label="Figma URL"
+                      name="taskFigmaUrl"
+                      placeholder="https://figma.com/..."
+                      required
+                      type="url"
+                    />
+                    <button
+                      className={styles.secondaryButton}
+                      disabled={isSavingTaskFigmaLink}
+                      type="submit"
+                    >
+                      <Plus aria-hidden="true" size={15} />
+                      {isSavingTaskFigmaLink ? "Adding…" : "Add new Figma link"}
+                    </button>
+                  </form>
+                </>
               ) : null}
               {taskFigmaLinkError ? (
                 <p className={styles.formError} role="alert">

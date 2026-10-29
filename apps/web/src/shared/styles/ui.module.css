@@ -1906,6 +1906,23 @@
   display: grid;
   gap: 8px;
 }
+.taskFigmaProjectAttach {
+  display: grid;
+  gap: 7px;
+}
+.taskFigmaProjectAttach > label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.taskFigmaProjectAttach > div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.taskFigmaProjectAttach select {
+  min-width: 0;
+}
 .taskFigmaLinkForm input {
   min-width: 0;
 }
