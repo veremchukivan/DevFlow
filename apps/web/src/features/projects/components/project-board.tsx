@@ -114,6 +114,9 @@ type BoardFilters = {
   sprintId?: string | "backlog";
 };
 
+type TaskSidebarSectionId =
+  "automation" | "details" | "development" | "relations" | "time" | "watching";
+
 type ProjectView = "board" | "list";
 type BoardColumnSize = "fixed" | "flexible";
 type BoardScrolling = "column" | "board";
@@ -3475,15 +3478,9 @@ function TaskEditorModal({
     useState<string>();
   const [selectedProjectFigmaLinkId, setSelectedProjectFigmaLinkId] =
     useState("");
-  const [expandedSidebarSection, setExpandedSidebarSection] = useState<
-    | "automation"
-    | "details"
-    | "development"
-    | "relations"
-    | "time"
-    | "watching"
-    | null
-  >("details");
+  const [expandedSidebarSections, setExpandedSidebarSections] = useState<
+    Set<TaskSidebarSectionId>
+  >(() => new Set(["details"]));
   const statusInputRef = useRef<HTMLInputElement>(null);
   const reviewStatus = project.statuses.find((status) =>
     /review|рев[ью]/i.test(status.name),
@@ -3492,6 +3489,15 @@ function TaskEditorModal({
     (projectLink) =>
       !taskFigmaLinks.some((taskLink) => taskLink.url === projectLink.url),
   );
+
+  function toggleSidebarSection(section: TaskSidebarSectionId) {
+    setExpandedSidebarSections((current) => {
+      const next = new Set(current);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }
 
   useEffect(() => {
     let active = true;
@@ -3706,12 +3712,8 @@ function TaskEditorModal({
                   : "Review status unavailable"}
             </button>
             <TaskSidebarSection
-              isOpen={expandedSidebarSection === "details"}
-              onToggle={() =>
-                setExpandedSidebarSection((current) =>
-                  current === "details" ? null : "details",
-                )
-              }
+              isOpen={expandedSidebarSections.has("details")}
+              onToggle={() => toggleSidebarSection("details")}
               summary={`${task.assignee?.displayName ?? "Unassigned"} · ${task.dueDate ?? "No due date"}`}
               title="Details"
             >
@@ -3813,12 +3815,8 @@ function TaskEditorModal({
               </dl>
             </TaskSidebarSection>
             <TaskSidebarSection
-              isOpen={expandedSidebarSection === "relations"}
-              onToggle={() =>
-                setExpandedSidebarSection((current) =>
-                  current === "relations" ? null : "relations",
-                )
-              }
+              isOpen={expandedSidebarSections.has("relations")}
+              onToggle={() => toggleSidebarSection("relations")}
               summary="Dependencies and linked tasks"
               title="Linked work items"
             >
@@ -3829,12 +3827,8 @@ function TaskEditorModal({
               />
             </TaskSidebarSection>
             <TaskSidebarSection
-              isOpen={expandedSidebarSection === "time"}
-              onToggle={() =>
-                setExpandedSidebarSection((current) =>
-                  current === "time" ? null : "time",
-                )
-              }
+              isOpen={expandedSidebarSections.has("time")}
+              onToggle={() => toggleSidebarSection("time")}
               summary={
                 task.estimateMinutes == null
                   ? "No estimate"
@@ -3849,12 +3843,8 @@ function TaskEditorModal({
               />
             </TaskSidebarSection>
             <TaskSidebarSection
-              isOpen={expandedSidebarSection === "watching"}
-              onToggle={() =>
-                setExpandedSidebarSection((current) =>
-                  current === "watching" ? null : "watching",
-                )
-              }
+              isOpen={expandedSidebarSections.has("watching")}
+              onToggle={() => toggleSidebarSection("watching")}
               summary="Task notifications"
               title="Watching"
             >
@@ -3865,12 +3855,8 @@ function TaskEditorModal({
               />
             </TaskSidebarSection>
             <TaskSidebarSection
-              isOpen={expandedSidebarSection === "development"}
-              onToggle={() =>
-                setExpandedSidebarSection((current) =>
-                  current === "development" ? null : "development",
-                )
-              }
+              isOpen={expandedSidebarSections.has("development")}
+              onToggle={() => toggleSidebarSection("development")}
               summary="Figma and coding tools"
               title="Development"
             >
@@ -4018,12 +4004,8 @@ function TaskEditorModal({
               </Link>
             </TaskSidebarSection>
             <TaskSidebarSection
-              isOpen={expandedSidebarSection === "automation"}
-              onToggle={() =>
-                setExpandedSidebarSection((current) =>
-                  current === "automation" ? null : "automation",
-                )
-              }
+              isOpen={expandedSidebarSections.has("automation")}
+              onToggle={() => toggleSidebarSection("automation")}
               summary="No rules configured"
               title="Automation"
             >
