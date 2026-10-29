@@ -1846,6 +1846,11 @@
   margin: 0;
   padding: 0;
 }
+.taskFigmaLinkList li {
+  align-items: stretch;
+  display: flex;
+  gap: 6px;
+}
 .taskFigmaLinkList a {
   align-items: center;
   background: #f7f9fc;
@@ -1858,6 +1863,57 @@
   justify-content: space-between;
   padding: 8px 9px;
   text-decoration: none;
+  flex: 1;
+}
+.taskFigmaLinkDelete {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 34px;
+}
+.taskFigmaLinkDelete:hover,
+.taskFigmaLinkDelete:focus-visible {
+  border-color: #d64545;
+  color: #c53232;
+  outline: 0;
+}
+.taskDevelopmentHeading {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: space-between;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.taskDevelopmentHeading span:last-child {
+  background: #eef2f8;
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0;
+  min-width: 20px;
+  padding: 2px 6px;
+  text-align: center;
+}
+.taskFigmaLinkForm {
+  display: grid;
+  gap: 8px;
+}
+.taskFigmaLinkForm input {
+  min-width: 0;
+}
+.taskFigmaLinkForm button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
 }
 .taskFigmaLinkList a:hover,
 .taskFigmaLinkList a:focus-visible {

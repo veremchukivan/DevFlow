@@ -51,6 +51,8 @@ import {
   taskCommentResponseSchema,
   taskChecklistListResponseSchema,
   taskChecklistResponseSchema,
+  taskFigmaLinkListResponseSchema,
+  taskFigmaLinkResponseSchema,
   taskRelationListResponseSchema,
   updateTaskCommentRequestSchema,
   updateTaskChecklistItemRequestSchema,
@@ -119,6 +121,7 @@ import {
   type TaskCommentResponse,
   type TaskChecklistListResponse,
   type TaskChecklistResponse,
+  type TaskFigmaLink,
   type TaskRelationListResponse,
   type UpdateTaskCommentRequest,
   type UpdateTaskChecklistItemRequest,
@@ -752,6 +755,43 @@ export function deleteProjectFigmaLink(
 ): Promise<void> {
   return requestNoContent(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/figma-links/${linkId}`,
+    { method: "DELETE" },
+  );
+}
+
+export function getTaskFigmaLinks(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<{ links: TaskFigmaLink[] }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/figma-links`,
+    { method: "GET" },
+    taskFigmaLinkListResponseSchema,
+  );
+}
+
+export function createTaskFigmaLink(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: { name: string; url: string },
+): Promise<{ link: TaskFigmaLink }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/figma-links`,
+    { body: JSON.stringify(input), method: "POST" },
+    taskFigmaLinkResponseSchema,
+  );
+}
+
+export function deleteTaskFigmaLink(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  linkId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/figma-links/${linkId}`,
     { method: "DELETE" },
   );
 }

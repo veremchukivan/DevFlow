@@ -70,11 +70,15 @@ import {
   createProjectFigmaLink,
   deleteProjectFigmaLink,
   getProjectFigmaLinks,
+  createTaskFigmaLink,
+  deleteTaskFigmaLink,
+  getTaskFigmaLinks,
 } from "@/shared/lib/api-client";
 import type {
   PageInfo,
   Project,
   ProjectFigmaLink,
+  TaskFigmaLink,
   Task,
   TaskType,
   UpdateTaskRequest,
@@ -3435,6 +3439,10 @@ function TaskEditorModal({
   workspaceId: string;
 }) {
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [taskFigmaLinks, setTaskFigmaLinks] = useState<TaskFigmaLink[]>([]);
+  const [isLoadingTaskFigmaLinks, setIsLoadingTaskFigmaLinks] = useState(true);
+  const [isSavingTaskFigmaLink, setIsSavingTaskFigmaLink] = useState(false);
+  const [taskFigmaLinkError, setTaskFigmaLinkError] = useState<string>();
   const [expandedSidebarSection, setExpandedSidebarSection] = useState<
     "automation" | "details" | "development" | null
   >("details");
@@ -3442,6 +3450,75 @@ function TaskEditorModal({
   const reviewStatus = project.statuses.find((status) =>
     /review|рев[ью]/i.test(status.name),
   );
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingTaskFigmaLinks(true);
+    setTaskFigmaLinkError(undefined);
+
+    void getTaskFigmaLinks(workspaceId, project.id, task.id)
+      .then((response) => {
+        if (active) setTaskFigmaLinks(response.links);
+      })
+      .catch((caughtError) => {
+        if (active) {
+          setTaskFigmaLinkError(
+            caughtError instanceof ApiClientError
+              ? caughtError.message
+              : "Unable to load task design links.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoadingTaskFigmaLinks(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [project.id, task.id, workspaceId]);
+
+  async function addTaskFigmaLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const name = String(data.get("taskFigmaName") ?? "").trim();
+    const url = String(data.get("taskFigmaUrl") ?? "").trim();
+    if (!name || !url) return;
+
+    setIsSavingTaskFigmaLink(true);
+    setTaskFigmaLinkError(undefined);
+    try {
+      const response = await createTaskFigmaLink(workspaceId, project.id, task.id, {
+        name,
+        url,
+      });
+      setTaskFigmaLinks((current) => [response.link, ...current]);
+      form.reset();
+    } catch (caughtError) {
+      setTaskFigmaLinkError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to add the task design link.",
+      );
+    } finally {
+      setIsSavingTaskFigmaLink(false);
+    }
+  }
+
+  async function removeTaskFigmaLink(linkId: string) {
+    setTaskFigmaLinkError(undefined);
+    try {
+      await deleteTaskFigmaLink(workspaceId, project.id, task.id, linkId);
+      setTaskFigmaLinks((current) => current.filter((link) => link.id !== linkId));
+    } catch (caughtError) {
+      setTaskFigmaLinkError(
+        caughtError instanceof ApiClientError
+          ? caughtError.message
+          : "Unable to remove the task design link.",
+      );
+    }
+  }
 
   async function copyTaskLink() {
     const taskUrl = new URL(
@@ -3650,23 +3727,90 @@ function TaskEditorModal({
               summary="Figma and coding tools"
               title="Development"
             >
-              {figmaLinks.length ? (
+              <div className={styles.taskDevelopmentHeading}>
+                <span>Task design links</span>
+                <span>{taskFigmaLinks.length}</span>
+              </div>
+              {isLoadingTaskFigmaLinks ? (
+                <p className={styles.taskSidebarHint}>Loading task links…</p>
+              ) : taskFigmaLinks.length ? (
                 <ul className={styles.taskFigmaLinkList}>
-                  {figmaLinks.map((link) => (
+                  {taskFigmaLinks.map((link) => (
                     <li key={link.id}>
                       <a href={link.url} rel="noreferrer" target="_blank">
                         <span>{link.name}</span>
                         <ExternalLink aria-hidden="true" size={14} />
                       </a>
+                      {role && can(role, "task:update") ? (
+                        <button
+                          aria-label={`Remove ${link.name}`}
+                          className={styles.taskFigmaLinkDelete}
+                          onClick={() => void removeTaskFigmaLink(link.id)}
+                          type="button"
+                        >
+                          <X aria-hidden="true" size={14} />
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p className={styles.taskSidebarHint}>
-                  No design links yet. Add shared Figma files in project
-                  settings.
+                  No Figma link is attached to this task yet.
                 </p>
               )}
+              {role && can(role, "task:update") ? (
+                <form
+                  className={styles.taskFigmaLinkForm}
+                  onSubmit={(event) => void addTaskFigmaLink(event)}
+                >
+                  <input
+                    aria-label="Figma link name"
+                    maxLength={160}
+                    name="taskFigmaName"
+                    placeholder="Design screen name"
+                    required
+                  />
+                  <input
+                    aria-label="Figma URL"
+                    name="taskFigmaUrl"
+                    placeholder="https://figma.com/..."
+                    required
+                    type="url"
+                  />
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={isSavingTaskFigmaLink}
+                    type="submit"
+                  >
+                    <Plus aria-hidden="true" size={15} />
+                    {isSavingTaskFigmaLink ? "Adding…" : "Add Figma link"}
+                  </button>
+                </form>
+              ) : null}
+              {taskFigmaLinkError ? (
+                <p className={styles.formError} role="alert">
+                  {taskFigmaLinkError}
+                </p>
+              ) : null}
+              {figmaLinks.length ? (
+                <>
+                  <div className={styles.taskDevelopmentHeading}>
+                    <span>Project design links</span>
+                    <span>{figmaLinks.length}</span>
+                  </div>
+                  <ul className={styles.taskFigmaLinkList}>
+                    {figmaLinks.map((link) => (
+                      <li key={link.id}>
+                        <a href={link.url} rel="noreferrer" target="_blank">
+                          <span>{link.name}</span>
+                          <ExternalLink aria-hidden="true" size={14} />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
               <Link className={styles.taskSidebarLink} href="/profile">
                 Open integrations
               </Link>
