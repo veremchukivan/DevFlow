@@ -15,7 +15,7 @@ export async function findActiveWorkspaceMembership(input: {
   workspaceId: string;
 }) {
   const [membership] = await db
-    .select({ userId: workspaceMembers.userId })
+    .select({ role: workspaceMembers.role, userId: workspaceMembers.userId })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
     .where(

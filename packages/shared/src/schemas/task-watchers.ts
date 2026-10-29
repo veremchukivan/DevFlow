@@ -6,6 +6,14 @@ export const taskWatcherParamsSchema = z.object({
   workspaceId: z.uuid(),
 });
 
+export const taskWatcherUserParamsSchema = taskWatcherParamsSchema.extend({
+  userId: z.uuid(),
+});
+
+export const createTaskWatcherRequestSchema = z.object({
+  userId: z.uuid(),
+});
+
 export const taskWatcherSchema = z.object({
   createdAt: z.string().datetime(),
   taskId: z.uuid(),
