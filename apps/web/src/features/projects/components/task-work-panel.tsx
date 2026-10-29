@@ -67,6 +67,14 @@ type AttachmentPreviewSelection = {
   previewUrl: string;
 };
 
+const commentMediaTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/webm",
+]);
+
 export function TaskWorkPanel({
   availableRelatedTasks,
   description,
@@ -97,6 +105,7 @@ export function TaskWorkPanel({
   const [isUploadingCommentAttachments, setIsUploadingCommentAttachments] =
     useState(false);
   const [commentDraftFiles, setCommentDraftFiles] = useState<File[]>([]);
+  const [isCommentDropActive, setIsCommentDropActive] = useState(false);
   const [commentEditorResetKey, setCommentEditorResetKey] = useState(0);
   const [isSubmittingChecklistItem, setIsSubmittingChecklistItem] =
     useState(false);
@@ -550,6 +559,36 @@ export function TaskWorkPanel({
     );
   }
 
+  function addCommentDraftFiles(files: File[]) {
+    const mediaFiles = files.filter((file) => commentMediaTypes.has(file.type));
+    if (mediaFiles.length !== files.length) {
+      setError("Comments support JPEG, PNG, WebP, MP4 and WebM files.");
+    }
+    if (!mediaFiles.length) return;
+
+    setCommentDraftFiles((currentFiles) => {
+      const currentKeys = new Set(currentFiles.map(fileKey));
+      return [
+        ...currentFiles,
+        ...mediaFiles.filter((file) => !currentKeys.has(fileKey(file))),
+      ];
+    });
+  }
+
+  function onCommentDragOver(event: DragEvent<HTMLFormElement>) {
+    if (isSubmittingComment || isUploadingCommentAttachments) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsCommentDropActive(true);
+  }
+
+  function onCommentDrop(event: DragEvent<HTMLFormElement>) {
+    if (isSubmittingComment || isUploadingCommentAttachments) return;
+    event.preventDefault();
+    setIsCommentDropActive(false);
+    addCommentDraftFiles(Array.from(event.dataTransfer.files));
+  }
+
   async function onCommentUpdate(
     event: FormEvent<HTMLFormElement>,
     commentId: string,
@@ -990,7 +1029,10 @@ export function TaskWorkPanel({
           <div role="tabpanel">
             {canCreateComments ? (
               <form
-                className={styles.commentForm}
+                className={`${styles.commentForm} ${isCommentDropActive ? styles.commentFormDragActive : ""}`}
+                onDragLeave={() => setIsCommentDropActive(false)}
+                onDragOver={onCommentDragOver}
+                onDrop={onCommentDrop}
                 onKeyDown={(event) => {
                   if (
                     event.key === "Enter" &&
@@ -1022,11 +1064,12 @@ export function TaskWorkPanel({
                         isSubmittingComment || isUploadingCommentAttachments
                       }
                       multiple
-                      onChange={(event) =>
-                        setCommentDraftFiles(
+                      onChange={(event) => {
+                        addCommentDraftFiles(
                           Array.from(event.target.files ?? []),
-                        )
-                      }
+                        );
+                        event.currentTarget.value = "";
+                      }}
                       type="file"
                     />
                     <Paperclip aria-hidden="true" size={15} />
@@ -1435,4 +1478,8 @@ function formatDuration(minutes: number) {
   if (!hours) return `${remainingMinutes}m`;
   if (!remainingMinutes) return `${hours}h`;
   return `${hours}h ${remainingMinutes}m`;
+}
+
+function fileKey(file: File) {
+  return `${file.name}-${file.lastModified}-${file.size}`;
 }

@@ -797,6 +797,13 @@
   margin-top: 16px;
 }
 
+.commentFormDragActive {
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-radius: 8px;
+  outline: 2px dashed var(--brand);
+  outline-offset: 5px;
+}
+
 .commentComposerActions {
   align-items: center;
   display: flex;
