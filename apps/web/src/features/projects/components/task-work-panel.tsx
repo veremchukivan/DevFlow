@@ -1386,12 +1386,3 @@ function formatDuration(minutes: number) {
   if (!remainingMinutes) return `${hours}h`;
   return `${hours}h ${remainingMinutes}m`;
 }
-
-function initials(value: string) {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
