@@ -52,6 +52,7 @@ type RichTextEditorProps = {
   id: string;
   maxLength: number;
   name: string;
+  onMediaChange?: (value: string) => Promise<void>;
   onMediaUpload?: (files: File[]) => Promise<RichTextAttachment[]>;
   placeholder: string;
   resetKey?: number;
@@ -85,6 +86,7 @@ export function RichTextEditor({
   id,
   maxLength,
   name,
+  onMediaChange,
   onMediaUpload,
   placeholder,
   resetKey,
@@ -93,9 +95,16 @@ export function RichTextEditor({
   const [isActive, setIsActive] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<RichTextAttachment>();
   const containerRef = useRef<HTMLDivElement>(null);
+  const valueRef = useRef(value);
 
   useEffect(() => {
-    setValue(normalizeHtml(defaultValue));
+    valueRef.current = value;
+  }, [value]);
+
+  useEffect(() => {
+    const nextValue = normalizeHtml(defaultValue);
+    if (valueRef.current === nextValue) return;
+    setValue(nextValue);
     setIsActive(false);
   }, [defaultValue, resetKey]);
 
@@ -109,16 +118,17 @@ export function RichTextEditor({
     }, 0);
   }
 
-  function appendMedia(uploadedAttachments: RichTextAttachment[]) {
-    setValue((currentValue) =>
-      appendEmbeddedMedia(
-        currentValue,
-        uploadedAttachments.filter(isSupportedMedia).map((attachment) => ({
-          attachmentId: attachment.id,
-          kind: attachment.mimeType.startsWith("video/") ? "video" : "image",
-        })),
-      ),
+  async function appendMedia(uploadedAttachments: RichTextAttachment[]) {
+    const nextValue = appendEmbeddedMedia(
+      valueRef.current,
+      uploadedAttachments.filter(isSupportedMedia).map((attachment) => ({
+        attachmentId: attachment.id,
+        kind: attachment.mimeType.startsWith("video/") ? "video" : "image",
+      })),
     );
+    valueRef.current = nextValue;
+    setValue(nextValue);
+    await onMediaChange?.(nextValue);
   }
 
   function removeMedia(attachmentId: string) {
@@ -235,7 +245,7 @@ function PlateEditorSurface({
   initialValue: string;
   maxLength: number;
   onChange: (value: string) => void;
-  onMediaInserted: (attachments: RichTextAttachment[]) => void;
+  onMediaInserted: (attachments: RichTextAttachment[]) => Promise<void>;
   onMediaUpload?: (files: File[]) => Promise<RichTextAttachment[]>;
   onRemoveMedia: (attachmentId: string) => void;
   placeholder: string;
@@ -263,7 +273,7 @@ function PlateEditorSurface({
 
     setIsUploading(true);
     try {
-      onMediaInserted(await onMediaUpload(files));
+      await onMediaInserted(await onMediaUpload(files));
     } finally {
       setIsUploading(false);
     }

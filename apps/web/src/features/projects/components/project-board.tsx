@@ -1431,6 +1431,47 @@ export function ProjectBoard() {
     }
   }
 
+  async function onTaskDescriptionMediaSave(description: string) {
+    if (!selectedTask) return;
+
+    setError(undefined);
+    setUpdatingTaskId(selectedTask.id);
+    try {
+      const response = await updateTask(
+        workspaceId,
+        projectId,
+        selectedTask.id,
+        { description },
+        selectedTask.version,
+      );
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === response.task.id ? response.task : task,
+        ),
+      );
+      setSelectedTask((current) =>
+        current?.id === response.task.id ? response.task : current,
+      );
+    } catch (caughtError) {
+      if (
+        caughtError instanceof ApiClientError &&
+        caughtError.code === "TASK_VERSION_CONFLICT"
+      ) {
+        await loadTasks(filters, pageInfo?.offset);
+        setError("The task changed elsewhere. Reload it and try again.");
+      } else {
+        setError(
+          caughtError instanceof ApiClientError
+            ? caughtError.message
+            : "Unable to save media in the description.",
+        );
+      }
+      throw caughtError;
+    } finally {
+      setUpdatingTaskId(undefined);
+    }
+  }
+
   async function onDropTask(
     event: DragEvent<HTMLElement>,
     statusId: string,
@@ -1818,6 +1859,7 @@ export function ProjectBoard() {
           isSaving={updatingTaskId === selectedTask.id}
           members={members}
           onClose={closeTaskEditor}
+          onDescriptionMediaSave={onTaskDescriptionMediaSave}
           onSubmit={onTaskEditorSubmit}
           project={project}
           role={role}
@@ -1919,7 +1961,9 @@ export function ProjectBoard() {
             <div className={styles.sectionHeading}>
               <div>
                 <h2>Figma links</h2>
-                <p>Shared design files, pages, and prototypes for this project.</p>
+                <p>
+                  Shared design files, pages, and prototypes for this project.
+                </p>
               </div>
             </div>
             {figmaLinks.length > 0 ? (
@@ -1943,20 +1987,34 @@ export function ProjectBoard() {
                 ))}
               </ul>
             ) : (
-              <p className={styles.mutedCopy}>No Figma links have been added.</p>
+              <p className={styles.mutedCopy}>
+                No Figma links have been added.
+              </p>
             )}
             {canUpdateProject ? (
-              <form className={styles.taskForm} onSubmit={onProjectFigmaLinkSubmit}>
+              <form
+                className={styles.taskForm}
+                onSubmit={onProjectFigmaLinkSubmit}
+              >
                 <label>
                   <span>Name</span>
                   <input maxLength={160} name="figmaName" required />
                 </label>
                 <label>
                   <span>Figma URL</span>
-                  <input name="figmaUrl" placeholder="https://www.figma.com/..." required type="url" />
+                  <input
+                    name="figmaUrl"
+                    placeholder="https://www.figma.com/..."
+                    required
+                    type="url"
+                  />
                 </label>
                 <div className={styles.formActions}>
-                  <button className={styles.secondaryButton} disabled={isSavingFigmaLink} type="submit">
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={isSavingFigmaLink}
+                    type="submit"
+                  >
                     {isSavingFigmaLink ? "Adding…" : "Add Figma link"}
                   </button>
                 </div>
@@ -2982,10 +3040,13 @@ export function ProjectBoard() {
                           {task.title}
                         </button>
                       </h3>
-                      {(visibleTaskFields.includes("dueDate") && task.dueDate) ||
-                      (visibleTaskFields.includes("assignee") && task.assignee) ? (
+                      {(visibleTaskFields.includes("dueDate") &&
+                        task.dueDate) ||
+                      (visibleTaskFields.includes("assignee") &&
+                        task.assignee) ? (
                         <div className={styles.taskCardFooter}>
-                          {visibleTaskFields.includes("dueDate") && task.dueDate ? (
+                          {visibleTaskFields.includes("dueDate") &&
+                          task.dueDate ? (
                             <p
                               className={`${styles.taskDueDate} ${isTaskOverdue(task.dueDate) ? styles.taskDueDateOverdue : ""}`}
                             >
@@ -3000,7 +3061,11 @@ export function ProjectBoard() {
                               className={styles.taskAssignee}
                               title={task.assignee.displayName}
                             >
-                              <span>{task.assignee.displayName.slice(0, 1).toUpperCase()}</span>
+                              <span>
+                                {task.assignee.displayName
+                                  .slice(0, 1)
+                                  .toUpperCase()}
+                              </span>
                             </p>
                           ) : null}
                         </div>
@@ -3345,6 +3410,7 @@ function TaskEditorModal({
   isSaving,
   members,
   onClose,
+  onDescriptionMediaSave,
   onSubmit,
   project,
   role,
@@ -3356,6 +3422,7 @@ function TaskEditorModal({
   isSaving: boolean;
   members: WorkspaceMember[];
   onClose: () => void;
+  onDescriptionMediaSave: (description: string) => Promise<void>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   project: Project;
   role: WorkspaceRole | undefined;
@@ -3399,198 +3466,234 @@ function TaskEditorModal({
   }
 
   return (
-    <Modal isOpen onClose={onClose} title={`${task.key} details`} width="extraWide">
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`${task.key} details`}
+      width="extraWide"
+    >
       <div className={styles.taskEditorWorkspace}>
         <form
           className={styles.taskEditorForm}
           id={`task-editor-${task.id}`}
           onSubmit={(event) => void onSubmit(event)}
         >
-        <header className={styles.taskEditorHeader}>
-          <div className={styles.taskEditorIdentity}>
-            <span>{task.key}</span>
-            <span>{task.type}</span>
-            <span data-priority={task.priority}>{task.priority} priority</span>
-          </div>
-          <div className={styles.taskEditorHeaderActions}>
-            <button
-              className={styles.textButton}
-              onClick={() => void copyTaskLink()}
-              type="button"
-            >
-              <Copy aria-hidden="true" size={16} />
-              {isLinkCopied ? "Link copied" : "Copy link"}
-            </button>
-          </div>
-          <label className={styles.taskEditorTitleField}>
-            <span className={styles.srOnly}>Title</span>
+          <header className={styles.taskEditorHeader}>
+            <div className={styles.taskEditorIdentity}>
+              <span>{task.key}</span>
+              <span>{task.type}</span>
+              <span data-priority={task.priority}>
+                {task.priority} priority
+              </span>
+            </div>
+            <div className={styles.taskEditorHeaderActions}>
+              <button
+                className={styles.textButton}
+                onClick={() => void copyTaskLink()}
+                type="button"
+              >
+                <Copy aria-hidden="true" size={16} />
+                {isLinkCopied ? "Link copied" : "Copy link"}
+              </button>
+            </div>
+            <label className={styles.taskEditorTitleField}>
+              <span className={styles.srOnly}>Title</span>
+              <input
+                autoFocus
+                defaultValue={task.title}
+                maxLength={200}
+                minLength={2}
+                name="title"
+                required
+              />
+            </label>
+          </header>
+          <aside className={styles.taskEditorDetails}>
             <input
-              autoFocus
-              defaultValue={task.title}
-              maxLength={200}
-              minLength={2}
-              name="title"
-              required
+              defaultValue={task.statusId}
+              name="statusId"
+              ref={statusInputRef}
+              type="hidden"
             />
-          </label>
-        </header>
-        <aside className={styles.taskEditorDetails}>
-          <input defaultValue={task.statusId} name="statusId" ref={statusInputRef} type="hidden" />
-          <button
-            className={styles.taskReviewButton}
-            disabled={isSaving || !reviewStatus || task.statusId === reviewStatus.id}
-            onClick={() => {
-              if (reviewStatus && statusInputRef.current) {
-                statusInputRef.current.value = reviewStatus.id;
+            <button
+              className={styles.taskReviewButton}
+              disabled={
+                isSaving || !reviewStatus || task.statusId === reviewStatus.id
               }
-            }}
-            title={
-              reviewStatus
-                ? undefined
-                : "Add an In review status to this project first"
-            }
-            type="submit"
-          >
-            <CircleCheck aria-hidden="true" size={17} />
-            {task.statusId === reviewStatus?.id
-              ? "In review"
-              : reviewStatus
-                ? "Send to review"
-                : "Review status unavailable"}
-          </button>
-          <TaskSidebarSection
-            isOpen={expandedSidebarSection === "details"}
-            onToggle={() =>
-              setExpandedSidebarSection((current) =>
-                current === "details" ? null : "details",
-              )
-            }
-            summary={`${task.assignee?.displayName ?? "Unassigned"} · ${task.dueDate ?? "No due date"}`}
-            title="Details"
-          >
-            <label>
-              <span>Type</span>
-              <select defaultValue={task.type} name="type">
-                {taskTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type[0]!.toUpperCase() + type.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Priority</span>
-              <select defaultValue={task.priority} name="priority">
-                {priorities.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority[0]!.toUpperCase() + priority.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Assignee</span>
-              <select defaultValue={task.assigneeUserId ?? ""} name="assigneeUserId">
-                <option value="">Unassigned</option>
-                {members.map((member) => (
-                  <option key={member.userId} value={member.userId}>
-                    {member.user.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Sprint</span>
-              <select defaultValue={task.sprintId ?? ""} name="sprintId">
-                <option value="">Backlog</option>
-                {sprints.map((sprint) => (
-                  <option key={sprint.id} value={sprint.id}>
-                    {sprint.name} ({sprint.status})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Parent task</span>
-              <select defaultValue={task.parentTaskId ?? ""} name="parentTaskId">
-                <option value="">No parent task</option>
-                {availableParentTasks
-                  .filter(
-                    (candidate) =>
-                      candidate.id !== task.id && !candidate.parentTaskId,
-                  )
-                  .map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {candidate.key}: {candidate.title}
+              onClick={() => {
+                if (reviewStatus && statusInputRef.current) {
+                  statusInputRef.current.value = reviewStatus.id;
+                }
+              }}
+              title={
+                reviewStatus
+                  ? undefined
+                  : "Add an In review status to this project first"
+              }
+              type="submit"
+            >
+              <CircleCheck aria-hidden="true" size={17} />
+              {task.statusId === reviewStatus?.id
+                ? "In review"
+                : reviewStatus
+                  ? "Send to review"
+                  : "Review status unavailable"}
+            </button>
+            <TaskSidebarSection
+              isOpen={expandedSidebarSection === "details"}
+              onToggle={() =>
+                setExpandedSidebarSection((current) =>
+                  current === "details" ? null : "details",
+                )
+              }
+              summary={`${task.assignee?.displayName ?? "Unassigned"} · ${task.dueDate ?? "No due date"}`}
+              title="Details"
+            >
+              <label>
+                <span>Type</span>
+                <select defaultValue={task.type} name="type">
+                  {taskTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type[0]!.toUpperCase() + type.slice(1)}
                     </option>
                   ))}
-              </select>
-            </label>
-            <label>
-              <span>Due date</span>
-              <input defaultValue={task.dueDate ?? ""} name="dueDate" type="date" />
-            </label>
-            <dl className={styles.taskEditorFacts}>
-              <div><dt>Project</dt><dd>{project.name}</dd></div>
-              <div><dt>Reporter</dt><dd>{task.reporter?.displayName ?? "Unknown"}</dd></div>
-              <div><dt>Created</dt><dd>{new Date(task.createdAt).toLocaleDateString()}</dd></div>
-            </dl>
-          </TaskSidebarSection>
-          <TaskSidebarSection
-            isOpen={expandedSidebarSection === "development"}
-            onToggle={() =>
-              setExpandedSidebarSection((current) =>
-                current === "development" ? null : "development",
-              )
-            }
-            summary="Figma and coding tools"
-            title="Development"
-          >
-            <p className={styles.taskSidebarHint}>
-              Connect personal tools from Setup. Project Figma links remain available in project settings.
-            </p>
-            <Link className={styles.taskSidebarLink} href="/profile">
-              Open integrations
-            </Link>
-          </TaskSidebarSection>
-          <TaskSidebarSection
-            isOpen={expandedSidebarSection === "automation"}
-            onToggle={() =>
-              setExpandedSidebarSection((current) =>
-                current === "automation" ? null : "automation",
-              )
-            }
-            summary="No rules configured"
-            title="Automation"
-          >
-            <p className={styles.taskSidebarHint}>
-              Automation rules will appear here when this project supports configured triggers.
-            </p>
-          </TaskSidebarSection>
-        </aside>
-        <div className={styles.formActions}>
-          <button
-            className={styles.primaryButton}
-            disabled={isSaving}
-            type="submit"
-          >
-            {isSaving ? "Saving" : "Save changes"}
-          </button>
-          <button
-            className={styles.textButton}
-            disabled={isSaving}
-            onClick={onClose}
-            type="button"
-          >
-            Cancel
-          </button>
-        </div>
+                </select>
+              </label>
+              <label>
+                <span>Priority</span>
+                <select defaultValue={task.priority} name="priority">
+                  {priorities.map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priority[0]!.toUpperCase() + priority.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Assignee</span>
+                <select
+                  defaultValue={task.assigneeUserId ?? ""}
+                  name="assigneeUserId"
+                >
+                  <option value="">Unassigned</option>
+                  {members.map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.user.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Sprint</span>
+                <select defaultValue={task.sprintId ?? ""} name="sprintId">
+                  <option value="">Backlog</option>
+                  {sprints.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name} ({sprint.status})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Parent task</span>
+                <select
+                  defaultValue={task.parentTaskId ?? ""}
+                  name="parentTaskId"
+                >
+                  <option value="">No parent task</option>
+                  {availableParentTasks
+                    .filter(
+                      (candidate) =>
+                        candidate.id !== task.id && !candidate.parentTaskId,
+                    )
+                    .map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.key}: {candidate.title}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                <span>Due date</span>
+                <input
+                  defaultValue={task.dueDate ?? ""}
+                  name="dueDate"
+                  type="date"
+                />
+              </label>
+              <dl className={styles.taskEditorFacts}>
+                <div>
+                  <dt>Project</dt>
+                  <dd>{project.name}</dd>
+                </div>
+                <div>
+                  <dt>Reporter</dt>
+                  <dd>{task.reporter?.displayName ?? "Unknown"}</dd>
+                </div>
+                <div>
+                  <dt>Created</dt>
+                  <dd>{new Date(task.createdAt).toLocaleDateString()}</dd>
+                </div>
+              </dl>
+            </TaskSidebarSection>
+            <TaskSidebarSection
+              isOpen={expandedSidebarSection === "development"}
+              onToggle={() =>
+                setExpandedSidebarSection((current) =>
+                  current === "development" ? null : "development",
+                )
+              }
+              summary="Figma and coding tools"
+              title="Development"
+            >
+              <p className={styles.taskSidebarHint}>
+                Connect personal tools from Setup. Project Figma links remain
+                available in project settings.
+              </p>
+              <Link className={styles.taskSidebarLink} href="/profile">
+                Open integrations
+              </Link>
+            </TaskSidebarSection>
+            <TaskSidebarSection
+              isOpen={expandedSidebarSection === "automation"}
+              onToggle={() =>
+                setExpandedSidebarSection((current) =>
+                  current === "automation" ? null : "automation",
+                )
+              }
+              summary="No rules configured"
+              title="Automation"
+            >
+              <p className={styles.taskSidebarHint}>
+                Automation rules will appear here when this project supports
+                configured triggers.
+              </p>
+            </TaskSidebarSection>
+          </aside>
+          <div className={styles.formActions}>
+            <button
+              className={styles.primaryButton}
+              disabled={isSaving}
+              type="submit"
+            >
+              {isSaving ? "Saving" : "Save changes"}
+            </button>
+            <button
+              className={styles.textButton}
+              disabled={isSaving}
+              onClick={onClose}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
         </form>
         <div className={styles.taskEditorWork}>
           <TaskWorkPanel
             availableRelatedTasks={availableParentTasks}
             description={task.description}
             editorFormId={`task-editor-${task.id}`}
+            onDescriptionMediaSave={onDescriptionMediaSave}
             role={role}
             task={task}
             workspaceId={workspaceId}

@@ -75,6 +75,7 @@ export function TaskWorkPanel({
   availableRelatedTasks,
   description,
   editorFormId,
+  onDescriptionMediaSave,
   role,
   task,
   workspaceId,
@@ -82,6 +83,7 @@ export function TaskWorkPanel({
   availableRelatedTasks: Task[];
   description: string | null;
   editorFormId: string;
+  onDescriptionMediaSave?: (description: string) => Promise<void>;
   role: WorkspaceRole | undefined;
   task: Task;
   workspaceId: string;
@@ -342,6 +344,17 @@ export function TaskWorkPanel({
     }
   }
 
+  async function onDescriptionMediaChange(description: string) {
+    if (!onDescriptionMediaSave) return;
+    try {
+      await onDescriptionMediaSave(description);
+    } catch (caughtError) {
+      setError(
+        messageFor(caughtError, "Unable to save media in the description."),
+      );
+    }
+  }
+
   async function onAttachmentDelete(attachmentId: string) {
     setError(undefined);
     setIsDeletingAttachmentId(attachmentId);
@@ -572,6 +585,7 @@ export function TaskWorkPanel({
           id={`task-description-${task.id}`}
           maxLength={10000}
           name="description"
+          onMediaChange={onDescriptionMediaChange}
           onMediaUpload={canUpdateTask ? onDescriptionMediaUpload : undefined}
           placeholder="Add context, acceptance criteria or implementation notes…"
         />
