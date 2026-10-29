@@ -961,6 +961,17 @@ export function TaskWorkPanel({
             {canCreateComments ? (
               <form
                 className={styles.commentForm}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    (event.ctrlKey || event.metaKey) &&
+                    !isSubmittingComment &&
+                    !isUploadingCommentAttachments
+                  ) {
+                    event.preventDefault();
+                    event.currentTarget.requestSubmit();
+                  }
+                }}
                 onSubmit={(event) => void onCommentSubmit(event)}
               >
                 <label className={styles.srOnly} htmlFor="comment-body">
@@ -1002,6 +1013,9 @@ export function TaskWorkPanel({
                       : "Comment"}
                   </button>
                 </div>
+                <p className={styles.commentShortcut}>
+                  Ctrl / Cmd + Enter to send
+                </p>
                 {commentDraftFiles.length ? (
                   <ul className={styles.commentDraftFiles}>
                     {commentDraftFiles.map((file) => (

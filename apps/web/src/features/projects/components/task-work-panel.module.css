@@ -792,6 +792,12 @@
   justify-content: space-between;
 }
 
+.commentShortcut {
+  color: var(--muted);
+  font-size: 12px;
+  margin: -2px 0 0;
+}
+
 .commentUploadButton {
   align-items: center;
   background: var(--surface);
