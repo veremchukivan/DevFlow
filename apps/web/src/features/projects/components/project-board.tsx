@@ -1883,6 +1883,9 @@ export function ProjectBoard() {
           members={members}
           onClose={closeTaskEditor}
           onDescriptionMediaSave={onTaskDescriptionMediaSave}
+          onSubtaskCreated={(createdTask) =>
+            setTasks((current) => [...current, createdTask])
+          }
           onSubmit={onTaskEditorSubmit}
           project={project}
           role={role}
@@ -3438,6 +3441,7 @@ function TaskEditorModal({
   members,
   onClose,
   onDescriptionMediaSave,
+  onSubtaskCreated,
   onSubmit,
   project,
   role,
@@ -3451,6 +3455,7 @@ function TaskEditorModal({
   members: WorkspaceMember[];
   onClose: () => void;
   onDescriptionMediaSave: (description: string) => Promise<void>;
+  onSubtaskCreated: (task: Task) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   project: Project;
   role: WorkspaceRole | undefined;
@@ -4052,6 +4057,7 @@ function TaskEditorModal({
             description={task.description}
             editorFormId={`task-editor-${task.id}`}
             onDescriptionMediaSave={onDescriptionMediaSave}
+            onSubtaskCreated={onSubtaskCreated}
             role={role}
             task={task}
             workspaceId={workspaceId}

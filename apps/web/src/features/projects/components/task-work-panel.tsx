@@ -28,7 +28,6 @@ import {
   deleteTaskAttachment,
   deleteTaskChecklistItem,
   deleteTaskComment,
-  getProjects,
   getCurrentUser,
   getTaskActivity,
   getTaskAttachments,
@@ -36,7 +35,6 @@ import {
   getTaskAttachmentPreviewUrl,
   getTaskChecklist,
   getTaskComments,
-  getTasks,
   updateTaskChecklistItem,
   updateTaskComment,
   uploadTaskAttachment,
@@ -72,6 +70,7 @@ export function TaskWorkPanel({
   description,
   editorFormId,
   onDescriptionMediaSave,
+  onSubtaskCreated,
   role,
   task,
   workspaceId,
@@ -80,6 +79,7 @@ export function TaskWorkPanel({
   description: string | null;
   editorFormId: string;
   onDescriptionMediaSave?: (description: string) => Promise<void>;
+  onSubtaskCreated?: (task: Task) => void;
   role: WorkspaceRole | undefined;
   task: Task;
   workspaceId: string;
@@ -88,9 +88,6 @@ export function TaskWorkPanel({
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
-  const [relatedTaskOptions, setRelatedTaskOptions] = useState<Task[]>(
-    availableRelatedTasks,
-  );
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [isLoading, setIsLoading] = useState(true);
@@ -121,11 +118,13 @@ export function TaskWorkPanel({
   const completedItems = checklistItems.filter(
     (item) => item.isCompleted,
   ).length;
-  const subtasks = relatedTaskOptions.filter(
+  const subtasks = availableRelatedTasks.filter(
     (candidate) => candidate.parentTaskId === task.id,
   );
   const parentTask = task.parentTaskId
-    ? relatedTaskOptions.find((candidate) => candidate.id === task.parentTaskId)
+    ? availableRelatedTasks.find(
+        (candidate) => candidate.id === task.parentTaskId,
+      )
     : undefined;
 
   const loadWork = useCallback(async () => {
@@ -165,34 +164,6 @@ export function TaskWorkPanel({
   useEffect(() => {
     void loadWork();
   }, [loadWork]);
-
-  useEffect(() => {
-    let active = true;
-
-    void getProjects(workspaceId)
-      .then(async ({ projects }) => {
-        const responses = await Promise.all(
-          projects.map((project) =>
-            getTasks(workspaceId, project.id, {
-              limit: 100,
-              sortBy: "number",
-              sortOrder: "asc",
-            }),
-          ),
-        );
-        if (active)
-          setRelatedTaskOptions(
-            responses.flatMap((response) => response.tasks),
-          );
-      })
-      .catch(() => {
-        if (active) setRelatedTaskOptions(availableRelatedTasks);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [availableRelatedTasks, workspaceId]);
 
   async function refreshActivity() {
     const response = await getTaskActivity(
@@ -462,7 +433,7 @@ export function TaskWorkPanel({
         type: "task",
         ...(task.sprintId ? { sprintId: task.sprintId } : {}),
       });
-      setRelatedTaskOptions((current) => [...current, response.task]);
+      onSubtaskCreated?.(response.task);
       await refreshActivity();
       form.reset();
     } catch (caughtError) {
