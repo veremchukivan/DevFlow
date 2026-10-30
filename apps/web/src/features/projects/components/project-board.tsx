@@ -56,6 +56,7 @@ import {
   getTask,
   getTasks,
   getWorkspaceMembers,
+  getWorkspaceSavedFilters,
   getWorkspaceSettings,
   getWorkspace,
   getApiAssetUrl,
@@ -66,6 +67,8 @@ import {
   updateProjectSprint,
   updateProjectStatus,
   updateProjectViewPreferences,
+  createWorkspaceSavedFilter,
+  deleteWorkspaceSavedFilter,
   uploadProjectIcon,
   deleteProjectIcon,
   createProjectFigmaLink,
@@ -176,6 +179,9 @@ export function ProjectBoard() {
   const [selectedTask, setSelectedTask] = useState<Task>();
   const [pageInfo, setPageInfo] = useState<PageInfo>();
   const [filters, setFilters] = useState<BoardFilters>({});
+  const [savedFilters, setSavedFilters] = useState<
+    Awaited<ReturnType<typeof getWorkspaceSavedFilters>>["filters"]
+  >([]);
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<"" | TaskPriority>("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
@@ -317,6 +323,12 @@ export function ProjectBoard() {
       window.removeEventListener("pointerup", onPointerUp);
     };
   }, [projectId, resizingColumn, workspaceId]);
+
+  useEffect(() => {
+    void getWorkspaceSavedFilters(workspaceId)
+      .then((response) => setSavedFilters(response.filters))
+      .catch(() => undefined);
+  }, [workspaceId]);
 
   useEffect(() => {
     let active = true;
@@ -613,6 +625,75 @@ export function ProjectBoard() {
       sortOrder: "asc" as const,
       sprintId: selectedSprintId,
     };
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
+    setShowFilters(false);
+  }
+
+  async function onSaveCurrentFilter() {
+    const name = window.prompt("Name this filter");
+    if (!name?.trim()) return;
+    try {
+      const response = await createWorkspaceSavedFilter(workspaceId, {
+        name: name.trim(),
+        criteria: {
+          search,
+          priority,
+          assigneeUserId,
+          due,
+          showArchived,
+          sortBy,
+          sortOrder,
+        },
+      });
+      setSavedFilters((current) => [response.filter, ...current]);
+    } catch {
+      setError("Unable to save filter.");
+    }
+  }
+
+  async function onApplySavedFilter(criteria: Record<string, unknown>) {
+    const nextSearch =
+      typeof criteria.search === "string" ? criteria.search : "";
+    const nextPriority = priorities.includes(criteria.priority as TaskPriority)
+      ? (criteria.priority as TaskPriority)
+      : "";
+    const nextAssignee =
+      typeof criteria.assigneeUserId === "string"
+        ? criteria.assigneeUserId
+        : "";
+    const nextDue = ["overdue", "today", "week", "none"].includes(
+      String(criteria.due),
+    )
+      ? (criteria.due as NonNullable<BoardFilters["due"]>)
+      : "";
+    const nextSortBy = [
+      "position",
+      "number",
+      "createdAt",
+      "updatedAt",
+      "priority",
+    ].includes(String(criteria.sortBy))
+      ? (criteria.sortBy as TaskSortField)
+      : "position";
+    const nextSortOrder = criteria.sortOrder === "desc" ? "desc" : "asc";
+    const nextFilters: BoardFilters = {
+      ...(nextSearch ? { search: nextSearch } : {}),
+      ...(nextPriority ? { priority: nextPriority } : {}),
+      ...(nextAssignee ? { assigneeUserId: nextAssignee } : {}),
+      ...(nextDue ? { due: nextDue } : {}),
+      ...(criteria.showArchived === true ? { archived: true } : {}),
+      sprintId: selectedSprintId,
+      sortBy: nextSortBy,
+      sortOrder: nextSortOrder,
+    };
+    setSearch(nextSearch);
+    setPriority(nextPriority);
+    setAssigneeUserId(nextAssignee);
+    setDue(nextDue);
+    setShowArchived(criteria.showArchived === true);
+    setSortBy(nextSortBy);
+    setSortOrder(nextSortOrder);
     setFilters(nextFilters);
     await loadTasks(nextFilters);
     setShowFilters(false);
@@ -2748,6 +2829,46 @@ export function ProjectBoard() {
                 <option value="desc">Descending</option>
               </select>
             </label>
+            <div className={styles.formActions}>
+              <button
+                className={styles.textButton}
+                onClick={() => void onSaveCurrentFilter()}
+                type="button"
+              >
+                Save current filter
+              </button>
+            </div>
+            {savedFilters.length ? (
+              <div className={styles.itemList}>
+                {savedFilters.map((filter) => (
+                  <div key={filter.id}>
+                    <button
+                      className={styles.textButton}
+                      onClick={() => void onApplySavedFilter(filter.criteria)}
+                      type="button"
+                    >
+                      {filter.name}
+                    </button>
+                    <button
+                      aria-label={`Delete ${filter.name}`}
+                      className={styles.textButton}
+                      onClick={() =>
+                        void deleteWorkspaceSavedFilter(workspaceId, filter.id)
+                          .then(() =>
+                            setSavedFilters((items) =>
+                              items.filter((item) => item.id !== filter.id),
+                            ),
+                          )
+                          .catch(() => setError("Unable to delete filter."))
+                      }
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className={styles.formActions}>
               <button
                 className={styles.primaryButton}
