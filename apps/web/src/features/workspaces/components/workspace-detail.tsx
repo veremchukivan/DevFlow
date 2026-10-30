@@ -333,7 +333,7 @@ export function WorkspaceDetail() {
             {canUpdateWorkspace ? (
               <Link
                 className={styles.secondaryButton}
-                href={`/workspaces/${workspaceId}/settings/automation`}
+                href={`/workspaces/${workspaceId}/settings`}
               >
                 Settings
               </Link>

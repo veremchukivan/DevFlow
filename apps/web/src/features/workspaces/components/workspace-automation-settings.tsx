@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Activity, Boxes, ClipboardList, FileClock, Gauge, Settings2, Sparkles } from "lucide-react";
@@ -108,18 +107,8 @@ export function WorkspaceAutomationSettings() {
 
   return (
     <main className={styles.page}>
-      <aside className={styles.settingsNav}>
-        <Link className={styles.workspaceIdentity} href={`/workspaces/${workspaceId}`}>
-          <span>{workspace?.name.slice(0, 1).toUpperCase() ?? "W"}</span>
-          <strong>{workspace?.name ?? "Workspace"}</strong>
-        </Link>
-        <p>Workspace settings</p>
-        <span>Details</span><span>Access</span><span>Notifications</span>
-        <strong className={styles.activeNav}><Sparkles size={16} /> Automation</strong>
-        <span>Fields</span><span>Work types</span><span>Apps</span>
-      </aside>
       <section className={styles.content}>
-        <div className={styles.breadcrumb}><Link href={`/workspaces/${workspaceId}`}>{workspace?.name ?? "Workspace"}</Link> / Settings / Automation</div>
+        <div className={styles.breadcrumb}>{workspace?.name ?? "Workspace"} / Settings / Automation</div>
         <header className={styles.header}>
           <div><h1>Automation</h1><p>Automate routine work in this workspace and review every run.</p></div>
           <div className={styles.headerStat}><Settings2 size={17} /> {activeRules} of {rules.length} flows enabled</div>
