@@ -21,7 +21,6 @@ import {
   getWorkspaceMembers,
   getProjectSprints,
   getTasks,
-  updateWorkspace,
 } from "@/shared/lib/api-client";
 import {
   notifyProjectsChanged,
@@ -60,8 +59,6 @@ export function WorkspaceDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
-  const [isEditingWorkspace, setIsEditingWorkspace] = useState(false);
-  const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -195,30 +192,6 @@ export function WorkspaceDetail() {
       );
     } finally {
       setIsCreatingProject(false);
-    }
-  }
-
-  async function onWorkspaceSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!workspace) return;
-    setError(undefined);
-    setIsSavingWorkspace(true);
-    const form = new FormData(event.currentTarget);
-    try {
-      const response = await updateWorkspace(workspaceId, {
-        name: String(form.get("name") ?? ""),
-        slug: String(form.get("slug") ?? ""),
-      });
-      setWorkspace(response.workspace);
-      setIsEditingWorkspace(false);
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof ApiClientError
-          ? caughtError.message
-          : "Unable to update workspace.",
-      );
-    } finally {
-      setIsSavingWorkspace(false);
     }
   }
 
@@ -358,13 +331,12 @@ export function WorkspaceDetail() {
         {canUpdateWorkspace || canDeleteWorkspace ? (
           <div className={styles.formActions}>
             {canUpdateWorkspace ? (
-              <button
+              <Link
                 className={styles.secondaryButton}
-                onClick={() => setIsEditingWorkspace((current) => !current)}
-                type="button"
+                href={`/workspaces/${workspaceId}/settings/automation`}
               >
                 Settings
-              </button>
+              </Link>
             ) : null}
             {canDeleteWorkspace ? (
               <button
@@ -378,46 +350,6 @@ export function WorkspaceDetail() {
           </div>
         ) : null}
       </header>
-      {isEditingWorkspace ? (
-        <form className={styles.projectForm} onSubmit={onWorkspaceSubmit}>
-          <label>
-            <span>Workspace name</span>
-            <input
-              defaultValue={workspace.name}
-              maxLength={120}
-              minLength={2}
-              name="name"
-              required
-            />
-          </label>
-          <label>
-            <span>Workspace URL</span>
-            <input
-              defaultValue={workspace.slug}
-              maxLength={80}
-              name="slug"
-              required
-            />
-          </label>
-          <div className={styles.formActions}>
-            <button
-              className={styles.primaryButton}
-              disabled={isSavingWorkspace}
-              type="submit"
-            >
-              {isSavingWorkspace ? "Saving" : "Save settings"}
-            </button>
-            <button
-              className={styles.textButton}
-              onClick={() => setIsEditingWorkspace(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
-
       <section
         className={`${styles.workspaceDashboard} card shadow-sm`}
         aria-labelledby="dashboard-title"
