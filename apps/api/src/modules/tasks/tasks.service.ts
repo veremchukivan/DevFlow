@@ -37,6 +37,7 @@ import {
   updateTaskInProject,
 } from "./tasks.repository.js";
 import { findTaskAttachment } from "../task-attachments/task-attachments.repository.js";
+import { runWorkspaceAutomationForTaskTransition } from "../workspace-automation/workspace-automation.engine.js";
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -411,6 +412,24 @@ export async function updateTask(input: {
       type: "task_status_changed",
       workspaceId: input.workspaceId,
     });
+  }
+  if (
+    input.input.statusId !== undefined &&
+    input.input.statusId !== existingTask.statusId
+  ) {
+    // Automation must never make a successful user update look like a failed
+    // request. Individual flow failures are persisted in the flow audit log.
+    try {
+      await runWorkspaceAutomationForTaskTransition({
+        actorUserId: input.userId,
+        projectId: input.projectId,
+        taskId: result.id,
+        workspaceId: input.workspaceId,
+      });
+    } catch {
+      // The task update is already durable. A transient automation issue must
+      // not turn a successful task change into a client-visible failure.
+    }
   }
   return result;
 }
