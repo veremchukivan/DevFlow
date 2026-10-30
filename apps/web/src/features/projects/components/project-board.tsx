@@ -56,6 +56,7 @@ import {
   getTask,
   getTasks,
   getWorkspaceMembers,
+  getWorkspaceSettings,
   getWorkspace,
   getApiAssetUrl,
   reorderProjectStatuses,
@@ -173,6 +174,13 @@ export function ProjectBoard() {
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<"" | TaskPriority>("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [enabledTaskTypes, setEnabledTaskTypes] =
+    useState<TaskType[]>(taskTypes);
+  const [workspaceFeatures, setWorkspaceFeatures] = useState({
+    attachments: true,
+    automation: true,
+    sprints: true,
+  });
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [role, setRole] = useState<WorkspaceRole>();
   const [assigneeUserId, setAssigneeUserId] = useState("");
@@ -250,6 +258,7 @@ export function ProjectBoard() {
   const canDeleteTasks = role ? can(role, "task:delete") : false;
   const canUpdateProject = role ? can(role, "project:update") : false;
   const canDeleteProject = role ? can(role, "project:delete") : false;
+  const sprintsEnabled = workspaceFeatures.sprints;
   const selectedSprint = sprints.find(
     (sprint) => sprint.id === selectedSprintId,
   );
@@ -311,6 +320,7 @@ export function ProjectBoard() {
       getProjectFigmaLinks(workspaceId, projectId),
       getWorkspaceMembers(workspaceId),
       getWorkspace(workspaceId),
+      getWorkspaceSettings(workspaceId),
       getProjectSprints(workspaceId, projectId),
       getProjectViewPreferences(workspaceId, projectId),
       getCurrentUser(),
@@ -321,14 +331,18 @@ export function ProjectBoard() {
           figmaLinksResponse,
           membersResponse,
           workspaceResponse,
+          workspaceSettingsResponse,
           sprintsResponse,
           preferencesResponse,
           currentUserResponse,
         ]) => {
           if (!active) return;
-          const activeSprint = sprintsResponse.sprints.find(
-            (sprint) => sprint.status === "active",
-          );
+          const activeSprint = workspaceSettingsResponse.settings.features
+            .sprints
+            ? sprintsResponse.sprints.find(
+                (sprint) => sprint.status === "active",
+              )
+            : undefined;
           const initialSprintId = activeSprint?.id ?? "backlog";
           const taskResponse = await getTasks(workspaceId, projectId, {
             limit: taskPageSize,
@@ -359,6 +373,10 @@ export function ProjectBoard() {
             ),
           );
           setRole(workspaceResponse.workspace.role);
+          setEnabledTaskTypes(
+            workspaceSettingsResponse.settings.enabledTaskTypes,
+          );
+          setWorkspaceFeatures(workspaceSettingsResponse.settings.features);
           setCurrentUserId(currentUserResponse.user.id);
           setActivityLimit(preferencesResponse.preferences.activityLimit);
           setBoardScrolling(preferencesResponse.preferences.boardScrolling);
@@ -1635,14 +1653,16 @@ export function ProjectBoard() {
               </div>
             ) : null}
           </div>
-          <button
-            className={styles.primaryButton}
-            disabled={!canUpdateProject}
-            onClick={() => setShowSprintForm(true)}
-            type="button"
-          >
-            New sprint
-          </button>
+          {sprintsEnabled ? (
+            <button
+              className={styles.primaryButton}
+              disabled={!canUpdateProject}
+              onClick={() => setShowSprintForm(true)}
+              type="button"
+            >
+              New sprint
+            </button>
+          ) : null}
         </div>
       </header>
       {selectedSprint ? (
@@ -1711,7 +1731,7 @@ export function ProjectBoard() {
           )}
         </section>
       ) : null}
-      {showSprintForm ? (
+      {sprintsEnabled && showSprintForm ? (
         <Modal
           isOpen={showSprintForm}
           onClose={() => setShowSprintForm(false)}
@@ -1881,6 +1901,8 @@ export function ProjectBoard() {
       {selectedTask ? (
         <TaskEditorModal
           availableParentTasks={tasks}
+          attachmentsEnabled={workspaceFeatures.attachments}
+          enabledTaskTypes={enabledTaskTypes}
           figmaLinks={figmaLinks}
           isSaving={updatingTaskId === selectedTask.id}
           members={members}
@@ -2471,44 +2493,46 @@ export function ProjectBoard() {
       </div>
 
       <form className={styles.boardToolbar} onSubmit={onFilter}>
-        <label className={styles.compactSprintPicker}>
-          <span className={styles.srOnly}>View sprint tasks</span>
-          <CalendarDays aria-hidden="true" size={16} strokeWidth={1.8} />
-          <select
-            disabled={isRefreshing}
-            onChange={(event) => void onSelectSprint(event.target.value)}
-            title={
-              activeSprint
-                ? `${activeSprint.name} · ${formatSprintPeriod(activeSprint.startDate, activeSprint.endDate)}`
-                : "Choose a sprint"
-            }
-            value={selectedSprintId}
-          >
-            {activeSprint ? (
-              <option value={activeSprint.id}>{activeSprint.name}</option>
-            ) : null}
-            <option value="backlog">Backlog</option>
-            {plannedSprints.length ? (
-              <optgroup label="Planned sprints">
-                {plannedSprints.map((sprint) => (
-                  <option key={sprint.id} value={sprint.id}>
-                    {sprint.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {completedSprints.length ? (
-              <optgroup label="Past sprints">
-                {completedSprints.map((sprint) => (
-                  <option key={sprint.id} value={sprint.id}>
-                    {sprint.name}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-          </select>
-        </label>
-        {activeSprint ? (
+        {sprintsEnabled ? (
+          <label className={styles.compactSprintPicker}>
+            <span className={styles.srOnly}>View sprint tasks</span>
+            <CalendarDays aria-hidden="true" size={16} strokeWidth={1.8} />
+            <select
+              disabled={isRefreshing}
+              onChange={(event) => void onSelectSprint(event.target.value)}
+              title={
+                activeSprint
+                  ? `${activeSprint.name} · ${formatSprintPeriod(activeSprint.startDate, activeSprint.endDate)}`
+                  : "Choose a sprint"
+              }
+              value={selectedSprintId}
+            >
+              {activeSprint ? (
+                <option value={activeSprint.id}>{activeSprint.name}</option>
+              ) : null}
+              <option value="backlog">Backlog</option>
+              {plannedSprints.length ? (
+                <optgroup label="Planned sprints">
+                  {plannedSprints.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {completedSprints.length ? (
+                <optgroup label="Past sprints">
+                  {completedSprints.map((sprint) => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </select>
+          </label>
+        ) : null}
+        {sprintsEnabled && activeSprint ? (
           <>
             <button
               aria-label="Active sprint settings"
@@ -3147,6 +3171,7 @@ export function ProjectBoard() {
                   ) : null}
                   {showTaskForm && draftStatusId === status.id ? (
                     <QuickTaskForm
+                      enabledTaskTypes={enabledTaskTypes}
                       isCreating={isCreating}
                       members={members}
                       onCancel={() => {
@@ -3439,6 +3464,8 @@ function formatRelativeTime(value: string) {
 
 function TaskEditorModal({
   availableParentTasks,
+  attachmentsEnabled,
+  enabledTaskTypes,
   figmaLinks,
   isSaving,
   members,
@@ -3453,6 +3480,8 @@ function TaskEditorModal({
   workspaceId,
 }: {
   availableParentTasks: Task[];
+  attachmentsEnabled: boolean;
+  enabledTaskTypes: TaskType[];
   figmaLinks: ProjectFigmaLink[];
   isSaving: boolean;
   members: WorkspaceMember[];
@@ -3720,7 +3749,7 @@ function TaskEditorModal({
               <label>
                 <span>Type</span>
                 <select defaultValue={task.type} name="type">
-                  {taskTypes.map((type) => (
+                  {enabledTaskTypes.map((type) => (
                     <option key={type} value={type}>
                       {type[0]!.toUpperCase() + type.slice(1)}
                     </option>
@@ -4036,6 +4065,7 @@ function TaskEditorModal({
         <div className={styles.taskEditorWork}>
           <TaskWorkPanel
             availableRelatedTasks={availableParentTasks}
+            attachmentsEnabled={attachmentsEnabled}
             description={task.description}
             editorFormId={`task-editor-${task.id}`}
             onDescriptionMediaSave={onDescriptionMediaSave}
@@ -4115,12 +4145,14 @@ function TaskSidebarSection({
 }
 
 function QuickTaskForm({
+  enabledTaskTypes,
   isCreating,
   members,
   onCancel,
   onSubmit,
   statusId,
 }: {
+  enabledTaskTypes: TaskType[];
   isCreating: boolean;
   members: WorkspaceMember[];
   onCancel: () => void;
@@ -4150,7 +4182,7 @@ function QuickTaskForm({
         <label title="Work type">
           <span className={styles.srOnly}>Work type</span>
           <select className="form-select" defaultValue="task" name="type">
-            {taskTypes.map((type) => (
+            {enabledTaskTypes.map((type) => (
               <option key={type} value={type}>
                 {type[0]!.toUpperCase() + type.slice(1)}
               </option>

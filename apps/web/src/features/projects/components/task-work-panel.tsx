@@ -77,6 +77,7 @@ const commentMediaTypes = new Set([
 
 export function TaskWorkPanel({
   availableRelatedTasks,
+  attachmentsEnabled = true,
   description,
   editorFormId,
   onDescriptionMediaSave,
@@ -86,6 +87,7 @@ export function TaskWorkPanel({
   workspaceId,
 }: {
   availableRelatedTasks: Task[];
+  attachmentsEnabled?: boolean;
   description: string | null;
   editorFormId: string;
   onDescriptionMediaSave?: (description: string) => Promise<void>;
@@ -672,7 +674,11 @@ export function TaskWorkPanel({
           maxLength={10000}
           name="description"
           onMediaChange={onDescriptionMediaChange}
-          onMediaUpload={canUpdateTask ? onDescriptionMediaUpload : undefined}
+          onMediaUpload={
+            canUpdateTask && attachmentsEnabled
+              ? onDescriptionMediaUpload
+              : undefined
+          }
           placeholder="Add context, acceptance criteria or implementation notes…"
         />
       </section>
@@ -850,150 +856,152 @@ export function TaskWorkPanel({
         ) : null}
       </section>
 
-      <section
-        className={`${styles.attachmentsSection} ${isAttachmentDropActive ? styles.attachmentsSectionDragActive : ""}`}
-        aria-labelledby="attachments-title"
-        onDragLeave={() => setIsAttachmentDropActive(false)}
-        onDragOver={onAttachmentDragOver}
-        onDrop={onAttachmentDrop}
-      >
-        <div className={styles.sectionHeading}>
-          <div>
-            <h3 id="attachments-title">Attachments</h3>
-            <p>PDF, images, MP4 or WebM up to 50 MB</p>
+      {attachmentsEnabled ? (
+        <section
+          className={`${styles.attachmentsSection} ${isAttachmentDropActive ? styles.attachmentsSectionDragActive : ""}`}
+          aria-labelledby="attachments-title"
+          onDragLeave={() => setIsAttachmentDropActive(false)}
+          onDragOver={onAttachmentDragOver}
+          onDrop={onAttachmentDrop}
+        >
+          <div className={styles.sectionHeading}>
+            <div>
+              <h3 id="attachments-title">Attachments</h3>
+              <p>PDF, images, MP4 or WebM up to 50 MB</p>
+            </div>
+            <Paperclip aria-hidden="true" size={18} />
           </div>
-          <Paperclip aria-hidden="true" size={18} />
-        </div>
-        {canUpdateTask ? (
-          <label className={styles.uploadButton}>
-            <input
-              accept="application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/webm"
-              disabled={isUploadingAttachment}
-              multiple
-              onChange={(event) => void onAttachmentChange(event)}
-              type="file"
-            />
-            {isUploadingAttachment ? "Uploading" : "Upload file"}
-          </label>
-        ) : null}
-        {canUpdateTask ? (
-          <p className={styles.attachmentDropHint}>
-            Or drag files here to upload
-          </p>
-        ) : null}
-        {isLoading ? (
-          <p className={styles.empty}>Loading attachments…</p>
-        ) : null}
-        {!isLoading && attachments.length === 0 ? (
-          <p className={styles.empty}>No attachments yet.</p>
-        ) : null}
-        {attachments.length ? (
-          <ul className={styles.attachmentList}>
-            {attachments.map((attachment) => {
-              const previewUrl = getTaskAttachmentPreviewUrl(
-                workspaceId,
-                task.projectId,
-                task.id,
-                attachment.id,
-              );
-              const canPreview =
-                isPreviewableAttachment(attachment) && previewUrl;
+          {canUpdateTask ? (
+            <label className={styles.uploadButton}>
+              <input
+                accept="application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/webm"
+                disabled={isUploadingAttachment}
+                multiple
+                onChange={(event) => void onAttachmentChange(event)}
+                type="file"
+              />
+              {isUploadingAttachment ? "Uploading" : "Upload file"}
+            </label>
+          ) : null}
+          {canUpdateTask ? (
+            <p className={styles.attachmentDropHint}>
+              Or drag files here to upload
+            </p>
+          ) : null}
+          {isLoading ? (
+            <p className={styles.empty}>Loading attachments…</p>
+          ) : null}
+          {!isLoading && attachments.length === 0 ? (
+            <p className={styles.empty}>No attachments yet.</p>
+          ) : null}
+          {attachments.length ? (
+            <ul className={styles.attachmentList}>
+              {attachments.map((attachment) => {
+                const previewUrl = getTaskAttachmentPreviewUrl(
+                  workspaceId,
+                  task.projectId,
+                  task.id,
+                  attachment.id,
+                );
+                const canPreview =
+                  isPreviewableAttachment(attachment) && previewUrl;
 
-              return (
-                <li key={attachment.id}>
-                  {canPreview ? (
-                    <AttachmentPreview
-                      attachment={attachment}
-                      onOpen={() =>
-                        setSelectedAttachment({ attachment, previewUrl })
-                      }
-                      previewUrl={previewUrl}
-                    />
-                  ) : null}
-                  <div>
-                    <strong>{attachment.originalFilename}</strong>
-                    <span>
-                      {formatFileSize(attachment.sizeBytes)} ·{" "}
-                      {attachment.uploadedBy?.displayName ?? "Former member"}
-                    </span>
-                  </div>
-                  <div className={styles.attachmentActions}>
+                return (
+                  <li key={attachment.id}>
                     {canPreview ? (
-                      <button
-                        aria-label={`Open ${attachment.originalFilename}`}
-                        onClick={() =>
+                      <AttachmentPreview
+                        attachment={attachment}
+                        onOpen={() =>
                           setSelectedAttachment({ attachment, previewUrl })
                         }
-                        title="Open preview"
-                        type="button"
-                      >
-                        <Maximize2 aria-hidden="true" size={16} />
-                      </button>
+                        previewUrl={previewUrl}
+                      />
                     ) : null}
-                    <a
-                      aria-label={`Download ${attachment.originalFilename}`}
-                      href={
-                        getTaskAttachmentDownloadUrl(
-                          workspaceId,
-                          task.projectId,
-                          task.id,
-                          attachment.id,
-                        ) ?? undefined
-                      }
-                      title="Download attachment"
-                    >
-                      <Download aria-hidden="true" size={16} />
-                    </a>
-                    {canUpdateTask ? (
-                      <label
-                        className={styles.replaceAttachmentButton}
-                        title="Replace attachment"
-                      >
-                        <input
-                          accept={
-                            attachment.mimeType.startsWith("image/")
-                              ? "image/jpeg,image/png,image/webp"
-                              : attachment.mimeType.startsWith("video/")
-                                ? "video/mp4,video/webm"
-                                : "application/pdf"
+                    <div>
+                      <strong>{attachment.originalFilename}</strong>
+                      <span>
+                        {formatFileSize(attachment.sizeBytes)} ·{" "}
+                        {attachment.uploadedBy?.displayName ?? "Former member"}
+                      </span>
+                    </div>
+                    <div className={styles.attachmentActions}>
+                      {canPreview ? (
+                        <button
+                          aria-label={`Open ${attachment.originalFilename}`}
+                          onClick={() =>
+                            setSelectedAttachment({ attachment, previewUrl })
                           }
-                          disabled={
-                            isReplacingAttachmentId === attachment.id ||
-                            isDeletingAttachmentId === attachment.id
-                          }
-                          onChange={(event) =>
-                            void onAttachmentReplace(event, attachment)
-                          }
-                          type="file"
-                        />
-                        <Pencil aria-hidden="true" size={15} />
-                        <span className={styles.srOnly}>
-                          Replace {attachment.originalFilename}
-                        </span>
-                      </label>
-                    ) : null}
-                    {canUpdateTask ? (
-                      <button
-                        aria-label={`Delete ${attachment.originalFilename}`}
-                        className={styles.deleteButton}
-                        disabled={
-                          isDeletingAttachmentId === attachment.id ||
-                          isReplacingAttachmentId === attachment.id
+                          title="Open preview"
+                          type="button"
+                        >
+                          <Maximize2 aria-hidden="true" size={16} />
+                        </button>
+                      ) : null}
+                      <a
+                        aria-label={`Download ${attachment.originalFilename}`}
+                        href={
+                          getTaskAttachmentDownloadUrl(
+                            workspaceId,
+                            task.projectId,
+                            task.id,
+                            attachment.id,
+                          ) ?? undefined
                         }
-                        onClick={() => void onAttachmentDelete(attachment.id)}
-                        title="Delete attachment"
-                        type="button"
+                        title="Download attachment"
                       >
-                        <Trash2 aria-hidden="true" size={15} />
-                      </button>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-      </section>
+                        <Download aria-hidden="true" size={16} />
+                      </a>
+                      {canUpdateTask ? (
+                        <label
+                          className={styles.replaceAttachmentButton}
+                          title="Replace attachment"
+                        >
+                          <input
+                            accept={
+                              attachment.mimeType.startsWith("image/")
+                                ? "image/jpeg,image/png,image/webp"
+                                : attachment.mimeType.startsWith("video/")
+                                  ? "video/mp4,video/webm"
+                                  : "application/pdf"
+                            }
+                            disabled={
+                              isReplacingAttachmentId === attachment.id ||
+                              isDeletingAttachmentId === attachment.id
+                            }
+                            onChange={(event) =>
+                              void onAttachmentReplace(event, attachment)
+                            }
+                            type="file"
+                          />
+                          <Pencil aria-hidden="true" size={15} />
+                          <span className={styles.srOnly}>
+                            Replace {attachment.originalFilename}
+                          </span>
+                        </label>
+                      ) : null}
+                      {canUpdateTask ? (
+                        <button
+                          aria-label={`Delete ${attachment.originalFilename}`}
+                          className={styles.deleteButton}
+                          disabled={
+                            isDeletingAttachmentId === attachment.id ||
+                            isReplacingAttachmentId === attachment.id
+                          }
+                          onClick={() => void onAttachmentDelete(attachment.id)}
+                          title="Delete attachment"
+                          type="button"
+                        >
+                          <Trash2 aria-hidden="true" size={15} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
 
       <section
         className={styles.activitySection}
@@ -1057,24 +1065,26 @@ export function TaskWorkPanel({
                   resetKey={commentEditorResetKey}
                 />
                 <div className={styles.commentComposerActions}>
-                  <label className={styles.commentUploadButton}>
-                    <input
-                      accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-                      disabled={
-                        isSubmittingComment || isUploadingCommentAttachments
-                      }
-                      multiple
-                      onChange={(event) => {
-                        addCommentDraftFiles(
-                          Array.from(event.target.files ?? []),
-                        );
-                        event.currentTarget.value = "";
-                      }}
-                      type="file"
-                    />
-                    <Paperclip aria-hidden="true" size={15} />
-                    Add media
-                  </label>
+                  {attachmentsEnabled ? (
+                    <label className={styles.commentUploadButton}>
+                      <input
+                        accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+                        disabled={
+                          isSubmittingComment || isUploadingCommentAttachments
+                        }
+                        multiple
+                        onChange={(event) => {
+                          addCommentDraftFiles(
+                            Array.from(event.target.files ?? []),
+                          );
+                          event.currentTarget.value = "";
+                        }}
+                        type="file"
+                      />
+                      <Paperclip aria-hidden="true" size={15} />
+                      Add media
+                    </label>
+                  ) : null}
                   <button
                     disabled={
                       isSubmittingComment || isUploadingCommentAttachments
