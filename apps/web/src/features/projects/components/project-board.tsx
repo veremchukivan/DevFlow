@@ -1506,13 +1506,14 @@ export function ProjectBoard() {
     const description = String(form.get("description") ?? "").trim();
     const estimateValue = String(form.get("estimateMinutes") ?? "");
     const estimateMinutes = estimateValue ? Number(estimateValue) : null;
-    const customFields = Object.fromEntries(
-      [...form.entries()]
-        .filter(([key]) => key.startsWith("customField:"))
-        .map(([key, value]) => [
-          key.slice("customField:".length),
-          String(value) || null,
-        ]),
+    const customFieldValues = Object.fromEntries(
+      customFields.map((field) => {
+        const value = String(form.get(`customField:${field.id}`) ?? "").trim();
+        return [
+          field.id,
+          field.type === "number" && value ? Number(value) : value || null,
+        ];
+      }),
     );
 
     if (
@@ -1532,7 +1533,7 @@ export function ProjectBoard() {
         {
           assigneeUserId: assigneeUserId || null,
           description: description || null,
-          customFields,
+          customFields: customFieldValues,
           dueDate: dueDate || null,
           estimateMinutes,
           parentTaskId: parentTaskId || null,
