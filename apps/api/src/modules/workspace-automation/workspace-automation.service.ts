@@ -59,7 +59,12 @@ export async function patchWorkspaceAutomationRule(input: {
     );
   }
 
-  const rule = await updateWorkspaceAutomationRule(input);
+  const rule = await updateWorkspaceAutomationRule({
+    configuration: input.input.configuration,
+    enabled: input.input.enabled,
+    ruleId: input.ruleId,
+    workspaceId: input.workspaceId,
+  });
   if (!rule) {
     throw new AppError(404, "AUTOMATION_RULE_NOT_FOUND", "Automation rule not found");
   }
@@ -73,6 +78,14 @@ export async function getWorkspaceAutomationRuns(input: {
 }) {
   await requireWorkspaceAccess(input);
   return listWorkspaceAutomationRuns({ limit: 100, workspaceId: input.workspaceId });
+}
+
+export async function getWorkspaceAutomationTemplates(input: {
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireWorkspaceAccess(input);
+  return automationTemplates;
 }
 
 export async function getWorkspaceAutomationUsageForUser(input: {

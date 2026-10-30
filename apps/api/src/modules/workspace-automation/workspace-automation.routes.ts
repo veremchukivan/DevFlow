@@ -15,9 +15,9 @@ import {
   requireAuth,
 } from "../auth/auth.middleware.js";
 import {
-  automationTemplates,
   getWorkspaceAutomationRules,
   getWorkspaceAutomationRuns,
+  getWorkspaceAutomationTemplates,
   getWorkspaceAutomationUsageForUser,
   patchWorkspaceAutomationRule,
 } from "./workspace-automation.service.js";
@@ -62,8 +62,13 @@ workspaceAutomationRouter.get("/runs", async (req, res) => {
   } satisfies typeof workspaceAutomationRunsResponseSchema._output);
 });
 
-workspaceAutomationRouter.get("/templates", (_req, res) => {
-  res.json({ templates: [...automationTemplates] } satisfies typeof workspaceAutomationTemplatesResponseSchema._output);
+workspaceAutomationRouter.get("/templates", async (req, res) => {
+  const { workspaceId } = workspaceAutomationParamsSchema.parse(req.params);
+  const templates = await getWorkspaceAutomationTemplates({
+    userId: getUserId(req),
+    workspaceId,
+  });
+  res.json({ templates: [...templates] } satisfies typeof workspaceAutomationTemplatesResponseSchema._output);
 });
 
 workspaceAutomationRouter.get("/usage", async (req, res) => {

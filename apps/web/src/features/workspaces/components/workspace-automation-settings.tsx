@@ -100,7 +100,13 @@ export function WorkspaceAutomationSettings() {
     const assigneeUserId = event.target.value;
     const rule = rules.find((candidate) => candidate.id === ruleId);
     if (!rule) return;
-    void saveRule(ruleId, { configuration: { ...rule.configuration, ...(assigneeUserId ? { assigneeUserId } : {}) } });
+    const configuration = { ...rule.configuration };
+    delete configuration.assigneeUserId;
+    void saveRule(ruleId, {
+      configuration: assigneeUserId
+        ? { ...configuration, assigneeUserId }
+        : configuration,
+    });
   }
 
   if (loading) return <main className={styles.loading}>Loading automation</main>;
