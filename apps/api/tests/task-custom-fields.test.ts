@@ -78,4 +78,25 @@ describe("Task custom fields integration tests", () => {
     expect(invalidOption.status).toBe(400);
     expect(invalidOption.body.error.code).toBe("TASK_CUSTOM_FIELD_INVALID");
   });
+
+  it("filters tasks by configured select-field options", async () => {
+    const response = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks?customFieldId=stage&customFieldValue=Design`,
+      )
+      .set("Cookie", owner.cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tasks).toHaveLength(1);
+    expect(response.body.tasks[0].customFields.stage).toBe("Design");
+
+    const invalidOption = await request(app)
+      .get(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks?customFieldId=stage&customFieldValue=Released`,
+      )
+      .set("Cookie", owner.cookie);
+
+    expect(invalidOption.status).toBe(400);
+    expect(invalidOption.body.error.code).toBe("TASK_CUSTOM_FIELD_FILTER_INVALID");
+  });
 });

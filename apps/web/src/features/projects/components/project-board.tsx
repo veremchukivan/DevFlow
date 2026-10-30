@@ -111,6 +111,8 @@ type BoardFilters = {
   archived?: boolean;
   priority?: TaskPriority;
   assigneeUserId?: string | "none";
+  customFieldId?: string;
+  customFieldValue?: string;
   due?: "overdue" | "today" | "week" | "none";
   search?: string;
   sortBy?: TaskSortField;
@@ -210,6 +212,8 @@ export function ProjectBoard() {
   const [currentUserId, setCurrentUserId] = useState<string>();
   const [role, setRole] = useState<WorkspaceRole>();
   const [assigneeUserId, setAssigneeUserId] = useState("");
+  const [customFieldId, setCustomFieldId] = useState("");
+  const [customFieldValue, setCustomFieldValue] = useState("");
   const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
     "",
   );
@@ -298,6 +302,7 @@ export function ProjectBoard() {
   const activeFilterCount = [
     priority,
     assigneeUserId,
+    customFieldValue,
     due,
     showArchived,
     sortBy !== "position",
@@ -615,6 +620,9 @@ export function ProjectBoard() {
       ...(assigneeUserId
         ? { assigneeUserId: assigneeUserId as string | "none" }
         : {}),
+      ...(customFieldId && customFieldValue
+        ? { customFieldId, customFieldValue }
+        : {}),
       ...(due ? { due } : {}),
       ...(showArchived ? { archived: true } : {}),
       sprintId: selectedSprintId,
@@ -630,6 +638,8 @@ export function ProjectBoard() {
     setSearch("");
     setPriority("");
     setAssigneeUserId("");
+    setCustomFieldId("");
+    setCustomFieldValue("");
     setDue("");
     setSortBy("position");
     setSortOrder("asc");
@@ -654,6 +664,8 @@ export function ProjectBoard() {
           search,
           priority,
           assigneeUserId,
+          customFieldId,
+          customFieldValue,
           due,
           showArchived,
           sortBy,
@@ -681,6 +693,15 @@ export function ProjectBoard() {
     )
       ? (criteria.due as NonNullable<BoardFilters["due"]>)
       : "";
+    const nextCustomField = customFields.find(
+      (field) => field.type === "select" && field.id === criteria.customFieldId,
+    );
+    const nextCustomFieldValue =
+      nextCustomField &&
+      typeof criteria.customFieldValue === "string" &&
+      nextCustomField.options.includes(criteria.customFieldValue)
+        ? criteria.customFieldValue
+        : "";
     const nextSortBy = [
       "position",
       "number",
@@ -695,6 +716,9 @@ export function ProjectBoard() {
       ...(nextSearch ? { search: nextSearch } : {}),
       ...(nextPriority ? { priority: nextPriority } : {}),
       ...(nextAssignee ? { assigneeUserId: nextAssignee } : {}),
+      ...(nextCustomField && nextCustomFieldValue
+        ? { customFieldId: nextCustomField.id, customFieldValue: nextCustomFieldValue }
+        : {}),
       ...(nextDue ? { due: nextDue } : {}),
       ...(criteria.showArchived === true ? { archived: true } : {}),
       sprintId: selectedSprintId,
@@ -704,6 +728,8 @@ export function ProjectBoard() {
     setSearch(nextSearch);
     setPriority(nextPriority);
     setAssigneeUserId(nextAssignee);
+    setCustomFieldId(nextCustomField?.id ?? "");
+    setCustomFieldValue(nextCustomFieldValue);
     setDue(nextDue);
     setShowArchived(criteria.showArchived === true);
     setSortBy(nextSortBy);
@@ -731,6 +757,9 @@ export function ProjectBoard() {
       ...(priority ? { priority } : {}),
       ...(nextAssigneeUserId
         ? { assigneeUserId: nextAssigneeUserId as string | "none" }
+        : {}),
+      ...(customFieldId && customFieldValue
+        ? { customFieldId, customFieldValue }
         : {}),
       ...(nextDue ? { due: nextDue } : {}),
       ...(showArchived ? { archived: true } : {}),
@@ -2792,6 +2821,52 @@ export function ProjectBoard() {
                 ))}
               </select>
             </label>
+            {customFields.some(
+              (field) => field.type === "select" && field.options.length,
+            ) ? (
+              <>
+                <label>
+                  <span>Custom field</span>
+                  <select
+                    onChange={(event) => {
+                      setCustomFieldId(event.target.value);
+                      setCustomFieldValue("");
+                    }}
+                    value={customFieldId}
+                  >
+                    <option value="">Any value</option>
+                    {customFields
+                      .filter(
+                        (field) =>
+                          field.type === "select" && field.options.length,
+                      )
+                      .map((field) => (
+                        <option key={field.id} value={field.id}>
+                          {field.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                {customFieldId ? (
+                  <label>
+                    <span>Field value</span>
+                    <select
+                      onChange={(event) => setCustomFieldValue(event.target.value)}
+                      value={customFieldValue}
+                    >
+                      <option value="">Any value</option>
+                      {customFields
+                        .find((field) => field.id === customFieldId)
+                        ?.options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                ) : null}
+              </>
+            ) : null}
             <label>
               <span>Due date</span>
               <select

@@ -119,6 +119,8 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
     .transform((v) => v === "true")
     .optional(),
   assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
+  customFieldId: z.string().min(1).max(64).optional(),
+  customFieldValue: z.string().min(1).max(80).optional(),
   due: taskDueFilterSchema.optional(),
   priority: taskPrioritySchema.optional(),
   search: z.string().trim().min(1).max(200).optional(),
@@ -126,6 +128,8 @@ export const listTasksQuerySchema = paginationQuerySchema.extend({
   sortOrder: taskSortOrderSchema.default("asc"),
   statusId: z.uuid().optional(),
   sprintId: z.union([z.uuid(), z.literal("backlog")]).optional(),
+}).refine((input) => Boolean(input.customFieldId) === Boolean(input.customFieldValue), {
+  message: "Custom field filters require both a field and value",
 });
 
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;

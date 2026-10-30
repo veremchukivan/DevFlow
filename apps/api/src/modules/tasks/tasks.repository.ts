@@ -321,6 +321,8 @@ export async function listTasksForProject(input: {
   filters: {
     statusId?: string;
     sprintId?: string | "backlog";
+    customFieldId?: string;
+    customFieldValue?: string;
     priority?: TaskPriority;
     due?: "overdue" | "today" | "week" | "none";
     assigneeUserId?: string | "none";
@@ -373,6 +375,11 @@ export async function listTasksForProject(input: {
 
   if (f.search !== undefined) {
     conditions.push(ilike(tasks.title, `%${escapeLikePattern(f.search)}%`));
+  }
+  if (f.customFieldId !== undefined && f.customFieldValue !== undefined) {
+    conditions.push(
+      sql`${tasks.customFields} ->> ${f.customFieldId} = ${f.customFieldValue}`,
+    );
   }
 
   // Build ORDER BY

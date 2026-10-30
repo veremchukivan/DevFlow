@@ -147,6 +147,11 @@ export async function listTasks(input: {
 }) {
   await requireWorkspaceMembership(input);
   await requireProject(input);
+  await requireWorkspaceCustomFieldFilter({
+    fieldId: input.filters.customFieldId,
+    value: input.filters.customFieldValue,
+    workspaceId: input.workspaceId,
+  });
 
   const result = await listTasksForProject({
     projectId: input.projectId,
@@ -723,6 +728,23 @@ async function validateCustomFields(input: {
     if (field.type === "select" && (typeof value !== "string" || !field.options.includes(value))) {
       throw new AppError(400, "TASK_CUSTOM_FIELD_INVALID", `${field.name} must use one of the configured options`);
     }
+  }
+}
+
+async function requireWorkspaceCustomFieldFilter(input: {
+  fieldId: string | undefined;
+  value: string | undefined;
+  workspaceId: string;
+}) {
+  if (!input.fieldId || !input.value) return;
+
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  const field = settings.customFields.find((item) => item.id === input.fieldId);
+  if (!field || field.type !== "select") {
+    throw new AppError(400, "TASK_CUSTOM_FIELD_FILTER_INVALID", "Only select custom fields can be used as task filters");
+  }
+  if (!field.options.includes(input.value)) {
+    throw new AppError(400, "TASK_CUSTOM_FIELD_FILTER_INVALID", "The selected custom field option is not configured in this workspace");
   }
 }
 

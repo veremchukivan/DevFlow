@@ -1067,6 +1067,8 @@ export function deleteProjectStatus(
 type TaskListFilters = {
   archived?: boolean;
   assigneeUserId?: string | "none";
+  customFieldId?: string;
+  customFieldValue?: string;
   due?: "overdue" | "today" | "week" | "none";
   limit?: number;
   offset?: number;
@@ -1094,6 +1096,10 @@ export function getTasks(
   }
   if (filters.assigneeUserId)
     query.set("assigneeUserId", filters.assigneeUserId);
+  if (filters.customFieldId && filters.customFieldValue) {
+    query.set("customFieldId", filters.customFieldId);
+    query.set("customFieldValue", filters.customFieldValue);
+  }
   if (filters.due) query.set("due", filters.due);
   if (filters.archived) query.set("archived", "true");
   if (filters.sprintId) query.set("sprintId", filters.sprintId);
