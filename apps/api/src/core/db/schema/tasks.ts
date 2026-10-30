@@ -6,6 +6,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -54,6 +55,10 @@ export const tasks = pgTable(
     type: taskTypeEnum("type").notNull().default("task"),
     title: varchar("title", { length: 200 }).notNull(),
     description: text("description"),
+    customFields: jsonb("custom_fields")
+      .$type<Record<string, string | number | null>>()
+      .notNull()
+      .default({}),
     dueDate: date("due_date"),
     estimateMinutes: integer("estimate_minutes"),
     priority: taskPriorityEnum("priority").notNull().default("medium"),

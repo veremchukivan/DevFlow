@@ -213,6 +213,7 @@ function toTaskDto(task: {
   checklistTotalCount: number;
   commentCount: number;
   createdAt: Date;
+  customFields: Record<string, string | number | null>;
   description: string | null;
   dueDate: string | null;
   estimateMinutes: number | null;
@@ -255,6 +256,7 @@ function toTaskDto(task: {
         : null,
     assigneeUserId: task.assigneeUserId,
     createdAt: task.createdAt.toISOString(),
+    customFields: task.customFields,
     description: task.description,
     dueDate: task.dueDate,
     estimateMinutes: task.estimateMinutes,

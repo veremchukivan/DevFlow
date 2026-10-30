@@ -6,10 +6,15 @@ import { projectStatusCategorySchema } from "./projects.js";
 export const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
 export const taskTypeSchema = z.enum(["bug", "feature", "story", "task"]);
 export const taskDueDateSchema = z.iso.date();
+export const taskCustomFieldsSchema = z.record(
+  z.string().min(1).max(64),
+  z.union([z.string().max(2_000), z.number(), z.null()]),
+);
 
 export const createTaskRequestSchema = z.object({
   assigneeUserId: z.uuid().optional(),
   description: z.string().trim().max(10000).optional(),
+  customFields: taskCustomFieldsSchema.optional(),
   dueDate: taskDueDateSchema.optional(),
   estimateMinutes: z.number().int().min(0).max(1_000_000).optional(),
   parentTaskId: z.uuid().optional(),
@@ -24,6 +29,7 @@ export const updateTaskRequestSchema = z
   .object({
     assigneeUserId: z.uuid().nullable().optional(),
     description: z.string().trim().max(10000).nullable().optional(),
+    customFields: taskCustomFieldsSchema.optional(),
     dueDate: taskDueDateSchema.nullable().optional(),
     estimateMinutes: z.number().int().min(0).max(1_000_000).nullable().optional(),
     parentTaskId: z.uuid().nullable().optional(),
@@ -67,6 +73,7 @@ export const createTaskFigmaLinkRequestSchema = z.object({
 
 export const taskFigmaLinkSchema = z.object({
   createdAt: z.string().datetime(),
+  customFields: taskCustomFieldsSchema,
   createdByUserId: z.uuid().nullable(),
   id: z.uuid(),
   name: z.string(),

@@ -198,6 +198,7 @@ export async function createTaskWithNextNumber(input: {
   };
   assigneeUserId?: string;
   description?: string;
+  customFields?: Record<string, string | number | null>;
   dueDate?: string;
   estimateMinutes?: number;
   parentTaskId?: string;
@@ -262,6 +263,7 @@ export async function createTaskWithNextNumber(input: {
       workspaceId: input.workspaceId,
       ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
       ...(input.description ? { description: input.description } : {}),
+      ...(input.customFields ? { customFields: input.customFields } : {}),
       ...(input.dueDate ? { dueDate: input.dueDate } : {}),
       ...(input.estimateMinutes !== undefined
         ? { estimateMinutes: input.estimateMinutes }
@@ -456,6 +458,7 @@ export async function updateTaskInProject(
   input: {
     assigneeUserId?: string | null;
     description?: string | null;
+    customFields?: Record<string, string | number | null>;
     dueDate?: string | null;
     estimateMinutes?: number | null;
     parentTaskId?: string | null;
@@ -620,6 +623,7 @@ function taskSelect(executor: DbExecutor = db) {
       assigneeUserId: tasks.assigneeUserId,
       createdAt: tasks.createdAt,
       description: tasks.description,
+      customFields: tasks.customFields,
       dueDate: tasks.dueDate,
       estimateMinutes: tasks.estimateMinutes,
       attachmentCount: sql<number>`(select count(*)::int from ${taskAttachments} where ${taskAttachments.taskId} = ${tasks.id})`,
@@ -689,6 +693,7 @@ function taskSelect(executor: DbExecutor = db) {
 function toTaskUpdateValues(input: {
   assigneeUserId?: string | null;
   description?: string | null;
+  customFields?: Record<string, string | number | null>;
   dueDate?: string | null;
   estimateMinutes?: number | null;
   parentTaskId?: string | null;
@@ -701,6 +706,7 @@ function toTaskUpdateValues(input: {
   const values: {
     assigneeUserId?: string | null;
     description?: string | null;
+    customFields?: Record<string, string | number | null>;
     dueDate?: string | null;
     estimateMinutes?: number | null;
     parentTaskId?: string | null;
@@ -720,6 +726,10 @@ function toTaskUpdateValues(input: {
 
   if (input.description !== undefined) {
     values.description = input.description;
+  }
+
+  if (input.customFields !== undefined) {
+    values.customFields = input.customFields;
   }
 
   if (input.dueDate !== undefined) {

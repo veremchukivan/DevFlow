@@ -104,6 +104,7 @@ export async function createTask(input: {
     description: input.input.description
       ? (sanitizeOptionalRichText(input.input.description) ?? undefined)
       : undefined,
+    customFields: input.input.customFields,
     dueDate: input.input.dueDate,
     estimateMinutes: input.input.estimateMinutes,
     parentTaskId: input.input.parentTaskId,
@@ -348,6 +349,7 @@ export async function updateTask(input: {
       {
         assigneeUserId: input.input.assigneeUserId,
         description,
+        customFields: input.input.customFields,
         dueDate: input.input.dueDate,
         estimateMinutes: input.input.estimateMinutes,
         parentTaskId: input.input.parentTaskId,
