@@ -6,6 +6,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import {
   createWorkspaceSavedFilter,
   deleteWorkspaceSavedFilter,
+  getWorkspaceMembers,
   getWorkspaceSavedFilters,
   getWorkspaceSettings,
   updateWorkspaceSettings,
@@ -18,6 +19,8 @@ const featureCopy = {
   automation: "Automation",
   sprints: "Sprints",
 } as const;
+const filterPriorities = ["low", "medium", "high", "urgent"] as const;
+const dueOptions = ["overdue", "today", "week", "none"] as const;
 
 export function WorkspaceSettingsConfiguration({
   section,
@@ -31,14 +34,28 @@ export function WorkspaceSettingsConfiguration({
     Awaited<ReturnType<typeof getWorkspaceSavedFilters>>["filters"]
   >([]);
   const [error, setError] = useState<string>();
+  const [filterPriority, setFilterPriority] = useState("");
+  const [filterAssigneeUserId, setFilterAssigneeUserId] = useState("");
+  const [filterDue, setFilterDue] = useState("");
+  const [members, setMembers] = useState<
+    Awaited<ReturnType<typeof getWorkspaceMembers>>["members"]
+  >([]);
   useEffect(() => {
     void getWorkspaceSettings(workspaceId)
       .then((value) => setSettings(value.settings))
       .catch(() => setError("Unable to load workspace settings."));
     if (section === "filters")
-      void getWorkspaceSavedFilters(workspaceId).then((value) =>
-        setFilters(value.filters),
-      );
+      void Promise.all([
+        getWorkspaceSavedFilters(workspaceId),
+        getWorkspaceMembers(workspaceId),
+      ])
+        .then(([filtersResponse, membersResponse]) => {
+          setFilters(filtersResponse.filters);
+          setMembers(
+            membersResponse.members.filter((member) => member.status === "active"),
+          );
+        })
+        .catch(() => setError("Unable to load saved filters."));
   }, [section, workspaceId]);
   async function save(input: Parameters<typeof updateWorkspaceSettings>[1]) {
     try {
@@ -61,18 +78,65 @@ export function WorkspaceSettingsConfiguration({
           onSubmit={(event: FormEvent<HTMLFormElement>) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
+            const criteria = {
+              ...(filterPriority ? { priority: filterPriority } : {}),
+              ...(filterAssigneeUserId
+                ? { assigneeUserId: filterAssigneeUserId }
+                : {}),
+              ...(filterDue ? { due: filterDue } : {}),
+            };
             void createWorkspaceSavedFilter(workspaceId, {
               name: String(form.get("name")),
-              criteria: {},
+              criteria,
             })
               .then((value) => {
                 setFilters((current) => [value.filter, ...current]);
                 event.currentTarget.reset();
+                setFilterPriority("");
+                setFilterAssigneeUserId("");
+                setFilterDue("");
               })
               .catch(() => setError("Unable to save filter."));
           }}
         >
           <input name="name" placeholder="Filter name" required />
+          <select
+            aria-label="Priority"
+            onChange={(event) => setFilterPriority(event.target.value)}
+            value={filterPriority}
+          >
+            <option value="">Any priority</option>
+            {filterPriorities.map((priority) => (
+              <option key={priority} value={priority}>
+                {priority[0]!.toUpperCase() + priority.slice(1)} priority
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Assignee"
+            onChange={(event) => setFilterAssigneeUserId(event.target.value)}
+            value={filterAssigneeUserId}
+          >
+            <option value="">Any assignee</option>
+            <option value="none">Unassigned</option>
+            {members.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.user.displayName}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Due date"
+            onChange={(event) => setFilterDue(event.target.value)}
+            value={filterDue}
+          >
+            <option value="">Any due date</option>
+            {dueOptions.map((due) => (
+              <option key={due} value={due}>
+                {due === "week" ? "This week" : due === "none" ? "No due date" : due[0]!.toUpperCase() + due.slice(1)}
+              </option>
+            ))}
+          </select>
           <button type="submit">
             <Plus size={16} />
             Save filter
@@ -81,7 +145,10 @@ export function WorkspaceSettingsConfiguration({
         <div className={styles.itemList}>
           {filters.map((filter) => (
             <div key={filter.id}>
-              <span>{filter.name}</span>
+              <span>
+                <strong>{filter.name}</strong>
+                <small>{describeFilter(filter.criteria, members)}</small>
+              </span>
               <button
                 onClick={() =>
                   void deleteWorkspaceSavedFilter(workspaceId, filter.id)
@@ -251,6 +318,28 @@ export function WorkspaceSettingsConfiguration({
     </>
   );
 }
+
+function describeFilter(
+  criteria: Record<string, unknown>,
+  members: Awaited<ReturnType<typeof getWorkspaceMembers>>["members"],
+) {
+  const description = [
+    typeof criteria.priority === "string" ? `${criteria.priority} priority` : "",
+    criteria.assigneeUserId === "none"
+      ? "unassigned"
+      : typeof criteria.assigneeUserId === "string"
+        ? members.find((member) => member.userId === criteria.assigneeUserId)?.user
+            .displayName ?? "assigned member"
+        : "",
+    typeof criteria.due === "string"
+      ? criteria.due === "week"
+        ? "this week"
+        : criteria.due
+      : "",
+  ].filter(Boolean);
+  return description.length ? description.join(" · ") : "All tasks";
+}
+
 function Header({ text, title }: { text: string; title: string }) {
   return (
     <header className={styles.header}>
