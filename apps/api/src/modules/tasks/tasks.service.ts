@@ -38,6 +38,7 @@ import {
 } from "./tasks.repository.js";
 import { findTaskAttachment } from "../task-attachments/task-attachments.repository.js";
 import { runWorkspaceAutomationForTaskTransition } from "../workspace-automation/workspace-automation.engine.js";
+import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -82,6 +83,10 @@ export async function createTask(input: {
       workspaceId: input.workspaceId,
     });
   }
+  await requireWorkspaceTaskType({
+    type: input.input.type ?? "task",
+    workspaceId: input.workspaceId,
+  });
 
   // createTaskWithNextNumber uses SELECT FOR UPDATE on the project row, which
   // serialises concurrent task creation for the same project and makes a
@@ -299,6 +304,13 @@ export async function updateTask(input: {
     });
   }
 
+  if (input.input.type !== undefined) {
+    await requireWorkspaceTaskType({
+      type: input.input.type,
+      workspaceId: input.workspaceId,
+    });
+  }
+
   if (input.input.assigneeUserId) {
     await requireAssignableWorkspaceMember({
       userId: input.input.assigneeUserId,
@@ -419,16 +431,19 @@ export async function updateTask(input: {
   ) {
     // Automation must never make a successful user update look like a failed
     // request. Individual flow failures are persisted in the flow audit log.
-    try {
-      await runWorkspaceAutomationForTaskTransition({
-        actorUserId: input.userId,
-        projectId: input.projectId,
-        taskId: result.id,
-        workspaceId: input.workspaceId,
-      });
-    } catch {
-      // The task update is already durable. A transient automation issue must
-      // not turn a successful task change into a client-visible failure.
+    const settings = await getWorkspaceSettings(input.workspaceId);
+    if (settings.features.automation !== false) {
+      try {
+        await runWorkspaceAutomationForTaskTransition({
+          actorUserId: input.userId,
+          projectId: input.projectId,
+          taskId: result.id,
+          workspaceId: input.workspaceId,
+        });
+      } catch {
+        // The task update is already durable. A transient automation issue must
+        // not turn a successful task change into a client-visible failure.
+      }
     }
   }
   return result;
@@ -652,6 +667,20 @@ async function requireAssignableWorkspaceMember(input: {
       400,
       "TASK_ASSIGNEE_INVALID",
       "Assignee must be an active workspace member",
+    );
+  }
+}
+
+async function requireWorkspaceTaskType(input: {
+  type: "bug" | "feature" | "story" | "task";
+  workspaceId: string;
+}) {
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  if (!settings.enabledTaskTypes.includes(input.type)) {
+    throw new AppError(
+      400,
+      "TASK_TYPE_DISABLED",
+      "This work type is disabled in the workspace settings",
     );
   }
 }
