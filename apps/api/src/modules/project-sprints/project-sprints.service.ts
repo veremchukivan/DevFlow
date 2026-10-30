@@ -6,6 +6,7 @@ import type {
 
 import { AppError } from "../../core/errors/app-error.js";
 import { canUpdateProject } from "../projects/projects.policy.js";
+import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
 import {
   countTasksInSprint,
   completeSprintAndCarryOver,
@@ -29,6 +30,7 @@ export async function listSprints(input: SprintScope) {
 export async function createSprint(
   input: SprintScope & { input: CreateProjectSprintRequest },
 ) {
+  await requireSprintsEnabled(input.workspaceId);
   await requireProjectUpdatePermission(input);
   try {
     return await createProjectSprint({
@@ -44,6 +46,7 @@ export async function createSprint(
 export async function updateSprint(
   input: SprintScope & { input: UpdateProjectSprintRequest; sprintId: string },
 ) {
+  await requireSprintsEnabled(input.workspaceId);
   await requireProjectUpdatePermission(input);
   const existing = await requireSprint(input);
   const startDate =
@@ -70,6 +73,7 @@ export async function updateSprint(
 }
 
 export async function removeSprint(input: SprintScope & { sprintId: string }) {
+  await requireSprintsEnabled(input.workspaceId);
   await requireProjectUpdatePermission(input);
   await requireSprint(input);
   if (await countTasksInSprint(input)) {
@@ -89,6 +93,7 @@ export async function completeSprint(
     sprintId: string;
   },
 ) {
+  await requireSprintsEnabled(input.workspaceId);
   await requireProjectUpdatePermission(input);
   const sprint = await requireSprint(input);
   if (sprint.status === "completed")
@@ -119,6 +124,13 @@ export async function completeSprint(
   if (!completed)
     throw new AppError(404, "SPRINT_NOT_FOUND", "Sprint not found");
   return completed;
+}
+
+async function requireSprintsEnabled(workspaceId: string) {
+  const settings = await getWorkspaceSettings(workspaceId);
+  if (settings.features.sprints === false) {
+    throw new AppError(403, "WORKSPACE_SPRINTS_DISABLED", "Sprints are disabled in this workspace");
+  }
 }
 
 export async function getSprintAnalytics(

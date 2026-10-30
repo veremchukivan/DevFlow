@@ -8,6 +8,7 @@ import { canUpdateTask } from "../tasks/tasks.policy.js";
 import { canUpdateTaskComment } from "../task-comments/task-comments.policy.js";
 import { findTaskCommentById } from "../task-comments/task-comments.repository.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
+import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
 import {
   createTaskAttachment,
   deleteTaskAttachment,
@@ -33,6 +34,7 @@ export async function addAttachment(
   input: TaskAttachmentScope & { file: Express.Multer.File },
 ) {
   await requireTaskUpdateAccess(input);
+  await requireAttachmentsEnabled(input.workspaceId);
   const storageKey = await saveTaskAttachment(input.file);
   try {
     const attachment = await createTaskAttachment({
@@ -67,6 +69,7 @@ export async function addCommentAttachment(
   },
 ) {
   const membership = await requireTaskUpdateAccess(input);
+  await requireAttachmentsEnabled(input.workspaceId);
   const comment = await findTaskCommentById(input);
 
   if (!comment) {
@@ -180,6 +183,13 @@ async function requireTaskUpdateAccess(input: TaskAttachmentScope) {
   const task = await findTaskInProject(input);
   if (!task) throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
   return membership;
+}
+
+async function requireAttachmentsEnabled(workspaceId: string) {
+  const settings = await getWorkspaceSettings(workspaceId);
+  if (settings.features.attachments === false) {
+    throw new AppError(403, "WORKSPACE_ATTACHMENTS_DISABLED", "Attachments are disabled in this workspace");
+  }
 }
 
 function normalizeFilename(filename: string) {
