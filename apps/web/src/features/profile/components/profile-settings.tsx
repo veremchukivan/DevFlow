@@ -16,7 +16,7 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { type FormEvent, useEffect, useState } from "react";
 
@@ -68,6 +68,7 @@ const navigation: Array<{
 
 export function ProfileSettings() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<AuthUser>();
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("profile");
@@ -85,6 +86,13 @@ export function ProfileSettings() {
   const [isRevokingOtherSessions, setIsRevokingOtherSessions] = useState(false);
   const [revokingSessionId, setRevokingSessionId] = useState<string>();
   const [sessions, setSessions] = useState<AccountSession[]>([]);
+
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (navigation.some((item) => item.id === section)) {
+      setActiveSection(section as SettingsSection);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let active = true;
@@ -771,12 +779,15 @@ function SetupPanel() {
           ? new Date(Date.now() + days * 86_400_000).toISOString()
           : null,
         name: String(form.get("name") ?? ""),
-        scopes: access === "read-only" ? ["api:read"] : ["api:read", "api:write"],
+        scopes:
+          access === "read-only" ? ["api:read"] : ["api:read", "api:write"],
       });
       setSecret(response.token);
       setTokens((current) => [response.tokenInfo, ...current]);
       event.currentTarget.reset();
-      setSetupMessage("Token created. Copy it now — it will not be shown again.");
+      setSetupMessage(
+        "Token created. Copy it now — it will not be shown again.",
+      );
     } catch {
       setSetupError("Unable to create API token.");
     }
@@ -803,7 +814,7 @@ function SetupPanel() {
                   ? "Your Figma account is connected. Its access remains personal."
                   : !figmaConfigured
                     ? "Figma OAuth is not configured for this deployment yet."
-                  : "Connect your account to use Figma-powered features."}
+                    : "Connect your account to use Figma-powered features."}
             </span>
           </div>
           {figmaConnected ? (
@@ -880,7 +891,9 @@ function SetupPanel() {
                 void navigator.clipboard
                   .writeText(apiExample)
                   .then(() => setSetupMessage("Request example copied."))
-                  .catch(() => setSetupError("Unable to copy the request example."))
+                  .catch(() =>
+                    setSetupError("Unable to copy the request example."),
+                  )
               }
               type="button"
             >
@@ -1034,7 +1047,8 @@ function AiPanel() {
       {settings?.configured ? (
         <div className={styles.infoRow}>
           <span>
-            Connected: {settings.provider === "anthropic" ? "Anthropic" : "OpenAI"}
+            Connected:{" "}
+            {settings.provider === "anthropic" ? "Anthropic" : "OpenAI"}
             {settings.model ? ` · ${settings.model}` : " · default model"}
           </span>
           <button
@@ -1061,7 +1075,10 @@ function AiPanel() {
       <form className={styles.form} onSubmit={(event) => void onSubmit(event)}>
         <label>
           <span>Provider</span>
-          <select defaultValue={settings?.provider ?? "anthropic"} name="provider">
+          <select
+            defaultValue={settings?.provider ?? "anthropic"}
+            name="provider"
+          >
             <option value="anthropic">Anthropic (Claude)</option>
             <option value="openai">OpenAI</option>
           </select>
@@ -1081,7 +1098,11 @@ function AiPanel() {
             autoComplete="off"
             minLength={8}
             name="apiKey"
-            placeholder={settings?.configured ? "Enter a new key to replace the current one" : "Paste your provider API key"}
+            placeholder={
+              settings?.configured
+                ? "Enter a new key to replace the current one"
+                : "Paste your provider API key"
+            }
             required
             type="password"
           />
@@ -1091,7 +1112,11 @@ function AiPanel() {
         </p>
         <div className={styles.formFooter}>
           <span />
-          <button className={styles.primaryButton} disabled={isSaving} type="submit">
+          <button
+            className={styles.primaryButton}
+            disabled={isSaving}
+            type="submit"
+          >
             {isSaving ? "Saving…" : "Save AI settings"}
           </button>
         </div>
