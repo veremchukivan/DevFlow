@@ -31,7 +31,13 @@ export const updateTaskRequestSchema = z
     description: z.string().trim().max(10000).nullable().optional(),
     customFields: taskCustomFieldsSchema.optional(),
     dueDate: taskDueDateSchema.nullable().optional(),
-    estimateMinutes: z.number().int().min(0).max(1_000_000).nullable().optional(),
+    estimateMinutes: z
+      .number()
+      .int()
+      .min(0)
+      .max(1_000_000)
+      .nullable()
+      .optional(),
     parentTaskId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.optional(),
     statusId: z.uuid().optional(),
@@ -66,14 +72,14 @@ export const createTaskFigmaLinkRequestSchema = z.object({
   url: z
     .url()
     .refine(
-      (value) => /^https?:\/\/(?:[a-z0-9-]+\.)*figma\.com(?:[/:?#]|$)/i.test(value),
+      (value) =>
+        /^https?:\/\/(?:[a-z0-9-]+\.)*figma\.com(?:[/:?#]|$)/i.test(value),
       { message: "Figma link must point to figma.com" },
     ),
 });
 
 export const taskFigmaLinkSchema = z.object({
   createdAt: z.string().datetime(),
-  customFields: taskCustomFieldsSchema,
   createdByUserId: z.uuid().nullable(),
   id: z.uuid(),
   name: z.string(),
@@ -156,6 +162,7 @@ export const taskSchema = z.object({
   assignee: taskUserSchema.nullable().optional(),
   assigneeUserId: z.uuid().nullable(),
   createdAt: z.string().datetime(),
+  customFields: taskCustomFieldsSchema,
   description: z.string().nullable(),
   dueDate: taskDueDateSchema.nullable(),
   estimateMinutes: z.number().int().nonnegative().nullable(),

@@ -143,6 +143,11 @@ const defaultTaskCardFields: TaskCardField[] = [
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
 const taskTypes: TaskType[] = ["task", "bug", "feature", "story"];
+type WorkspaceCustomField = {
+  id: string;
+  name: string;
+  type: "number" | "select" | "text";
+};
 const taskPageSize = 50;
 const defaultActivityLimit = 1;
 const maxActivityLimit = 25;
@@ -176,6 +181,7 @@ export function ProjectBoard() {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [enabledTaskTypes, setEnabledTaskTypes] =
     useState<TaskType[]>(taskTypes);
+  const [customFields, setCustomFields] = useState<WorkspaceCustomField[]>([]);
   const [workspaceFeatures, setWorkspaceFeatures] = useState({
     attachments: true,
     automation: true,
@@ -376,6 +382,7 @@ export function ProjectBoard() {
           setEnabledTaskTypes(
             workspaceSettingsResponse.settings.enabledTaskTypes,
           );
+          setCustomFields(workspaceSettingsResponse.settings.customFields);
           setWorkspaceFeatures(workspaceSettingsResponse.settings.features);
           setCurrentUserId(currentUserResponse.user.id);
           setActivityLimit(preferencesResponse.preferences.activityLimit);
@@ -1418,6 +1425,14 @@ export function ProjectBoard() {
     const description = String(form.get("description") ?? "").trim();
     const estimateValue = String(form.get("estimateMinutes") ?? "");
     const estimateMinutes = estimateValue ? Number(estimateValue) : null;
+    const customFields = Object.fromEntries(
+      [...form.entries()]
+        .filter(([key]) => key.startsWith("customField:"))
+        .map(([key, value]) => [
+          key.slice("customField:".length),
+          String(value) || null,
+        ]),
+    );
 
     if (
       estimateMinutes !== null &&
@@ -1436,6 +1451,7 @@ export function ProjectBoard() {
         {
           assigneeUserId: assigneeUserId || null,
           description: description || null,
+          customFields,
           dueDate: dueDate || null,
           estimateMinutes,
           parentTaskId: parentTaskId || null,
@@ -1902,6 +1918,7 @@ export function ProjectBoard() {
         <TaskEditorModal
           availableParentTasks={tasks}
           attachmentsEnabled={workspaceFeatures.attachments}
+          customFields={customFields}
           enabledTaskTypes={enabledTaskTypes}
           figmaLinks={figmaLinks}
           isSaving={updatingTaskId === selectedTask.id}
@@ -3465,6 +3482,7 @@ function formatRelativeTime(value: string) {
 function TaskEditorModal({
   availableParentTasks,
   attachmentsEnabled,
+  customFields,
   enabledTaskTypes,
   figmaLinks,
   isSaving,
@@ -3481,6 +3499,7 @@ function TaskEditorModal({
 }: {
   availableParentTasks: Task[];
   attachmentsEnabled: boolean;
+  customFields: WorkspaceCustomField[];
   enabledTaskTypes: TaskType[];
   figmaLinks: ProjectFigmaLink[];
   isSaving: boolean;
@@ -3828,6 +3847,16 @@ function TaskEditorModal({
                   type="number"
                 />
               </label>
+              {customFields.map((field) => (
+                <label key={field.id}>
+                  <span>{field.name}</span>
+                  <input
+                    defaultValue={String(task.customFields[field.id] ?? "")}
+                    name={`customField:${field.id}`}
+                    type={field.type === "number" ? "number" : "text"}
+                  />
+                </label>
+              ))}
               <dl className={styles.taskEditorFacts}>
                 <div>
                   <dt>Project</dt>
