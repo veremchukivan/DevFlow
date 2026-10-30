@@ -11,4 +11,5 @@ export const workspaceSettingsResponseSchema = z.object({ settings: workspaceSet
 export const createWorkspaceSavedFilterRequestSchema = z.object({ criteria: z.record(z.string(), z.unknown()), name: z.string().trim().min(1).max(100) });
 export const workspaceSavedFilterSchema = z.object({ createdAt: z.string().datetime(), criteria: z.record(z.string(), z.unknown()), id: z.uuid(), name: z.string(), updatedAt: z.string().datetime() });
 export const workspaceSavedFiltersResponseSchema = z.object({ filters: z.array(workspaceSavedFilterSchema) });
+export const workspaceSavedFilterResponseSchema = z.object({ filter: workspaceSavedFilterSchema });
 export type UpdateWorkspaceSettingsRequest = z.infer<typeof updateWorkspaceSettingsRequestSchema>;

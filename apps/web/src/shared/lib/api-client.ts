@@ -74,6 +74,10 @@ import {
   workspaceAutomationRunsResponseSchema,
   workspaceAutomationTemplatesResponseSchema,
   workspaceAutomationUsageResponseSchema,
+  workspaceSettingsResponseSchema,
+  workspaceSavedFiltersResponseSchema,
+  workspaceSavedFilterResponseSchema,
+  createWorkspaceSavedFilterRequestSchema,
   type AuthResponse,
   type AiSettings,
   type AccountSessionListResponse,
@@ -150,6 +154,7 @@ import {
   type UpdateWorkspaceAutomationRuleRequest,
   type WorkspaceAutomationRulesResponse,
   type WorkspaceAutomationRunsResponse,
+  type UpdateWorkspaceSettingsRequest,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -1594,6 +1599,12 @@ export function getWorkspaceAutomationRules(
     workspaceAutomationRulesResponseSchema,
   );
 }
+
+export function getWorkspaceSettings(workspaceId: string) { return request(`/api/v1/workspaces/${workspaceId}/settings`, { method: "GET" }, workspaceSettingsResponseSchema); }
+export function updateWorkspaceSettings(workspaceId: string, input: UpdateWorkspaceSettingsRequest) { return request(`/api/v1/workspaces/${workspaceId}/settings`, { body: JSON.stringify(input), method: "PATCH" }, workspaceSettingsResponseSchema); }
+export function getWorkspaceSavedFilters(workspaceId: string) { return request(`/api/v1/workspaces/${workspaceId}/settings/filters`, { method: "GET" }, workspaceSavedFiltersResponseSchema); }
+export function createWorkspaceSavedFilter(workspaceId: string, input: unknown) { return request(`/api/v1/workspaces/${workspaceId}/settings/filters`, { body: JSON.stringify(createWorkspaceSavedFilterRequestSchema.parse(input)), method: "POST" }, workspaceSavedFilterResponseSchema); }
+export function deleteWorkspaceSavedFilter(workspaceId: string, filterId: string) { return requestNoContent(`/api/v1/workspaces/${workspaceId}/settings/filters/${filterId}`, { method: "DELETE" }); }
 
 export function updateWorkspaceAutomationRule(
   workspaceId: string,
