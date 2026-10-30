@@ -119,6 +119,37 @@ describe("Workspaces and Projects CRUD Integration Tests", () => {
     });
   });
 
+  describe("Workspace image /api/v1/workspaces/:workspaceId/icon", () => {
+    it("allows an admin to upload and remove a workspace image", async () => {
+      const uploaded = await request(app)
+        .put(`/api/v1/workspaces/${workspace.id}/icon`)
+        .set("Cookie", admin.cookie)
+        .attach(
+          "image",
+          Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+          {
+            contentType: "image/png",
+            filename: "workspace.png",
+          },
+        );
+
+      expect(uploaded.status).toBe(200);
+      expect(uploaded.body.workspace.iconUrl).toMatch(/^\/uploads\/workspaces\//);
+
+      const image = await request(app).get(uploaded.body.workspace.iconUrl);
+      expect(image.status).toBe(200);
+      expect(image.headers["cross-origin-resource-policy"]).toBe(
+        "cross-origin",
+      );
+
+      const removed = await request(app)
+        .delete(`/api/v1/workspaces/${workspace.id}/icon`)
+        .set("Cookie", admin.cookie);
+      expect(removed.status).toBe(200);
+      expect(removed.body.workspace.iconUrl).toBeNull();
+    });
+  });
+
   describe("Project PATCH /api/v1/workspaces/:workspaceId/projects/:projectId", () => {
     it("forbids regular member from updating project", async () => {
       const res = await request(app)

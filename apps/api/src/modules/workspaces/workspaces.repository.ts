@@ -73,6 +73,7 @@ export async function listWorkspacesForUser(input: {
     .select({
       createdAt: workspaces.createdAt,
       id: workspaces.id,
+      iconUrl: workspaces.iconUrl,
       name: workspaces.name,
       ownerUserId: workspaces.ownerUserId,
       role: workspaceMembers.role,
@@ -103,6 +104,7 @@ export async function findWorkspaceForUser(input: {
     .select({
       createdAt: workspaces.createdAt,
       id: workspaces.id,
+      iconUrl: workspaces.iconUrl,
       name: workspaces.name,
       ownerUserId: workspaces.ownerUserId,
       role: workspaceMembers.role,
@@ -128,6 +130,7 @@ export async function findWorkspaceForUser(input: {
 }
 
 export async function updateWorkspaceInDb(input: {
+  iconUrl?: string | null;
   name?: string;
   slug?: string;
   workspaceId: string;
@@ -135,6 +138,7 @@ export async function updateWorkspaceInDb(input: {
   const [workspace] = await db
     .update(workspaces)
     .set({
+      ...(input.iconUrl !== undefined ? { iconUrl: input.iconUrl } : {}),
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.slug !== undefined ? { slug: input.slug } : {}),
       updatedAt: new Date(),

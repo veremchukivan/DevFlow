@@ -62,7 +62,7 @@ export const taskAttachmentUpload = multer({
 
 export async function saveImage(input: {
   file: Express.Multer.File;
-  kind: "avatars" | "projects";
+  kind: "avatars" | "projects" | "workspaces";
 }) {
   assertFileSignature(input.file);
   const extension = extensions[input.file.mimetype as keyof typeof extensions];

@@ -17,6 +17,7 @@ export const workspaces = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: varchar("name", { length: 120 }).notNull(),
     slug: varchar("slug", { length: 80 }).notNull(),
+    iconUrl: varchar("icon_url", { length: 500 }),
     ownerUserId: uuid("owner_user_id").references(() => users.id, {
       onDelete: "set null"
     }),

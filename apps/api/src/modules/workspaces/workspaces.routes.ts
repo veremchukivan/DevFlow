@@ -8,6 +8,8 @@ import {
 } from "@devflow/shared";
 import { Router } from "express";
 
+import { AppError } from "../../core/errors/app-error.js";
+import { imageUpload } from "../../core/uploads/images.js";
 import {
   type AuthenticatedRequest,
   requireAuth
@@ -17,6 +19,8 @@ import {
   deleteWorkspace,
   getWorkspace,
   listWorkspaces,
+  removeWorkspaceIcon,
+  updateWorkspaceIcon,
   updateWorkspace
 } from "./workspaces.service.js";
 import { leaveWorkspace } from "../workspace-members/workspace-members.service.js";
@@ -67,6 +71,33 @@ workspacesRouter.patch("/:workspaceId", async (req, res) => {
   res.json(toWorkspaceResponse(workspace));
 });
 
+workspacesRouter.put(
+  "/:workspaceId/icon",
+  imageUpload.single("image"),
+  async (req, res) => {
+    const params = workspaceParamsSchema.parse(req.params);
+    if (!req.file) {
+      throw new AppError(400, "IMAGE_REQUIRED", "Choose an image to upload");
+    }
+
+    const workspace = await updateWorkspaceIcon({
+      ...params,
+      file: req.file,
+      userId: getAuthenticatedUserId(req)
+    });
+    res.json(toWorkspaceResponse(workspace));
+  }
+);
+
+workspacesRouter.delete("/:workspaceId/icon", async (req, res) => {
+  const params = workspaceParamsSchema.parse(req.params);
+  const workspace = await removeWorkspaceIcon({
+    ...params,
+    userId: getAuthenticatedUserId(req)
+  });
+  res.json(toWorkspaceResponse(workspace));
+});
+
 workspacesRouter.delete("/:workspaceId", async (req, res) => {
   const params = workspaceParamsSchema.parse(req.params);
   await deleteWorkspace(getAuthenticatedUserId(req), params.workspaceId);
@@ -99,6 +130,7 @@ function toWorkspaceResponse(
 function toWorkspaceDto(workspace: {
   createdAt: Date;
   id: string;
+  iconUrl: string | null;
   name: string;
   ownerUserId: string | null;
   role: "owner" | "admin" | "member" | "viewer";
@@ -108,6 +140,7 @@ function toWorkspaceDto(workspace: {
   return {
     createdAt: workspace.createdAt.toISOString(),
     id: workspace.id,
+    iconUrl: workspace.iconUrl,
     name: workspace.name,
     ownerUserId: workspace.ownerUserId,
     role: workspace.role,

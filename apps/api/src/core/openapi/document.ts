@@ -570,6 +570,29 @@ export const openApiDocument = {
         responses: { "204": response("Workspace deleted"), ...commonErrors },
       },
     },
+    "/api/v1/workspaces/{workspaceId}/icon": {
+      put: {
+        tags: ["Workspaces"],
+        operationId: "uploadWorkspaceIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId")],
+        requestBody: imageRequestBody,
+        responses: {
+          "200": response("Workspace image updated", "WorkspaceResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Workspaces"],
+        operationId: "deleteWorkspaceIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId")],
+        responses: {
+          "200": response("Workspace image removed", "WorkspaceResponse"),
+          ...commonErrors,
+        },
+      },
+    },
     "/api/v1/workspaces/{workspaceId}/leave": {
       post: {
         tags: ["Workspaces"],

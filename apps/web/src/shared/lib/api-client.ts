@@ -572,6 +572,29 @@ export function updateWorkspace(
   );
 }
 
+export function uploadWorkspaceIcon(
+  workspaceId: string,
+  file: File,
+): Promise<WorkspaceResponse> {
+  const form = new FormData();
+  form.set("image", file);
+  return request(
+    `/api/v1/workspaces/${workspaceId}/icon`,
+    { body: form, method: "PUT" },
+    workspaceResponseSchema,
+  );
+}
+
+export function deleteWorkspaceIcon(
+  workspaceId: string,
+): Promise<WorkspaceResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/icon`,
+    { method: "DELETE" },
+    workspaceResponseSchema,
+  );
+}
+
 export function deleteWorkspace(workspaceId: string): Promise<void> {
   return requestNoContent(`/api/v1/workspaces/${workspaceId}`, {
     method: "DELETE",

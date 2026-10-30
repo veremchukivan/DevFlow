@@ -38,6 +38,7 @@ export const workspaceParamsSchema = z.object({
 export const workspaceSchema = z.object({
   createdAt: z.string().datetime(),
   id: z.uuid(),
+  iconUrl: z.string().max(500).nullable(),
   name: z.string(),
   ownerUserId: z.uuid().nullable(),
   role: workspaceRoleSchema,

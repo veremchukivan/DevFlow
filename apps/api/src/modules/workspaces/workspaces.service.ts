@@ -7,6 +7,7 @@ import type {
 
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
+import { deleteStoredImage, saveImage } from "../../core/uploads/images.js";
 import { canDeleteWorkspace, canUpdateWorkspace } from "./workspaces.policy.js";
 import {
   createWorkspaceWithOwner,
@@ -156,6 +157,65 @@ export async function deleteWorkspace(userId: string, workspaceId: string) {
   if (!deleted) {
     throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
   }
+
+  await deleteStoredImage(workspace.iconUrl);
+}
+
+export async function updateWorkspaceIcon(input: {
+  file: Express.Multer.File;
+  userId: string;
+  workspaceId: string;
+}) {
+  const workspace = await getWorkspace(input.userId, input.workspaceId);
+
+  if (!canUpdateWorkspace(workspace.role)) {
+    throw new AppError(
+      403,
+      "WORKSPACE_UPDATE_FORBIDDEN",
+      "You cannot update this workspace",
+    );
+  }
+
+  const iconUrl = await saveImage({ file: input.file, kind: "workspaces" });
+  const updated = await updateWorkspaceInDb({
+    iconUrl,
+    workspaceId: input.workspaceId,
+  });
+
+  if (!updated) {
+    await deleteStoredImage(iconUrl);
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
+
+  await deleteStoredImage(workspace.iconUrl);
+  return { ...updated, role: workspace.role };
+}
+
+export async function removeWorkspaceIcon(input: {
+  userId: string;
+  workspaceId: string;
+}) {
+  const workspace = await getWorkspace(input.userId, input.workspaceId);
+
+  if (!canUpdateWorkspace(workspace.role)) {
+    throw new AppError(
+      403,
+      "WORKSPACE_UPDATE_FORBIDDEN",
+      "You cannot update this workspace",
+    );
+  }
+
+  const updated = await updateWorkspaceInDb({
+    iconUrl: null,
+    workspaceId: input.workspaceId,
+  });
+
+  if (!updated) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
+
+  await deleteStoredImage(workspace.iconUrl);
+  return { ...updated, role: workspace.role };
 }
 
 async function buildAvailableSlug(input: string) {
