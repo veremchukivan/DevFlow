@@ -15,6 +15,7 @@ describe("Workspace settings integration tests", () => {
   let owner: Awaited<ReturnType<typeof createTestUser>>;
   let admin: Awaited<ReturnType<typeof createTestUser>>;
   let member: Awaited<ReturnType<typeof createTestUser>>;
+  let outsider: Awaited<ReturnType<typeof createTestUser>>;
   let workspace: Awaited<ReturnType<typeof createTestWorkspace>>;
 
   beforeAll(async () => {
@@ -22,6 +23,7 @@ describe("Workspace settings integration tests", () => {
     owner = await createTestUser(app, { email: "settings-owner@devflow.io" });
     admin = await createTestUser(app, { email: "settings-admin@devflow.io" });
     member = await createTestUser(app, { email: "settings-member@devflow.io" });
+    outsider = await createTestUser(app, { email: "settings-outsider@devflow.io" });
     workspace = await createTestWorkspace(app, owner.cookie, {
       slug: "workspace-settings",
     });
@@ -85,6 +87,16 @@ describe("Workspace settings integration tests", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("WORKSPACE_UPDATE_FORBIDDEN");
+  });
+
+  it("requires a default assignee to be an active workspace member", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/workspaces/${workspace.id}/settings`)
+      .set("Cookie", owner.cookie)
+      .send({ defaultAssigneeUserId: outsider.user.id });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("WORKSPACE_DEFAULT_ASSIGNEE_INVALID");
   });
 
   it("keeps saved filters personal while preserving their board criteria", async () => {
