@@ -2,6 +2,7 @@ import {
   updateWorkspaceAutomationRuleRequestSchema,
   workspaceAutomationParamsSchema,
   workspaceAutomationRuleParamsSchema,
+  workspaceAutomationRuleResponseSchema,
   workspaceAutomationRulesResponseSchema,
   workspaceAutomationRunsResponseSchema,
   workspaceAutomationTemplatesResponseSchema,
@@ -43,7 +44,7 @@ workspaceAutomationRouter.patch("/rules/:ruleId", async (req, res) => {
     userId: getUserId(req),
     workspaceId,
   });
-  res.json({ rule: toRuleResponse(rule) });
+  res.json({ rule: toRuleResponse(rule) } satisfies typeof workspaceAutomationRuleResponseSchema._output);
 });
 
 workspaceAutomationRouter.get("/runs", async (req, res) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, Users } from "lucide-react";
+import { LayoutDashboard, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, usePathname } from "next/navigation";
@@ -113,6 +113,18 @@ export function WorkspaceSidebar() {
             >
               <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
               Dashboard
+            </Link>
+            <Link
+              aria-current={
+                pathname.startsWith(`/workspaces/${activeWorkspace.id}/settings`)
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/settings/automation`}
+            >
+              <Settings aria-hidden="true" size={19} strokeWidth={1.8} />
+              Settings
             </Link>
             <Link
               aria-current={

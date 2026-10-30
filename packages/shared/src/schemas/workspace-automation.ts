@@ -43,6 +43,10 @@ export const workspaceAutomationRulesResponseSchema = z.object({
   rules: z.array(workspaceAutomationRuleSchema),
 });
 
+export const workspaceAutomationRuleResponseSchema = z.object({
+  rule: workspaceAutomationRuleSchema,
+});
+
 export const workspaceAutomationRunSchema = z.object({
   actorUserId: z.uuid().nullable(),
   createdAt: z.string().datetime(),
@@ -78,4 +82,10 @@ export const workspaceAutomationTemplatesResponseSchema = z.object({
 
 export type UpdateWorkspaceAutomationRuleRequest = z.infer<
   typeof updateWorkspaceAutomationRuleRequestSchema
+>;
+export type WorkspaceAutomationRulesResponse = z.infer<
+  typeof workspaceAutomationRulesResponseSchema
+>;
+export type WorkspaceAutomationRunsResponse = z.infer<
+  typeof workspaceAutomationRunsResponseSchema
 >;

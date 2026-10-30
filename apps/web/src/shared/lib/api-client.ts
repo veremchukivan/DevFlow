@@ -69,6 +69,11 @@ import {
   workspaceMemberListResponseSchema,
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
+  workspaceAutomationRuleResponseSchema,
+  workspaceAutomationRulesResponseSchema,
+  workspaceAutomationRunsResponseSchema,
+  workspaceAutomationTemplatesResponseSchema,
+  workspaceAutomationUsageResponseSchema,
   type AuthResponse,
   type AiSettings,
   type AccountSessionListResponse,
@@ -142,6 +147,9 @@ import {
   type UpdateTaskRequest,
   type UpdateProfileRequest,
   type UpdateWorkspaceMemberRequest,
+  type UpdateWorkspaceAutomationRuleRequest,
+  type WorkspaceAutomationRulesResponse,
+  type WorkspaceAutomationRunsResponse,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -1574,6 +1582,54 @@ export function restoreTask(
   return requestNoContent(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/restore`,
     { headers: { "If-Match": `"${version}"` }, method: "POST" },
+  );
+}
+
+export function getWorkspaceAutomationRules(
+  workspaceId: string,
+): Promise<WorkspaceAutomationRulesResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/automation/rules`,
+    { method: "GET" },
+    workspaceAutomationRulesResponseSchema,
+  );
+}
+
+export function updateWorkspaceAutomationRule(
+  workspaceId: string,
+  ruleId: string,
+  input: UpdateWorkspaceAutomationRuleRequest,
+) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/automation/rules/${ruleId}`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    workspaceAutomationRuleResponseSchema,
+  );
+}
+
+export function getWorkspaceAutomationRuns(
+  workspaceId: string,
+): Promise<WorkspaceAutomationRunsResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/automation/runs`,
+    { method: "GET" },
+    workspaceAutomationRunsResponseSchema,
+  );
+}
+
+export function getWorkspaceAutomationTemplates(workspaceId: string) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/automation/templates`,
+    { method: "GET" },
+    workspaceAutomationTemplatesResponseSchema,
+  );
+}
+
+export function getWorkspaceAutomationUsage(workspaceId: string) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/automation/usage`,
+    { method: "GET" },
+    workspaceAutomationUsageResponseSchema,
   );
 }
 
