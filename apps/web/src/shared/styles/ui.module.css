@@ -2277,6 +2277,30 @@
   margin: 8px 0 0;
   overflow-wrap: anywhere;
 }
+.taskCardCustomFields {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0;
+}
+.taskCardCustomFields div {
+  align-items: baseline;
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+  min-width: 0;
+}
+.taskCardCustomFields dt {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.taskCardCustomFields dd {
+  color: var(--ink);
+  font-weight: 700;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .taskCardMeta {
   align-items: center;
   color: var(--muted);

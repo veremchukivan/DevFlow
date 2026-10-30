@@ -162,6 +162,19 @@ const priorityStyles: Record<TaskPriority, string> = {
   urgent: styles.priorityUrgent!,
 };
 
+function getTaskCustomFieldsForCard(
+  task: Task,
+  customFields: WorkspaceCustomField[],
+) {
+  return customFields
+    .flatMap((field) => {
+      const value = task.customFields[field.id];
+      if (value === null || value === undefined || value === "") return [];
+      return [{ label: field.name, value: String(value) }];
+    })
+    .slice(0, 2);
+}
+
 export function ProjectBoard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -3233,6 +3246,18 @@ export function ProjectBoard() {
                           {task.title}
                         </button>
                       </h3>
+                      {getTaskCustomFieldsForCard(task, customFields).length ? (
+                        <dl className={styles.taskCardCustomFields}>
+                          {getTaskCustomFieldsForCard(task, customFields).map(
+                            (field) => (
+                              <div key={field.label}>
+                                <dt>{field.label}</dt>
+                                <dd>{field.value}</dd>
+                              </div>
+                            ),
+                          )}
+                        </dl>
+                      ) : null}
                       {(visibleTaskFields.includes("dueDate") &&
                         task.dueDate) ||
                       (visibleTaskFields.includes("assignee") &&
