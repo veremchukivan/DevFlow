@@ -18,6 +18,7 @@ const defaults: ProjectViewPreferences = {
   hideDoneTasks: false,
   taskCardAccent: "status",
   taskCardColor: "neutral",
+  taskCardDensity: "comfortable",
   visibleTaskFields: [
     "assignee",
     "dueDate",
@@ -78,6 +79,8 @@ function toPreferences(
       preferences.taskCardAccent as ProjectViewPreferences["taskCardAccent"],
     taskCardColor:
       preferences.taskCardColor as ProjectViewPreferences["taskCardColor"],
+    taskCardDensity:
+      preferences.taskCardDensity as ProjectViewPreferences["taskCardDensity"],
     visibleTaskFields: sanitizeVisibleTaskFields(preferences.visibleTaskFields),
   };
 }

@@ -128,6 +128,7 @@ type BoardColumnSize = "fixed" | "flexible";
 type BoardScrolling = "column" | "board";
 type TaskCardAccent = "none" | "status" | "priority";
 type TaskCardColor = "neutral" | "blue" | "violet" | "sand";
+type TaskCardDensity = "comfortable" | "compact";
 type TaskCardField =
   "assignee" | "dueDate" | "priority" | "taskKey" | "taskType";
 
@@ -237,6 +238,8 @@ export function ProjectBoard() {
   const [taskCardAccent, setTaskCardAccent] =
     useState<TaskCardAccent>("status");
   const [taskCardColor, setTaskCardColor] = useState<TaskCardColor>("neutral");
+  const [taskCardDensity, setTaskCardDensity] =
+    useState<TaskCardDensity>("comfortable");
   const [visibleTaskFields, setVisibleTaskFields] = useState<TaskCardField[]>(
     defaultTaskCardFields,
   );
@@ -425,6 +428,7 @@ export function ProjectBoard() {
           setHideDoneTasks(preferencesResponse.preferences.hideDoneTasks);
           setTaskCardAccent(preferencesResponse.preferences.taskCardAccent);
           setTaskCardColor(preferencesResponse.preferences.taskCardColor);
+          setTaskCardDensity(preferencesResponse.preferences.taskCardDensity);
           setVisibleTaskFields(
             preferencesResponse.preferences.visibleTaskFields,
           );
@@ -2530,6 +2534,30 @@ export function ProjectBoard() {
               </div>
             </fieldset>
             <fieldset className={styles.viewSettingsFieldset}>
+              <legend>Card density</legend>
+              <p>Compact cards make more room for tasks on busy boards.</p>
+              <div className={styles.segmentedControl}>
+                {(
+                  [
+                    ["comfortable", "Comfortable"],
+                    ["compact", "Compact"],
+                  ] as const
+                ).map(([density, label]) => (
+                  <button
+                    aria-pressed={taskCardDensity === density}
+                    key={density}
+                    onClick={() => {
+                      setTaskCardDensity(density);
+                      saveViewPreferences({ taskCardDensity: density });
+                    }}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className={styles.viewSettingsFieldset}>
               <legend>Card accent</legend>
               <p>Highlight the left edge using a task property.</p>
               <div className={styles.segmentedControl}>
@@ -3163,6 +3191,7 @@ export function ProjectBoard() {
           className={styles.taskBoard}
           data-card-accent={taskCardAccent}
           data-card-color={taskCardColor}
+          data-card-density={taskCardDensity}
           data-column-size={columnSize}
           data-scrolling={boardScrolling}
         >

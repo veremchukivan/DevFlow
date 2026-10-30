@@ -1,0 +1,2 @@
+ALTER TABLE "project_view_preferences" ADD COLUMN "task_card_density" varchar(16) DEFAULT 'comfortable' NOT NULL;--> statement-breakpoint
+ALTER TABLE "project_view_preferences" ADD CONSTRAINT "project_view_preferences_task_card_density_check" CHECK ("project_view_preferences"."task_card_density" in ('comfortable', 'compact'));

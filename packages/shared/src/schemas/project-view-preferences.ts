@@ -20,6 +20,7 @@ export const taskCardColorSchema = z.enum([
   "violet",
   "sand",
 ]);
+export const taskCardDensitySchema = z.enum(["comfortable", "compact"]);
 
 export const projectViewPreferencesSchema = z.object({
   activityLimit: z.number().int().min(1).max(25),
@@ -29,6 +30,7 @@ export const projectViewPreferencesSchema = z.object({
   hideDoneTasks: z.boolean(),
   taskCardAccent: taskCardAccentSchema,
   taskCardColor: taskCardColorSchema,
+  taskCardDensity: taskCardDensitySchema,
   visibleTaskFields: z.array(taskCardFieldSchema),
 });
 

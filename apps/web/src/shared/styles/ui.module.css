@@ -1362,6 +1362,26 @@
   padding: 14px;
   position: relative;
 }
+.taskBoard[data-card-density="compact"] .taskList {
+  gap: 7px;
+}
+.taskBoard[data-card-density="compact"] .taskCard {
+  min-height: 0;
+  padding: 10px 12px;
+}
+.taskBoard[data-card-density="compact"] .taskCard h3 {
+  font-size: 14px;
+  margin: 7px 0 0;
+}
+.taskBoard[data-card-density="compact"] .taskCardCustomFields {
+  margin-top: 7px;
+}
+.taskBoard[data-card-density="compact"] .taskCardFooter {
+  margin-top: 8px;
+}
+.taskBoard[data-card-density="compact"] .taskCard p {
+  margin-top: 6px;
+}
 .taskBoard[data-card-color="blue"] .taskCard {
   background: #f7faff;
 }

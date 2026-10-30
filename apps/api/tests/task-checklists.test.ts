@@ -123,6 +123,7 @@ describe("Task checklist integration tests", () => {
     expect(defaultPreferences.body.preferences).toMatchObject({
       taskCardAccent: "status",
       taskCardColor: "neutral",
+      taskCardDensity: "comfortable",
     });
 
     const updatedPreferences = await request(app)
@@ -134,6 +135,7 @@ describe("Task checklist integration tests", () => {
         hideDoneTasks: true,
         taskCardAccent: "priority",
         taskCardColor: "violet",
+        taskCardDensity: "compact",
       });
     expect(updatedPreferences.status).toBe(200);
     expect(updatedPreferences.body.preferences).toMatchObject({
@@ -142,6 +144,7 @@ describe("Task checklist integration tests", () => {
       hideDoneTasks: true,
       taskCardAccent: "priority",
       taskCardColor: "violet",
+      taskCardDensity: "compact",
     });
 
     const ownerPreferences = await request(app)
