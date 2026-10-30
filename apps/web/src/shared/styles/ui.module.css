@@ -179,6 +179,9 @@
   display: flex;
   gap: 14px;
 }
+.workspaceIdentity { align-items: flex-start; display: flex; gap: 14px; }
+.workspaceIcon { align-items: center; background: #e6eef9; border-radius: 10px; color: var(--brand); display: inline-flex; flex: 0 0 auto; font-size: 19px; font-weight: 800; height: 52px; justify-content: center; overflow: hidden; width: 52px; }
+.workspaceIcon img { height: 100%; object-fit: cover; width: 100%; }
 .projectIcon {
   align-items: center;
   background: #e6eef9;

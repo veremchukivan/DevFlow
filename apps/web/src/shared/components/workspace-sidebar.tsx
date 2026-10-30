@@ -90,7 +90,17 @@ export function WorkspaceSidebar() {
       {activeWorkspace ? (
         <div className={styles.activeWorkspace}>
           <span className={styles.workspaceAvatar}>
-            {initials(activeWorkspace.name)}
+            {activeWorkspace.iconUrl ? (
+              <Image
+                alt=""
+                height={42}
+                src={getApiAssetUrl(activeWorkspace.iconUrl)!}
+                unoptimized
+                width={42}
+              />
+            ) : (
+              initials(activeWorkspace.name)
+            )}
           </span>
           <span>
             <strong>{activeWorkspace.name}</strong>

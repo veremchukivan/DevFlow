@@ -1,11 +1,13 @@
 "use client";
 
 import { ArrowLeft, Bell, Boxes, Cable, ChevronDown, ClipboardList, KeyRound, LayoutList, Settings2, SlidersHorizontal, Sparkles, UsersRound } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { getWorkspace } from "@/shared/lib/api-client";
+import { getApiAssetUrl, getWorkspace } from "@/shared/lib/api-client";
+import { subscribeToWorkspaceChanges } from "@/shared/lib/workspace-events";
 import type { Workspace } from "@devflow/shared";
 
 import styles from "./workspace-settings-layout.module.css";
@@ -29,14 +31,41 @@ export function WorkspaceSettingsLayout({ children }: { children: ReactNode }) {
   const [workspace, setWorkspace] = useState<Workspace>();
 
   useEffect(() => {
-    void getWorkspace(workspaceId).then((response) => setWorkspace(response.workspace)).catch(() => undefined);
+    let active = true;
+    async function loadWorkspace() {
+      try {
+        const response = await getWorkspace(workspaceId);
+        if (active) setWorkspace(response.workspace);
+      } catch {
+        // The route-level guard renders the access error.
+      }
+    }
+
+    void loadWorkspace();
+    const unsubscribe = subscribeToWorkspaceChanges(() => void loadWorkspace());
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [workspaceId]);
 
   return <main className={styles.page}>
     <aside className={styles.sidebar}>
       <Link className={styles.back} href={`/workspaces/${workspaceId}`}><ArrowLeft size={17} /> Workspace settings</Link>
       <div className={styles.workspaceIdentity}>
-        <span>{workspace?.name.slice(0, 1).toUpperCase() ?? "W"}</span>
+        <span>
+          {workspace?.iconUrl ? (
+            <Image
+              alt=""
+              height={31}
+              src={getApiAssetUrl(workspace.iconUrl)!}
+              unoptimized
+              width={31}
+            />
+          ) : (
+            workspace?.name.slice(0, 1).toUpperCase() ?? "W"
+          )}
+        </span>
         <div><strong>{workspace?.name ?? "Workspace"}</strong><small>Workspace</small></div>
       </div>
       <nav aria-label="Workspace settings" className={styles.navigation}>

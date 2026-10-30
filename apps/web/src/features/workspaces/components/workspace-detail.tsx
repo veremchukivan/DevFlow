@@ -323,10 +323,25 @@ export function WorkspaceDetail() {
         All workspaces
       </Link>
       <header className={styles.workspaceHomeHeader}>
-        <div>
-          <p className={styles.eyebrow}>{workspace.slug}</p>
-          <h1>{workspace.name}</h1>
-          <p>Projects are where tasks, status, and activity live.</p>
+        <div className={styles.workspaceIdentity}>
+          <span className={styles.workspaceIcon}>
+            {workspace.iconUrl ? (
+              <Image
+                alt=""
+                height={52}
+                src={getApiAssetUrl(workspace.iconUrl)!}
+                unoptimized
+                width={52}
+              />
+            ) : (
+              workspace.name.slice(0, 1).toUpperCase()
+            )}
+          </span>
+          <div>
+            <p className={styles.eyebrow}>{workspace.slug}</p>
+            <h1>{workspace.name}</h1>
+            <p>Projects are where tasks, status, and activity live.</p>
+          </div>
         </div>
         {canUpdateWorkspace || canDeleteWorkspace ? (
           <div className={styles.formActions}>

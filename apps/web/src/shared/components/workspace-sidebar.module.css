@@ -43,7 +43,9 @@
   background: #e7effa;
   color: #4077bc;
   font-size: 13px;
+  overflow: hidden;
 }
+.workspaceAvatar img { height: 100%; object-fit: cover; width: 100%; }
 .activeWorkspace span:last-child {
   display: grid;
   gap: 3px;
