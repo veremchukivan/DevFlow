@@ -149,6 +149,7 @@ const taskTypes: TaskType[] = ["task", "bug", "feature", "story"];
 type WorkspaceCustomField = {
   id: string;
   name: string;
+  options: string[];
   type: "number" | "select" | "text";
 };
 const taskPageSize = 50;
@@ -3972,11 +3973,23 @@ function TaskEditorModal({
               {customFields.map((field) => (
                 <label key={field.id}>
                   <span>{field.name}</span>
-                  <input
-                    defaultValue={String(task.customFields[field.id] ?? "")}
-                    name={`customField:${field.id}`}
-                    type={field.type === "number" ? "number" : "text"}
-                  />
+                  {field.type === "select" ? (
+                    <select
+                      defaultValue={String(task.customFields[field.id] ?? "")}
+                      name={`customField:${field.id}`}
+                    >
+                      <option value="">Not set</option>
+                      {field.options.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      defaultValue={String(task.customFields[field.id] ?? "")}
+                      name={`customField:${field.id}`}
+                      type={field.type === "number" ? "number" : "text"}
+                    />
+                  )}
                 </label>
               ))}
               <dl className={styles.taskEditorFacts}>

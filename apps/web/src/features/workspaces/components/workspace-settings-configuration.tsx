@@ -175,11 +175,19 @@ export function WorkspaceSettingsConfiguration({
           const form = new FormData(event.currentTarget);
           const name = String(form.get("name")).trim();
           const type = form.get("type") as "number" | "select" | "text";
+          const options = String(form.get("options") ?? "")
+            .split(",")
+            .map((option) => option.trim())
+            .filter((option, index, values) => option && values.indexOf(option) === index);
+          if (type === "select" && !options.length) {
+            setError("Select fields need at least one option.");
+            return;
+          }
           if (!name) return;
           void save({
             customFields: [
               ...settings.customFields,
-              { id: crypto.randomUUID(), name, type },
+              { id: crypto.randomUUID(), name, options, type },
             ],
           });
           event.currentTarget.reset();
@@ -191,6 +199,7 @@ export function WorkspaceSettingsConfiguration({
           <option value="number">Number</option>
           <option value="select">Select</option>
         </select>
+        <input name="options" placeholder="Options, separated by commas" />
         <button type="submit">
           <Plus size={16} />
           Add field
@@ -199,8 +208,30 @@ export function WorkspaceSettingsConfiguration({
       <div className={styles.itemList}>
         {settings.customFields.map((field) => (
           <div key={field.id}>
-            <span>
-              {field.name} <small>{field.type}</small>
+            <span className={styles.customFieldDetails}>
+              <strong>{field.name} <small>{field.type}</small></strong>
+              {field.type === "select" ? (
+                <input
+                  aria-label={`${field.name} options`}
+                  defaultValue={field.options.join(", ")}
+                  onBlur={(event) => {
+                    const options = event.currentTarget.value
+                      .split(",")
+                      .map((option) => option.trim())
+                      .filter((option, index, values) => option && values.indexOf(option) === index);
+                    if (!options.length) {
+                      setError("Select fields need at least one option.");
+                      return;
+                    }
+                    void save({
+                      customFields: settings.customFields.map((item) =>
+                        item.id === field.id ? { ...item, options } : item,
+                      ),
+                    });
+                  }}
+                  placeholder="Options, separated by commas"
+                />
+              ) : null}
             </span>
             <button
               onClick={() =>

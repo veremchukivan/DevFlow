@@ -90,6 +90,10 @@ export async function createTask(input: {
     type: input.input.type ?? "task",
     workspaceId: input.workspaceId,
   });
+  await validateCustomFields({
+    customFields: input.input.customFields,
+    workspaceId: input.workspaceId,
+  });
 
   // createTaskWithNextNumber uses SELECT FOR UPDATE on the project row, which
   // serialises concurrent task creation for the same project and makes a
@@ -314,6 +318,11 @@ export async function updateTask(input: {
       workspaceId: input.workspaceId,
     });
   }
+
+  await validateCustomFields({
+    customFields: input.input.customFields,
+    workspaceId: input.workspaceId,
+  });
 
   if (input.input.assigneeUserId) {
     await requireAssignableWorkspaceMember({
@@ -687,6 +696,33 @@ async function requireWorkspaceTaskType(input: {
       "TASK_TYPE_DISABLED",
       "This work type is disabled in the workspace settings",
     );
+  }
+}
+
+async function validateCustomFields(input: {
+  customFields: Record<string, string | number | null> | undefined;
+  workspaceId: string;
+}) {
+  if (input.customFields === undefined) return;
+
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  const definitions = new Map(settings.customFields.map((field) => [field.id, field]));
+
+  for (const [fieldId, value] of Object.entries(input.customFields)) {
+    const field = definitions.get(fieldId);
+    if (!field) {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_UNKNOWN", "A custom field does not belong to this workspace");
+    }
+    if (value === null) continue;
+    if (field.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_INVALID", `${field.name} must be a number`);
+    }
+    if (field.type === "text" && typeof value !== "string") {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_INVALID", `${field.name} must be text`);
+    }
+    if (field.type === "select" && (typeof value !== "string" || !field.options.includes(value))) {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_INVALID", `${field.name} must use one of the configured options`);
+    }
   }
 }
 

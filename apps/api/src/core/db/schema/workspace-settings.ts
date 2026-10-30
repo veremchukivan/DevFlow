@@ -11,7 +11,7 @@ export const workspaceSettings = pgTable(
     workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     defaultAssigneeUserId: uuid("default_assignee_user_id").references(() => users.id, { onDelete: "set null" }),
     enabledTaskTypes: jsonb("enabled_task_types").$type<string[]>().notNull().default(["task", "bug", "feature", "story"]),
-    customFields: jsonb("custom_fields").$type<Array<{ id: string; name: string; type: "number" | "select" | "text" }>>().notNull().default([]),
+    customFields: jsonb("custom_fields").$type<Array<{ id: string; name: string; options?: string[]; type: "number" | "select" | "text" }>>().notNull().default([]),
     features: jsonb("features").$type<Record<string, boolean>>().notNull().default({ automation: true, attachments: true, sprints: true }),
     ...timestampColumns(),
   },
