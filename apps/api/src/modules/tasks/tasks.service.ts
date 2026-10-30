@@ -57,15 +57,18 @@ export async function createTask(input: {
   }
 
   const project = await requireProject(input);
+  const workspaceSettings = await getWorkspaceSettings(input.workspaceId);
+  const assigneeUserId =
+    input.input.assigneeUserId ?? workspaceSettings.defaultAssigneeUserId ?? undefined;
   const status = await resolveTaskStatus({
     projectId: input.projectId,
     statusId: input.input.statusId,
     workspaceId: input.workspaceId,
   });
 
-  if (input.input.assigneeUserId) {
+  if (assigneeUserId) {
     await requireAssignableWorkspaceMember({
-      userId: input.input.assigneeUserId,
+      userId: assigneeUserId,
       workspaceId: input.workspaceId,
     });
   }
@@ -97,7 +100,7 @@ export async function createTask(input: {
       actorUserId: input.userId,
       projectKey: project.key,
     },
-    assigneeUserId: input.input.assigneeUserId,
+    assigneeUserId,
     description: input.input.description
       ? (sanitizeOptionalRichText(input.input.description) ?? undefined)
       : undefined,
