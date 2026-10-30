@@ -37,6 +37,7 @@ import { workspacesRouter } from "./modules/workspaces/workspaces.routes.js";
 import { readinessRouter } from "./modules/health/readiness.routes.js";
 import { figmaRouter } from "./modules/figma/figma.routes.js";
 import { aiSettingsRouter } from "./modules/ai-settings/ai-settings.routes.js";
+import { workspaceAutomationRouter } from "./modules/workspace-automation/workspace-automation.routes.js";
 
 export function createApp() {
   const app = express();
@@ -98,6 +99,10 @@ export function createApp() {
     workspaceInvitationsRouter,
   );
   app.use("/api/v1/workspaces/:workspaceId/members", workspaceMembersRouter);
+  app.use(
+    "/api/v1/workspaces/:workspaceId/automation",
+    workspaceAutomationRouter,
+  );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/activity",
     projectActivityRouter,
