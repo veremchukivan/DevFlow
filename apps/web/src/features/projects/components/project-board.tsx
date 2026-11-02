@@ -513,6 +513,14 @@ export function ProjectBoard() {
     };
   }, [projectId, taskIdFromUrl, workspaceId]);
 
+  useEffect(() => {
+    if (isLoading || searchParams.get("newTask") !== "1") return;
+    setShowTaskForm(true);
+    router.replace(`/workspaces/${workspaceId}/projects/${projectId}`, {
+      scroll: false,
+    });
+  }, [isLoading, projectId, router, searchParams, workspaceId]);
+
   function closeTaskEditor() {
     setSelectedTask(undefined);
     if (taskIdFromUrl) {

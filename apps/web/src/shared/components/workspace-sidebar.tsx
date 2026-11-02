@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, Settings, Users } from "lucide-react";
+import { LayoutDashboard, ListTodo, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, usePathname } from "next/navigation";
@@ -123,6 +123,18 @@ export function WorkspaceSidebar() {
             >
               <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
               Dashboard
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/my-tasks`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/my-tasks`}
+            >
+              <ListTodo aria-hidden="true" size={19} strokeWidth={1.8} />
+              My tasks
             </Link>
             <Link
               aria-current={
