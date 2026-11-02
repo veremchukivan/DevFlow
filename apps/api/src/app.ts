@@ -39,6 +39,7 @@ import { figmaRouter } from "./modules/figma/figma.routes.js";
 import { aiSettingsRouter } from "./modules/ai-settings/ai-settings.routes.js";
 import { workspaceAutomationRouter } from "./modules/workspace-automation/workspace-automation.routes.js";
 import { workspaceSettingsRouter } from "./modules/workspace-settings/workspace-settings.routes.js";
+import { workspaceCallsRouter } from "./modules/workspace-calls/workspace-calls.routes.js";
 
 export function createApp() {
   const app = express();
@@ -101,6 +102,7 @@ export function createApp() {
   );
   app.use("/api/v1/workspaces/:workspaceId/members", workspaceMembersRouter);
   app.use("/api/v1/workspaces/:workspaceId/settings", workspaceSettingsRouter);
+  app.use("/api/v1/workspaces/:workspaceId/calls", workspaceCallsRouter);
   app.use(
     "/api/v1/workspaces/:workspaceId/automation",
     workspaceAutomationRouter,

@@ -24,5 +24,6 @@ export * from "./user-ai-settings.js";
 export * from "./workspace-invitations.js";
 export * from "./workspace-members.js";
 export * from "./workspace-automation-rules.js";
+export * from "./workspace-calls.js";
 export * from "./workspace-settings.js";
 export * from "./workspaces.js";

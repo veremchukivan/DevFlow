@@ -1,10 +1,6 @@
-import { WorkspaceEmptyModule } from "@/features/workspaces/components/workspace-utility-pages";
+import { WorkspaceCalls } from "@/features/workspaces/components/workspace-calls";
 
-export default function WorkspaceCallsPage() {
-  return (
-    <WorkspaceEmptyModule
-      description="Plan calls, keep a shared agenda, and connect follow-up work to the meeting."
-      title="Calls"
-    />
-  );
+export default async function WorkspaceCallsPage({ params }: { params: Promise<{ workspaceId: string }> }) {
+  const { workspaceId } = await params;
+  return <WorkspaceCalls workspaceId={workspaceId} />;
 }

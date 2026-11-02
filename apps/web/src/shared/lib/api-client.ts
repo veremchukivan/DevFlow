@@ -78,6 +78,11 @@ import {
   workspaceSavedFiltersResponseSchema,
   workspaceSavedFilterResponseSchema,
   createWorkspaceSavedFilterRequestSchema,
+  createWorkspaceCallRequestSchema,
+  updateWorkspaceCallRequestSchema,
+  workspaceCallAttendanceRequestSchema,
+  workspaceCallListResponseSchema,
+  workspaceCallResponseSchema,
   type AuthResponse,
   type AiSettings,
   type AccountSessionListResponse,
@@ -155,6 +160,11 @@ import {
   type WorkspaceAutomationRulesResponse,
   type WorkspaceAutomationRunsResponse,
   type UpdateWorkspaceSettingsRequest,
+  type CreateWorkspaceCallRequest,
+  type UpdateWorkspaceCallRequest,
+  type WorkspaceCallAttendanceRequest,
+  type WorkspaceCallListResponse,
+  type WorkspaceCallResponse,
 } from "@devflow/shared";
 import { z } from "zod";
 
@@ -753,6 +763,63 @@ export function getProjects(workspaceId: string): Promise<ProjectListResponse> {
     `/api/v1/workspaces/${workspaceId}/projects?limit=100&offset=0`,
     { method: "GET" },
     projectListResponseSchema,
+  );
+}
+
+export function getWorkspaceCalls(
+  workspaceId: string,
+  query?: { from?: string; status?: "scheduled" | "completed" | "cancelled"; to?: string },
+): Promise<WorkspaceCallListResponse> {
+  const params = new URLSearchParams();
+  if (query?.from) params.set("from", query.from);
+  if (query?.to) params.set("to", query.to);
+  if (query?.status) params.set("status", query.status);
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls${suffix}`,
+    { method: "GET" },
+    workspaceCallListResponseSchema,
+  );
+}
+
+export function createWorkspaceCall(
+  workspaceId: string,
+  input: CreateWorkspaceCallRequest,
+): Promise<WorkspaceCallResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls`,
+    { body: JSON.stringify(createWorkspaceCallRequestSchema.parse(input)), method: "POST" },
+    workspaceCallResponseSchema,
+  );
+}
+
+export function updateWorkspaceCall(
+  workspaceId: string,
+  callId: string,
+  input: UpdateWorkspaceCallRequest,
+): Promise<WorkspaceCallResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls/${callId}`,
+    { body: JSON.stringify(updateWorkspaceCallRequestSchema.parse(input)), method: "PATCH" },
+    workspaceCallResponseSchema,
+  );
+}
+
+export function deleteWorkspaceCall(workspaceId: string, callId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/calls/${callId}`, {
+    method: "DELETE",
+  });
+}
+
+export function respondToWorkspaceCall(
+  workspaceId: string,
+  callId: string,
+  input: WorkspaceCallAttendanceRequest,
+): Promise<WorkspaceCallResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls/${callId}/attendance`,
+    { body: JSON.stringify(workspaceCallAttendanceRequestSchema.parse(input)), method: "PATCH" },
+    workspaceCallResponseSchema,
   );
 }
 

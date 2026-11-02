@@ -21,5 +21,6 @@ export * from "./schemas/tasks.js";
 export * from "./schemas/workspace-invitations.js";
 export * from "./schemas/workspace-members.js";
 export * from "./schemas/workspace-automation.js";
+export * from "./schemas/workspace-calls.js";
 export * from "./schemas/workspace-settings.js";
 export * from "./schemas/workspaces.js";

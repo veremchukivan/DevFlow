@@ -337,6 +337,13 @@
       "when": 1793389731981,
       "tag": "0047_certain_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793639390838,
+      "tag": "0048_wooden_dragon_man",
+      "breakpoints": true
     }
   ]
 }

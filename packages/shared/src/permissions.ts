@@ -12,6 +12,10 @@ export type Permission =
   | "project:create"
   | "project:update"
   | "project:delete"
+  // Calls and calendar events
+  | "call:create"
+  | "call:update"
+  | "call:delete"
   // Tasks
   | "task:create"
   | "task:update"
@@ -44,6 +48,12 @@ const ROLE_PERMISSIONS: Record<Permission, readonly WorkspaceRole[]> = {
   "project:create": ["owner", "admin"],
   "project:update": ["owner", "admin"],
   "project:delete": ["owner", "admin"],
+
+  // Calls: members can manage calls that they create; resource ownership is
+  // checked by the calls policy. Admins and owners can manage every call.
+  "call:create": ["owner", "admin", "member"],
+  "call:update": ["owner", "admin", "member"],
+  "call:delete": ["owner", "admin", "member"],
 
   // Tasks: member can create and update, but only owner/admin can delete
   "task:create": ["owner", "admin", "member"],
