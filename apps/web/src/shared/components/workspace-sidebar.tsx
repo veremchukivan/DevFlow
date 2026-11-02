@@ -78,15 +78,27 @@ export function WorkspaceSidebar() {
           <>
             <Link
               aria-current={
-                pathname === `/workspaces/${activeWorkspace.id}/projects`
+                pathname === `/workspaces/${activeWorkspace.id}`
                   ? "page"
                   : undefined
               }
               className={styles.navigationLink}
-              href={`/workspaces/${activeWorkspace.id}/projects`}
+              href={`/workspaces/${activeWorkspace.id}`}
             >
-              <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
-              Projects
+              <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
+              Dashboard
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/my-tasks`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/my-tasks`}
+            >
+              <ListTodo aria-hidden="true" size={19} strokeWidth={1.8} />
+              My tasks
             </Link>
             <Link
               aria-current={
@@ -99,6 +111,30 @@ export function WorkspaceSidebar() {
             >
               <PhoneCall aria-hidden="true" size={19} strokeWidth={1.8} />
               Calls
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/projects`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/projects`}
+            >
+              <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
+              Projects
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/members`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/members`}
+            >
+              <Users aria-hidden="true" size={19} strokeWidth={1.8} />
+              Team
             </Link>
             <Link
               aria-current={
@@ -126,30 +162,6 @@ export function WorkspaceSidebar() {
             </Link>
             <Link
               aria-current={
-                pathname === `/workspaces/${activeWorkspace.id}`
-                  ? "page"
-                  : undefined
-              }
-              className={styles.navigationLink}
-              href={`/workspaces/${activeWorkspace.id}`}
-            >
-              <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
-              Dashboard
-            </Link>
-            <Link
-              aria-current={
-                pathname === `/workspaces/${activeWorkspace.id}/my-tasks`
-                  ? "page"
-                  : undefined
-              }
-              className={styles.navigationLink}
-              href={`/workspaces/${activeWorkspace.id}/my-tasks`}
-            >
-              <ListTodo aria-hidden="true" size={19} strokeWidth={1.8} />
-              My tasks
-            </Link>
-            <Link
-              aria-current={
                 pathname.startsWith(`/workspaces/${activeWorkspace.id}/settings`)
                   ? "page"
                   : undefined
@@ -159,18 +171,6 @@ export function WorkspaceSidebar() {
             >
               <Settings aria-hidden="true" size={19} strokeWidth={1.8} />
               Settings
-            </Link>
-            <Link
-              aria-current={
-                pathname === `/workspaces/${activeWorkspace.id}/members`
-                  ? "page"
-                  : undefined
-              }
-              className={styles.navigationLink}
-              href={`/workspaces/${activeWorkspace.id}/members`}
-            >
-              <Users aria-hidden="true" size={19} strokeWidth={1.8} />
-              Team
             </Link>
           </>
         ) : null}
