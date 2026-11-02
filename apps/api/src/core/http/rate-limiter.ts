@@ -1,3 +1,4 @@
+import type { Request } from "express";
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 
@@ -23,7 +24,13 @@ export const apiRateLimiter = rateLimit({
   max: env.API_RATE_LIMIT_MAX,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  skip: () => env.NODE_ENV === "test" || env.E2E_TEST_MODE,
+  // Authentication has a separate, stricter limiter. Counting those requests
+  // in the broad API bucket makes a busy local session lock users out before
+  // the authentication protection can make a meaningful decision.
+  skip: (request: Request) =>
+    env.NODE_ENV === "test" ||
+    env.E2E_TEST_MODE ||
+    request.originalUrl.startsWith("/api/v1/auth/"),
   message: {
     error: {
       code: "RATE_LIMIT_EXCEEDED",
