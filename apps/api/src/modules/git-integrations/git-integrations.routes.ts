@@ -82,7 +82,7 @@ projectRepositoryRouter.put("/", async (req, res) => {
   const params = projectParams.parse(req.params); await requireProject(params, userId(req), true);
   const input = repositoryInput.parse(req.body);
   const connection = await requireConnection(input.connectionId, userId(req));
-  const remote = await getRepository(connection, input.fullName);
+  const remote = await getRepository(connection, normalizeRepositoryName(connection.provider, input.fullName));
   const [repository] = await db.insert(projectRepositories).values({ connectionId: connection.id, defaultBranch: remote.defaultBranch, externalId: remote.id, fullName: remote.fullName, isPrivate: remote.isPrivate, projectId: params.projectId, provider: connection.provider, webUrl: remote.webUrl, workspaceId: params.workspaceId }).onConflictDoUpdate({ target: projectRepositories.projectId, set: { connectionId: connection.id, defaultBranch: remote.defaultBranch, externalId: remote.id, fullName: remote.fullName, isPrivate: remote.isPrivate, provider: connection.provider, updatedAt: new Date(), webUrl: remote.webUrl } }).returning();
   res.json({ repository: { ...repository!, lastSyncedAt: repository!.lastSyncedAt?.toISOString() ?? null } });
 });
@@ -148,6 +148,25 @@ async function requireRepository(params: z.infer<typeof projectParams>) { const 
 async function accessToken(connection: Connection) { if (connection.expiresAt && connection.expiresAt <= new Date()) throw new AppError(401, "GIT_CONNECTION_EXPIRED", "Git connection expired. Reconnect it in Profile settings."); return decryptIntegrationSecret(connection.accessTokenEncrypted); }
 async function getRepository(connection: Connection, fullName: string) { const response = await providerFetch(connection.provider, repositoryPath(connection.provider, fullName), await accessToken(connection)); if (response.status === 404) throw new AppError(404, "GIT_REPOSITORY_NOT_FOUND", "Repository not found or access was not granted"); if (!response.ok) throw new AppError(502, "GIT_REPOSITORY_REQUEST_FAILED", "Unable to read repository details"); const data = await response.json() as any; return connection.provider === "github" ? { id: String(data.id), fullName: data.full_name as string, webUrl: data.html_url as string, defaultBranch: data.default_branch as string, isPrivate: Boolean(data.private) } : { id: String(data.id), fullName: data.path_with_namespace as string, webUrl: data.web_url as string, defaultBranch: data.default_branch as string, isPrivate: data.visibility !== "public" }; }
 function repositoryPath(provider: Provider, fullName: string) { return provider === "github" ? `/repos/${fullName.split("/").map(encodeURIComponent).join("/")}` : `/projects/${encodeURIComponent(fullName)}`; }
+function normalizeRepositoryName(provider: Provider, value: string) {
+  const trimmed = value.trim().replace(/\.git\/?$/, "");
+  let path = trimmed;
+  try {
+    const url = new URL(trimmed);
+    const expectedHost = provider === "github" ? "github.com" : "gitlab.com";
+    if (url.hostname !== expectedHost) {
+      throw new AppError(400, "GIT_REPOSITORY_URL_INVALID", `Use a ${expectedHost} repository URL or its namespace/name.`);
+    }
+    path = url.pathname;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+  }
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length < 2 || parts.some((part) => !/^[A-Za-z0-9._-]+$/.test(part))) {
+    throw new AppError(400, "GIT_REPOSITORY_NAME_INVALID", "Enter owner/repository or paste its full GitHub/GitLab URL");
+  }
+  return parts.join("/");
+}
 async function createBranch(connection: Connection, repository: Repository, name: string, base: string) { const token = await accessToken(connection); if (connection.provider === "github") { const ref = await providerFetch("github", `${repositoryPath("github", repository.fullName)}/git/ref/heads/${encodeURIComponent(base)}`, token); if (!ref.ok) throw new AppError(502, "GIT_BASE_BRANCH_NOT_FOUND", "Unable to read the base branch"); const current = await ref.json() as any; const created = await providerFetch("github", `${repositoryPath("github", repository.fullName)}/git/refs`, token, { method: "POST", body: JSON.stringify({ ref: `refs/heads/${name}`, sha: current.object.sha }) }); if (created.status === 422) throw new AppError(409, "GIT_BRANCH_EXISTS", "A branch with this name already exists"); if (!created.ok) throw new AppError(502, "GIT_BRANCH_CREATE_FAILED", "Unable to create the GitHub branch"); return { name, url: `${repository.webUrl}/tree/${encodeURIComponent(name)}` }; }
   const response = await providerFetch("gitlab", `${repositoryPath("gitlab", repository.fullName)}/repository/branches`, token, { method: "POST", body: JSON.stringify({ branch: name, ref: base }) }); if (response.status === 400) throw new AppError(409, "GIT_BRANCH_EXISTS", "A branch with this name already exists"); if (!response.ok) throw new AppError(502, "GIT_BRANCH_CREATE_FAILED", "Unable to create the GitLab branch"); const data = await response.json() as any; return { name: data.name as string, url: `${repository.webUrl}/-/tree/${encodeURIComponent(data.name as string)}` }; }
 async function createPullRequest(connection: Connection, repository: Repository, input: { base: string; body: string; head: string; title: string }) { const token = await accessToken(connection); if (connection.provider === "github") { const response = await providerFetch("github", `${repositoryPath("github", repository.fullName)}/pulls`, token, { method: "POST", body: JSON.stringify({ base: input.base, body: input.body, head: input.head, title: input.title }) }); if (!response.ok) throw new AppError(502, "GIT_PULL_REQUEST_CREATE_FAILED", "Unable to create the GitHub pull request"); const data = await response.json() as any; return { id: String(data.number), title: data.title as string, url: data.html_url as string, status: data.state as string }; }
