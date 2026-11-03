@@ -1,0 +1,18 @@
+import { createProjectKnowledgeEntryRequestSchema, createProjectKnowledgeLinkRequestSchema, projectKnowledgeContextResponseSchema, projectKnowledgeEntryParamsSchema, projectKnowledgeEntryResponseSchema, projectKnowledgeLinkParamsSchema, projectKnowledgeListResponseSchema, projectKnowledgeParamsSchema, updateProjectKnowledgeEntryRequestSchema } from "@devflow/shared";
+import { Router } from "express";
+import { type AuthenticatedRequest, requireAuth } from "../auth/auth.middleware.js";
+import * as service from "./project-knowledge.service.js";
+
+export const projectKnowledgeRouter = Router({ mergeParams: true });
+projectKnowledgeRouter.use(requireAuth);
+const userId = (req: unknown) => (req as AuthenticatedRequest).auth.user.id;
+const dto = (entry: any) => ({ ...entry, createdAt: entry.createdAt.toISOString(), updatedAt: entry.updatedAt.toISOString(), links: entry.links.map((link: any) => ({ ...link, createdAt: link.createdAt.toISOString(), updatedAt: link.updatedAt.toISOString() })) });
+
+projectKnowledgeRouter.get("/context", async (req, res) => { const params = projectKnowledgeParamsSchema.parse(req.params); const entries = await service.getProjectKnowledgeContext({ ...params, userId: userId(req) }); res.json(projectKnowledgeContextResponseSchema.parse({ entries: entries.map(dto), generatedAt: new Date().toISOString() })); });
+projectKnowledgeRouter.get("/", async (req, res) => { const params = projectKnowledgeParamsSchema.parse(req.params); const entries = await service.listProjectKnowledge({ ...params, userId: userId(req) }); res.json(projectKnowledgeListResponseSchema.parse({ entries: entries.map(dto) })); });
+projectKnowledgeRouter.post("/", async (req, res) => { const params = projectKnowledgeParamsSchema.parse(req.params); const entry = await service.createProjectKnowledgeEntry({ ...params, input: createProjectKnowledgeEntryRequestSchema.parse(req.body), userId: userId(req) }); res.status(201).json(projectKnowledgeEntryResponseSchema.parse({ entry: dto(entry) })); });
+projectKnowledgeRouter.get("/:knowledgeEntryId", async (req, res) => { const params = projectKnowledgeEntryParamsSchema.parse(req.params); const entry = await service.getProjectKnowledgeEntry({ ...params, userId: userId(req) }); res.json(projectKnowledgeEntryResponseSchema.parse({ entry: dto(entry) })); });
+projectKnowledgeRouter.patch("/:knowledgeEntryId", async (req, res) => { const params = projectKnowledgeEntryParamsSchema.parse(req.params); const entry = await service.updateProjectKnowledgeEntry({ ...params, input: updateProjectKnowledgeEntryRequestSchema.parse(req.body), userId: userId(req) }); res.json(projectKnowledgeEntryResponseSchema.parse({ entry: dto(entry) })); });
+projectKnowledgeRouter.delete("/:knowledgeEntryId", async (req, res) => { const params = projectKnowledgeEntryParamsSchema.parse(req.params); await service.removeProjectKnowledgeEntry({ ...params, userId: userId(req) }); res.status(204).send(); });
+projectKnowledgeRouter.post("/:knowledgeEntryId/links", async (req, res) => { const params = projectKnowledgeEntryParamsSchema.parse(req.params); const entry = await service.addProjectKnowledgeLink({ ...params, link: createProjectKnowledgeLinkRequestSchema.parse(req.body), userId: userId(req) }); res.status(201).json(projectKnowledgeEntryResponseSchema.parse({ entry: dto(entry) })); });
+projectKnowledgeRouter.delete("/:knowledgeEntryId/links/:linkId", async (req, res) => { const params = projectKnowledgeLinkParamsSchema.parse(req.params); const entry = await service.removeProjectKnowledgeLink({ ...params, userId: userId(req) }); res.json(projectKnowledgeEntryResponseSchema.parse({ entry: dto(entry) })); });

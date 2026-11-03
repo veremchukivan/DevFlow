@@ -238,7 +238,8 @@
   top: calc(100% + 8px);
   z-index: 10;
 }
-.projectMenuList button {
+.projectMenuList button,
+.projectMenuList a {
   align-items: center;
   background: transparent;
   border: 0;
@@ -252,7 +253,8 @@
   text-align: left;
   width: 100%;
 }
-.projectMenuList button:hover:not(:disabled) {
+.projectMenuList button:hover:not(:disabled),
+.projectMenuList a:hover {
   background: #f1f5fa;
 }
 .projectMenuList button:disabled {

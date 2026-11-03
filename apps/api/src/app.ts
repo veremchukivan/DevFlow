@@ -42,6 +42,7 @@ import { workspaceAutomationRouter } from "./modules/workspace-automation/worksp
 import { workspaceSettingsRouter } from "./modules/workspace-settings/workspace-settings.routes.js";
 import { workspaceCallsRouter } from "./modules/workspace-calls/workspace-calls.routes.js";
 import { gitIntegrationsRouter, projectRepositoryRouter, taskGitRouter } from "./modules/git-integrations/git-integrations.routes.js";
+import { projectKnowledgeRouter } from "./modules/project-knowledge/project-knowledge.routes.js";
 
 export function createApp() {
   const app = express();
@@ -157,6 +158,10 @@ export function createApp() {
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/sprints",
     projectSprintsRouter,
+  );
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/knowledge",
+    projectKnowledgeRouter,
   );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/repository",

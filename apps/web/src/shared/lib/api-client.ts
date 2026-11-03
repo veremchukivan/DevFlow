@@ -42,6 +42,9 @@ import {
   projectListResponseSchema,
   projectFigmaLinkListResponseSchema,
   projectFigmaLinkResponseSchema,
+  projectKnowledgeContextResponseSchema,
+  projectKnowledgeEntryResponseSchema,
+  projectKnowledgeListResponseSchema,
   projectMemberListResponseSchema,
   projectMemberResponseSchema,
   projectSprintListResponseSchema,
@@ -1265,6 +1268,36 @@ export function removeProjectRepository(workspaceId: string, projectId: string):
 
 export function getProjectReleaseNotes(workspaceId: string, projectId: string): Promise<{ generatedAt: string; markdown: string; mergedChanges: number }> {
   return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository/release-notes`, { method: "GET" }, z.object({ generatedAt: z.string().datetime(), markdown: z.string(), mergedChanges: z.number().int().nonnegative() }));
+}
+
+const projectKnowledgePath = (workspaceId: string, projectId: string) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/knowledge`;
+
+export function getProjectKnowledge(workspaceId: string, projectId: string): Promise<{ entries: import("@devflow/shared").ProjectKnowledgeEntry[] }> {
+  return request(projectKnowledgePath(workspaceId, projectId), { method: "GET" }, (awaitedProjectKnowledgeSchemas()).list);
+}
+
+export function getProjectKnowledgeContext(workspaceId: string, projectId: string): Promise<{ entries: import("@devflow/shared").ProjectKnowledgeEntry[]; generatedAt: string }> {
+  return request(`${projectKnowledgePath(workspaceId, projectId)}/context`, { method: "GET" }, (awaitedProjectKnowledgeSchemas()).context);
+}
+
+export function createProjectKnowledgeEntry(workspaceId: string, projectId: string, input: import("@devflow/shared").CreateProjectKnowledgeEntryRequest): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
+  return request(projectKnowledgePath(workspaceId, projectId), { body: JSON.stringify(input), method: "POST" }, (awaitedProjectKnowledgeSchemas()).entry);
+}
+
+export function updateProjectKnowledgeEntry(workspaceId: string, projectId: string, entryId: string, input: Partial<import("@devflow/shared").CreateProjectKnowledgeEntryRequest>): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
+  return request(`${projectKnowledgePath(workspaceId, projectId)}/${entryId}`, { body: JSON.stringify(input), method: "PATCH" }, (awaitedProjectKnowledgeSchemas()).entry);
+}
+
+export function deleteProjectKnowledgeEntry(workspaceId: string, projectId: string, entryId: string): Promise<void> {
+  return requestNoContent(`${projectKnowledgePath(workspaceId, projectId)}/${entryId}`, { method: "DELETE" });
+}
+
+export function addProjectKnowledgeLink(workspaceId: string, projectId: string, entryId: string, input: { kind: "task" | "pull_request" | "figma" | "release" | "external"; label: string; url: string; externalId?: string | null }): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
+  return request(`${projectKnowledgePath(workspaceId, projectId)}/${entryId}/links`, { body: JSON.stringify(input), method: "POST" }, (awaitedProjectKnowledgeSchemas()).entry);
+}
+
+function awaitedProjectKnowledgeSchemas() {
+  return { context: projectKnowledgeContextResponseSchema, entry: projectKnowledgeEntryResponseSchema, list: projectKnowledgeListResponseSchema };
 }
 
 const taskGitPath = (workspaceId: string, projectId: string, taskId: string) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/git`;

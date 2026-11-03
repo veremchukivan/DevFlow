@@ -1,0 +1,20 @@
+import type { CreateProjectKnowledgeEntryRequest, UpdateProjectKnowledgeEntryRequest } from "@devflow/shared";
+
+import { AppError } from "../../core/errors/app-error.js";
+import { canUpdateProject } from "../projects/projects.policy.js";
+import { findActiveWorkspaceMembership, findProjectInWorkspace } from "../projects/projects.repository.js";
+import * as repository from "./project-knowledge.repository.js";
+
+type Scope = { workspaceId: string; projectId: string; userId: string };
+
+export async function listProjectKnowledge(input: Scope) { await requireProject(input); return repository.listKnowledgeEntries(input); }
+export async function getProjectKnowledgeContext(input: Scope) { await requireProject(input); return (await repository.listKnowledgeEntries(input)).filter((entry) => entry.status === "accepted"); }
+export async function getProjectKnowledgeEntry(input: Scope & { knowledgeEntryId: string }) { await requireProject(input); const entry = await repository.findKnowledgeEntry(input); if (!entry) throw new AppError(404, "KNOWLEDGE_ENTRY_NOT_FOUND", "Knowledge entry not found"); return entry; }
+export async function createProjectKnowledgeEntry(input: Scope & { input: CreateProjectKnowledgeEntryRequest }) { await requireProject(input, true); const entry = await repository.createKnowledgeEntry({ ...input.input, createdByUserId: input.userId, updatedByUserId: input.userId, projectId: input.projectId, workspaceId: input.workspaceId }); if (!entry) throw new Error("Failed to create knowledge entry"); return hydrate(entry.id, input); }
+export async function updateProjectKnowledgeEntry(input: Scope & { knowledgeEntryId: string; input: UpdateProjectKnowledgeEntryRequest }) { await requireProject(input, true); const found = await repository.findKnowledgeEntry(input); if (!found) throw new AppError(404, "KNOWLEDGE_ENTRY_NOT_FOUND", "Knowledge entry not found"); await repository.updateKnowledgeEntry({ ...input.input, id: found.id, updatedByUserId: input.userId }); return hydrate(found.id, input); }
+export async function removeProjectKnowledgeEntry(input: Scope & { knowledgeEntryId: string }) { await requireProject(input, true); const found = await repository.findKnowledgeEntry(input); if (!found) throw new AppError(404, "KNOWLEDGE_ENTRY_NOT_FOUND", "Knowledge entry not found"); await repository.deleteKnowledgeEntry(found.id); }
+export async function addProjectKnowledgeLink(input: Scope & { knowledgeEntryId: string; link: { kind: "task" | "pull_request" | "figma" | "release" | "external"; label: string; url: string; externalId?: string | null } }) { await requireProject(input, true); const found = await repository.findKnowledgeEntry(input); if (!found) throw new AppError(404, "KNOWLEDGE_ENTRY_NOT_FOUND", "Knowledge entry not found"); await repository.createKnowledgeLink({ ...input.link, knowledgeEntryId: found.id }); return hydrate(found.id, input); }
+export async function removeProjectKnowledgeLink(input: Scope & { knowledgeEntryId: string; linkId: string }) { await requireProject(input, true); const found = await repository.findKnowledgeEntry(input); if (!found) throw new AppError(404, "KNOWLEDGE_ENTRY_NOT_FOUND", "Knowledge entry not found"); await repository.deleteKnowledgeLink({ knowledgeEntryId: found.id, linkId: input.linkId }); return hydrate(found.id, input); }
+
+async function hydrate(id: string, input: Scope) { const entry = await repository.findKnowledgeEntry({ ...input, knowledgeEntryId: id }); if (!entry) throw new Error("Failed to load knowledge entry"); return entry; }
+async function requireProject(input: Scope, update = false) { const membership = await findActiveWorkspaceMembership(input); if (!membership) throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found"); if (update && !canUpdateProject(membership.role)) throw new AppError(403, "PROJECT_UPDATE_FORBIDDEN", "You cannot update project knowledge in this workspace"); if (!(await findProjectInWorkspace(input))) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found"); }

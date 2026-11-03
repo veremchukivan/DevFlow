@@ -10,6 +10,7 @@ export * from "./project-figma-links.js";
 export * from "./project-sprints.js";
 export * from "./projects.js";
 export * from "./project-view-preferences.js";
+export * from "./project-knowledge.js";
 export * from "./sessions.js";
 export * from "./task-activity-events.js";
 export * from "./task-attachments.js";

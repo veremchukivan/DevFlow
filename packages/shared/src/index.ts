@@ -10,6 +10,7 @@ export * from "./schemas/pagination.js";
 export * from "./schemas/projects.js";
 export * from "./schemas/project-members.js";
 export * from "./schemas/project-view-preferences.js";
+export * from "./schemas/project-knowledge.js";
 export * from "./schemas/project-sprints.js";
 export * from "./schemas/task-activity.js";
 export * from "./schemas/task-attachments.js";

@@ -15,6 +15,7 @@ import {
 } from "react";
 import {
   CalendarDays,
+  BookOpen,
   CircleCheck,
   ChevronLeft,
   ChevronRight,
@@ -1781,6 +1782,14 @@ export function ProjectBoard() {
             </button>
             {showProjectMenu ? (
               <div className={styles.projectMenuList} role="menu">
+                <Link
+                  href={`/workspaces/${workspaceId}/projects/${projectId}/knowledge`}
+                  onClick={() => setShowProjectMenu(false)}
+                  role="menuitem"
+                >
+                  <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />
+                  Knowledge Base
+                </Link>
                 <button
                   disabled={!canUpdateProject}
                   onClick={() => {
