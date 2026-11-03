@@ -45,6 +45,8 @@ import {
   projectKnowledgeContextResponseSchema,
   projectKnowledgeEntryResponseSchema,
   projectKnowledgeListResponseSchema,
+  projectPlanningResponseSchema,
+  projectReleaseSchema,
   projectMemberListResponseSchema,
   projectMemberResponseSchema,
   projectSprintListResponseSchema,
@@ -1295,6 +1297,11 @@ export function deleteProjectKnowledgeEntry(workspaceId: string, projectId: stri
 export function addProjectKnowledgeLink(workspaceId: string, projectId: string, entryId: string, input: { kind: "task" | "pull_request" | "figma" | "release" | "external"; label: string; url: string; externalId?: string | null }): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
   return request(`${projectKnowledgePath(workspaceId, projectId)}/${entryId}/links`, { body: JSON.stringify(input), method: "POST" }, (awaitedProjectKnowledgeSchemas()).entry);
 }
+
+const projectPlanningPath = (workspaceId: string, projectId: string) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/planning`;
+export function getProjectPlanning(workspaceId: string, projectId: string): Promise<import("@devflow/shared").ProjectPlanningResponse> { return request(projectPlanningPath(workspaceId, projectId), { method: "GET" }, projectPlanningResponseSchema); }
+export function createProjectRelease(workspaceId: string, projectId: string, input: { name: string; description?: string | null; startDate?: string | null; releaseDate?: string | null }): Promise<{ release: import("@devflow/shared").ProjectRelease }> { return request(`${projectPlanningPath(workspaceId, projectId)}/releases`, { body: JSON.stringify(input), method: "POST" }, z.object({ release: projectReleaseSchema })); }
+export function updateProjectPlanningTask(workspaceId: string, projectId: string, taskId: string, input: { epicId?: string | null; releaseId?: string | null; complexityPoints?: number | null }): Promise<{ task: import("@devflow/shared").ProjectPlanningTask }> { return request(`${projectPlanningPath(workspaceId, projectId)}/tasks/${taskId}`, { body: JSON.stringify(input), method: "PATCH" }, z.object({ task: projectPlanningResponseSchema.shape.tasks.element })); }
 
 function awaitedProjectKnowledgeSchemas() {
   return { context: projectKnowledgeContextResponseSchema, entry: projectKnowledgeEntryResponseSchema, list: projectKnowledgeListResponseSchema };

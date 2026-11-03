@@ -701,7 +701,7 @@ async function requireAssignableWorkspaceMember(input: {
 }
 
 async function requireWorkspaceTaskType(input: {
-  type: "bug" | "feature" | "story" | "task";
+  type: "epic" | "bug" | "feature" | "story" | "task";
   workspaceId: string;
 }) {
   const settings = await getWorkspaceSettings(input.workspaceId);

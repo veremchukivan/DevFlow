@@ -29,7 +29,7 @@ const assigneeUsers = alias(users, "assignee_users");
 const reporterUsers = alias(users, "reporter_users");
 
 type TaskPriority = "low" | "medium" | "high" | "urgent";
-type TaskType = "bug" | "feature" | "story" | "task";
+type TaskType = "epic" | "bug" | "feature" | "story" | "task";
 
 export async function findActiveWorkspaceMembership(input: {
   userId: string;

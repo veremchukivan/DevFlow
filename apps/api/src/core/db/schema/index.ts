@@ -8,6 +8,7 @@ export * from "./project-statuses.js";
 export * from "./project-members.js";
 export * from "./project-figma-links.js";
 export * from "./project-sprints.js";
+export * from "./project-releases.js";
 export * from "./projects.js";
 export * from "./project-view-preferences.js";
 export * from "./project-knowledge.js";

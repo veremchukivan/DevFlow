@@ -30,6 +30,7 @@ export const taskPriorityEnum = pgEnum("task_priority", [
 ]);
 
 export const taskTypeEnum = pgEnum("task_type", [
+  "epic",
   "bug",
   "feature",
   "story",
@@ -52,6 +53,9 @@ export const tasks = pgTable(
     statusId: uuid("status_id").notNull(),
     position: integer("position").notNull().default(1000),
     sprintId: uuid("sprint_id"),
+    epicId: uuid("epic_id"),
+    releaseId: uuid("release_id"),
+    complexityPoints: integer("complexity_points"),
     type: taskTypeEnum("type").notNull().default("task"),
     title: varchar("title", { length: 200 }).notNull(),
     description: text("description"),
@@ -122,6 +126,8 @@ export const tasks = pgTable(
       table.projectId,
       table.sprintId,
     ),
+    index("tasks_project_epic_idx").on(table.workspaceId, table.projectId, table.epicId),
+    index("tasks_project_release_idx").on(table.workspaceId, table.projectId, table.releaseId),
     index("tasks_project_parent_idx").on(
       table.workspaceId,
       table.projectId,
@@ -139,6 +145,7 @@ export const tasks = pgTable(
       "tasks_estimate_minutes_nonnegative_check",
       sql`${table.estimateMinutes} is null or ${table.estimateMinutes} >= 0`,
     ),
+    check("tasks_complexity_points_nonnegative_check", sql`${table.complexityPoints} is null or ${table.complexityPoints} >= 0`),
   ],
 );
 

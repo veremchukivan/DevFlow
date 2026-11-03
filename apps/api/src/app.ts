@@ -43,6 +43,7 @@ import { workspaceSettingsRouter } from "./modules/workspace-settings/workspace-
 import { workspaceCallsRouter } from "./modules/workspace-calls/workspace-calls.routes.js";
 import { gitIntegrationsRouter, projectRepositoryRouter, taskGitRouter } from "./modules/git-integrations/git-integrations.routes.js";
 import { projectKnowledgeRouter } from "./modules/project-knowledge/project-knowledge.routes.js";
+import { projectPlanningRouter } from "./modules/project-planning/project-planning.routes.js";
 
 export function createApp() {
   const app = express();
@@ -51,6 +52,14 @@ export function createApp() {
   app.use(requestId);
   app.use(requestLogger);
   app.use(helmet());
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/planning",
+    projectPlanningRouter,
+  );
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/planning",
+    projectPlanningRouter,
+  );
   app.use(
     cors({
       credentials: true,

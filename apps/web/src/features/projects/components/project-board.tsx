@@ -1790,6 +1790,14 @@ export function ProjectBoard() {
                   <BookOpen aria-hidden="true" size={17} strokeWidth={1.8} />
                   Knowledge Base
                 </Link>
+                <Link
+                  href={`/workspaces/${workspaceId}/projects/${projectId}/planning`}
+                  onClick={() => setShowProjectMenu(false)}
+                  role="menuitem"
+                >
+                  <LayoutGrid aria-hidden="true" size={17} strokeWidth={1.8} />
+                  Backlog & Roadmap
+                </Link>
                 <button
                   disabled={!canUpdateProject}
                   onClick={() => {

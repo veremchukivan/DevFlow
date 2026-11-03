@@ -4,7 +4,7 @@ import { pageInfoSchema, paginationQuerySchema } from "./pagination.js";
 import { projectStatusCategorySchema } from "./projects.js";
 
 export const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
-export const taskTypeSchema = z.enum(["bug", "feature", "story", "task"]);
+export const taskTypeSchema = z.enum(["epic", "bug", "feature", "story", "task"]);
 export const taskDueDateSchema = z.iso.date();
 export const taskCustomFieldsSchema = z.record(
   z.string().min(1).max(64),

@@ -240,7 +240,7 @@ function toTaskDto(task: {
   statusId: string;
   sprintId: string | null;
   title: string;
-  type: "bug" | "feature" | "story" | "task";
+  type: "epic" | "bug" | "feature" | "story" | "task";
   updatedAt: Date;
   version: number;
   workspaceId: string;
