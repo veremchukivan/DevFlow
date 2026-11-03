@@ -91,7 +91,10 @@ const envSchema = z
     GITLAB_CLIENT_ID: optionalNonEmptyString,
     GITLAB_CLIENT_SECRET: optionalNonEmptyString,
     GITLAB_REDIRECT_URI: z.url().optional(),
-    INTEGRATION_WEBHOOK_URL: z.url().optional(),
+    INTEGRATION_WEBHOOK_URL: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.url().optional(),
+    ),
     INTEGRATION_ENCRYPTION_KEY: optionalNonEmptyString,
     UPLOADS_DIR: z.string().min(1).default("uploads"),
   })
