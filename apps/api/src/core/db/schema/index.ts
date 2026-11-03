@@ -14,6 +14,7 @@ export * from "./task-activity-events.js";
 export * from "./task-attachments.js";
 export * from "./task-checklist-items.js";
 export * from "./task-comments.js";
+export * from "./task-development-flows.js";
 export * from "./task-figma-links.js";
 export * from "./task-relations.js";
 export * from "./task-time-entries.js";

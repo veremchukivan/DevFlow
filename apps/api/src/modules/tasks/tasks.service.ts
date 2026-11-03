@@ -39,6 +39,7 @@ import {
 import { findTaskAttachment } from "../task-attachments/task-attachments.repository.js";
 import { runWorkspaceAutomationForTaskTransition } from "../workspace-automation/workspace-automation.engine.js";
 import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
+import { assertTaskCanMoveToDone } from "../task-development-flows/task-development-flows.service.js";
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -244,6 +245,9 @@ export async function repositionTask(input: {
   await requireProject(input);
   const task = await requireTask(input);
   const status = await resolveTaskStatus(input);
+  if (status.category === "done") {
+    await assertTaskCanMoveToDone(input);
+  }
   const repositioned = await repositionTaskInProject(input);
   if (!repositioned) {
     throw new AppError(
@@ -310,11 +314,17 @@ export async function updateTask(input: {
   const existingTask = await requireTask(input);
 
   if (input.input.statusId) {
-    await resolveTaskStatus({
+    const targetStatus = await resolveTaskStatus({
       projectId: input.projectId,
       statusId: input.input.statusId,
       workspaceId: input.workspaceId,
     });
+    if (
+      targetStatus.category === "done" &&
+      input.input.statusId !== existingTask.statusId
+    ) {
+      await assertTaskCanMoveToDone(input);
+    }
   }
 
   if (input.input.type !== undefined) {

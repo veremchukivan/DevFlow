@@ -1,0 +1,73 @@
+.panel {
+  border: 1px solid color-mix(in srgb, var(--brand) 34%, var(--line));
+  border-radius: 12px;
+  display: grid;
+  gap: 16px;
+  grid-column: 1 / -1;
+  padding: 18px;
+}
+
+.heading,
+.heading h3,
+.steps,
+.steps li,
+.actions,
+.sessions > div,
+.sessions form,
+.sessions li,
+.emptyState,
+.completed,
+.activeSession {
+  align-items: center;
+  display: flex;
+}
+
+.heading { justify-content: space-between; gap: 16px; }
+.heading h3 { color: var(--ink); font-size: 16px; gap: 8px; margin: 0; }
+.heading p { color: var(--muted); font-size: 13px; margin: 5px 0 0; }
+.state { background: color-mix(in srgb, var(--brand) 12%, var(--surface)); border-radius: 999px; color: var(--brand); font-size: 12px; font-weight: 800; padding: 5px 9px; white-space: nowrap; }
+.steps { gap: 3px; list-style: none; margin: 0; overflow-x: auto; padding: 0; }
+.steps li { color: var(--muted); font-size: 12px; gap: 5px; min-width: max-content; }
+.steps li:not(:last-child)::after { background: var(--line); content: ""; height: 1px; margin: 0 7px; width: 18px; }
+.steps .stepActive { color: var(--brand); font-weight: 750; }
+.form { display: grid; gap: 11px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form label { display: grid; gap: 6px; min-width: 0; }
+.form label > span { align-items: center; color: var(--muted); display: inline-flex; font-size: 12px; font-weight: 700; gap: 5px; }
+.form input, .form textarea, .form select, .sessions input, .sessions select { background: var(--surface); border: 1px solid #b9c4d1; border-radius: 7px; color: var(--ink); font: inherit; min-width: 0; padding: 8px 10px; width: 100%; }
+.form textarea { line-height: 1.45; resize: vertical; }
+.fullWidth { grid-column: 1 / -1; }
+.saveButton, .actions button, .emptyState button, .sessions form button { align-items: center; background: var(--brand); border: 1px solid var(--brand); border-radius: 7px; color: white; cursor: pointer; display: inline-flex; font: inherit; font-size: 13px; font-weight: 750; gap: 7px; justify-content: center; min-height: 36px; padding: 0 11px; }
+.saveButton { justify-self: start; }
+.actions { border-top: 1px solid var(--line); gap: 8px; padding-top: 16px; }
+.rejectButton { background: var(--surface) !important; border-color: #d59b9b !important; color: #a63232 !important; }
+.saveButton:disabled, .actions button:disabled, .emptyState button:disabled, .sessions form button:disabled { cursor: not-allowed; opacity: .58; }
+.sessions { border-top: 1px solid var(--line); display: grid; gap: 10px; padding-top: 16px; }
+.sessions > div { justify-content: space-between; }
+.sessions h4 { align-items: center; color: var(--ink); display: inline-flex; font-size: 14px; gap: 7px; margin: 0; }
+.sessions > div > span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; padding: 3px 7px; }
+.sessions form { gap: 8px; }
+.sessions select { width: 132px; }
+.sessions input { flex: 1; }
+.sessions form button { white-space: nowrap; }
+.sessions ul { display: grid; gap: 7px; list-style: none; margin: 0; padding: 0; }
+.sessions li { border: 1px solid var(--line); border-radius: 7px; justify-content: space-between; padding: 8px 10px; }
+.sessions li span { font-size: 13px; font-weight: 700; }
+.sessions li small { color: var(--muted); font-size: 11px; text-align: right; }
+.activeSession, .completed { color: var(--brand); font-size: 13px; font-weight: 700; gap: 7px; margin: 0; }
+.emptyState { background: color-mix(in srgb, var(--brand) 4%, var(--surface)); border: 1px dashed color-mix(in srgb, var(--brand) 42%, var(--line)); border-radius: 9px; gap: 12px; padding: 14px; }
+.emptyState > div:first-child { align-items: center; background: color-mix(in srgb, var(--brand) 14%, var(--surface)); border-radius: 8px; color: var(--brand); display: inline-flex; height: 38px; justify-content: center; width: 38px; }
+.emptyState strong { color: var(--ink); font-size: 14px; }
+.emptyState p, .empty, .error { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+.emptyState button { margin-left: auto; }
+.error { color: #b42318; font-weight: 700; }
+
+@media (max-width: 720px) {
+  .form { grid-template-columns: 1fr; }
+  .fullWidth { grid-column: auto; }
+  .sessions form { align-items: stretch; flex-direction: column; }
+  .sessions select { width: 100%; }
+  .sessions li { align-items: flex-start; flex-direction: column; }
+  .sessions li small { text-align: left; }
+  .emptyState { align-items: flex-start; flex-wrap: wrap; }
+  .emptyState button { margin-left: 50px; }
+}

@@ -32,6 +32,8 @@ import {
   updateProjectSprintRequestSchema,
   updateProjectStatusRequestSchema,
   createTaskRequestSchema,
+  createTaskDevelopmentFlowRequestSchema,
+  createTaskDevelopmentFlowSessionRequestSchema,
   repositionTaskRequestSchema,
   projectListResponseSchema,
   projectFigmaLinkListResponseSchema,
@@ -63,6 +65,13 @@ import {
   updateTaskChecklistItemRequestSchema,
   updateAiSettingsRequestSchema,
   taskResponseSchema,
+  taskDevelopmentFlowDetailsResponseSchema,
+  taskDevelopmentFlowResponseSchema,
+  taskDevelopmentFlowSessionResponseSchema,
+  transitionTaskDevelopmentFlowRequestSchema,
+  updateTaskDevelopmentFlowRequestSchema,
+  updateTaskDevelopmentFlowSessionRequestSchema,
+  rejectTaskDevelopmentFlowRequestSchema,
   workspaceListResponseSchema,
   workspaceInvitationListResponseSchema,
   workspaceInvitationResponseSchema,
@@ -154,6 +163,11 @@ import {
   type TaskSortOrder,
   type TaskResponse,
   type UpdateTaskRequest,
+  type CreateTaskDevelopmentFlowRequest,
+  type TaskDevelopmentFlowDetailsResponse,
+  type TaskDevelopmentFlowResponse,
+  type TaskDevelopmentFlowSessionResponse,
+  type UpdateTaskDevelopmentFlowRequest,
   type UpdateProfileRequest,
   type UpdateWorkspaceMemberRequest,
   type UpdateWorkspaceAutomationRuleRequest,
@@ -1214,6 +1228,112 @@ export function getTask(
     `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`,
     { method: "GET" },
     taskResponseSchema,
+  );
+}
+
+const developmentFlowPath = (
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/development-flow`;
+
+export function getTaskDevelopmentFlow(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<TaskDevelopmentFlowDetailsResponse> {
+  return request(
+    developmentFlowPath(workspaceId, projectId, taskId),
+    { method: "GET" },
+    taskDevelopmentFlowDetailsResponseSchema,
+  );
+}
+
+export function createTaskDevelopmentFlow(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: CreateTaskDevelopmentFlowRequest,
+): Promise<TaskDevelopmentFlowResponse> {
+  return request(
+    developmentFlowPath(workspaceId, projectId, taskId),
+    { body: JSON.stringify(createTaskDevelopmentFlowRequestSchema.parse(input)), method: "POST" },
+    taskDevelopmentFlowResponseSchema,
+  );
+}
+
+export function updateTaskDevelopmentFlow(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: UpdateTaskDevelopmentFlowRequest,
+): Promise<TaskDevelopmentFlowResponse> {
+  return request(
+    developmentFlowPath(workspaceId, projectId, taskId),
+    { body: JSON.stringify(updateTaskDevelopmentFlowRequestSchema.parse(input)), method: "PATCH" },
+    taskDevelopmentFlowResponseSchema,
+  );
+}
+
+export function transitionTaskDevelopmentFlow(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  state: "idea" | "planning" | "approval" | "ready" | "in_progress" | "review" | "done",
+): Promise<TaskDevelopmentFlowResponse> {
+  return request(
+    `${developmentFlowPath(workspaceId, projectId, taskId)}/transition`,
+    { body: JSON.stringify(transitionTaskDevelopmentFlowRequestSchema.parse({ state })), method: "POST" },
+    taskDevelopmentFlowResponseSchema,
+  );
+}
+
+function actOnTaskDevelopmentFlow(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  action: "approve-plan" | "approve-review" | "reject-plan" | "reject-review",
+  comment?: string,
+): Promise<TaskDevelopmentFlowResponse> {
+  return request(
+    `${developmentFlowPath(workspaceId, projectId, taskId)}/${action}`,
+    {
+      body: comment ? JSON.stringify(rejectTaskDevelopmentFlowRequestSchema.parse({ comment })) : undefined,
+      method: "POST",
+    },
+    taskDevelopmentFlowResponseSchema,
+  );
+}
+
+export const approveTaskDevelopmentPlan = (workspaceId: string, projectId: string, taskId: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "approve-plan");
+export const rejectTaskDevelopmentPlan = (workspaceId: string, projectId: string, taskId: string, comment: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "reject-plan", comment);
+export const approveTaskDevelopmentReview = (workspaceId: string, projectId: string, taskId: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "approve-review");
+export const rejectTaskDevelopmentReview = (workspaceId: string, projectId: string, taskId: string, comment: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "reject-review", comment);
+
+export function createTaskDevelopmentFlowSession(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: { agentName?: string; client: string },
+): Promise<TaskDevelopmentFlowSessionResponse> {
+  return request(
+    `${developmentFlowPath(workspaceId, projectId, taskId)}/sessions`,
+    { body: JSON.stringify(createTaskDevelopmentFlowSessionRequestSchema.parse(input)), method: "POST" },
+    taskDevelopmentFlowSessionResponseSchema,
+  );
+}
+
+export function updateTaskDevelopmentFlowSession(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  sessionId: string,
+  input: { status?: "active" | "paused" | "completed" | "failed"; summary?: string | null },
+): Promise<TaskDevelopmentFlowSessionResponse> {
+  return request(
+    `${developmentFlowPath(workspaceId, projectId, taskId)}/sessions/${sessionId}`,
+    { body: JSON.stringify(updateTaskDevelopmentFlowSessionRequestSchema.parse(input)), method: "PATCH" },
+    taskDevelopmentFlowSessionResponseSchema,
   );
 }
 

@@ -60,6 +60,7 @@ import type {
 import { can } from "@devflow/shared";
 
 import styles from "./task-work-panel.module.css";
+import { TaskDevelopmentFlowPanel } from "./task-development-flow-panel";
 
 type ActivityTab = "comments" | "history";
 type AttachmentPreviewSelection = {
@@ -682,6 +683,11 @@ export function TaskWorkPanel({
           placeholder="Add context, acceptance criteria or implementation notes…"
         />
       </section>
+      <TaskDevelopmentFlowPanel
+        canUpdate={canUpdateTask}
+        task={task}
+        workspaceId={workspaceId}
+      />
       <section
         className={styles.checklistSection}
         aria-labelledby="checklist-title"
