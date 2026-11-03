@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -13,7 +13,6 @@ import {
 
 import {
   ApiClientError,
-  createProject,
   deleteWorkspace,
   getProjects,
   getApiAssetUrl,
@@ -23,7 +22,6 @@ import {
   getTasks,
 } from "@/shared/lib/api-client";
 import {
-  notifyProjectsChanged,
   notifyWorkspacesChanged,
 } from "@/shared/lib/workspace-events";
 import {
@@ -57,8 +55,6 @@ export function WorkspaceDetail() {
   const [analyticsAssigneeId, setAnalyticsAssigneeId] = useState("all");
   const [analyticsSprintId, setAnalyticsSprintId] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
-  const [showProjectForm, setShowProjectForm] = useState(false);
-  const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -128,8 +124,7 @@ export function WorkspaceDetail() {
 
   useEffect(() => {
     if (searchParams.get("newProject") !== "1") return;
-    setShowProjectForm(true);
-    router.replace(`/workspaces/${workspaceId}`, { scroll: false });
+    router.replace(`/workspaces/${workspaceId}/projects/new`);
   }, [router, searchParams, workspaceId]);
 
   useEffect(() => {
@@ -164,36 +159,6 @@ export function WorkspaceDetail() {
       window.removeEventListener("focus", onFocus);
     };
   }, [projects, workspaceId]);
-
-  async function onCreateProject(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(undefined);
-    setIsCreatingProject(true);
-
-    const form = new FormData(event.currentTarget);
-    const key = String(form.get("key") ?? "").trim();
-    const description = String(form.get("description") ?? "").trim();
-
-    try {
-      const response = await createProject(workspaceId, {
-        name: String(form.get("name") ?? ""),
-        ...(key ? { key } : {}),
-        ...(description ? { description } : {}),
-      });
-      setProjects((current) => [response.project, ...current]);
-      notifyProjectsChanged(workspaceId);
-      setShowProjectForm(false);
-      event.currentTarget.reset();
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof ApiClientError
-          ? caughtError.message
-          : "Unable to create the project. Try again.",
-      );
-    } finally {
-      setIsCreatingProject(false);
-    }
-  }
 
   async function onWorkspaceDelete() {
     if (
@@ -636,51 +601,13 @@ export function WorkspaceDetail() {
           {canCreateProjects ? (
             <button
               className={styles.primaryButton}
-              onClick={() => setShowProjectForm((current) => !current)}
+              onClick={() => router.push(`/workspaces/${workspaceId}/projects/new`)}
               type="button"
             >
               New project
             </button>
           ) : null}
         </div>
-
-        {showProjectForm && canCreateProjects ? (
-          <form className={styles.projectForm} onSubmit={onCreateProject}>
-            <label>
-              <span>Project name</span>
-              <input maxLength={160} minLength={2} name="name" required />
-            </label>
-            <label>
-              <span>Key</span>
-              <input maxLength={12} name="key" placeholder="WEB" />
-            </label>
-            <label className={styles.projectDescription}>
-              <span>Description</span>
-              <input maxLength={2000} name="description" />
-            </label>
-            {error ? (
-              <p className={styles.formError} role="alert">
-                {error}
-              </p>
-            ) : null}
-            <div className={styles.formActions}>
-              <button
-                className={styles.primaryButton}
-                disabled={isCreatingProject}
-                type="submit"
-              >
-                {isCreatingProject ? "Creating" : "Create project"}
-              </button>
-              <button
-                className={styles.textButton}
-                onClick={() => setShowProjectForm(false)}
-                type="button"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : null}
 
         {projects.length === 0 ? (
           <p className={styles.emptyState}>

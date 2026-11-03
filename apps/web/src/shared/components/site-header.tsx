@@ -275,7 +275,7 @@ export function SiteHeader({ user }: { user: AuthUser }) {
           {workspaceId ? (
             <Link
               className={styles.createButton}
-              href={`/workspaces/${workspaceId}?newProject=1`}
+              href={`/workspaces/${workspaceId}/projects/new`}
             >
               <Plus aria-hidden="true" size={18} strokeWidth={2} />
               New project
