@@ -7,6 +7,7 @@ import {
   CreditCard,
   Database,
   Download,
+  GitBranch,
   Palette,
   KeyRound,
   LogOut,
@@ -35,18 +36,21 @@ import {
   requestEmailChange,
   createApiToken,
   disconnectFigma,
+  disconnectGitConnection,
   getApiTokens,
   getAiSettings,
   getFigmaConnection,
+  getGitConnections,
   revokeApiToken,
   revokeAccountSession,
   revokeOtherAccountSessions,
+  startGitConnection,
   updateProfile,
   updateAiSettings,
   uploadProfileAvatar,
 } from "@/shared/lib/api-client";
 import { notifyUserChanged } from "@/shared/lib/user-events";
-import type { AccountSession, AuthUser } from "@devflow/shared";
+import type { AccountSession, AuthUser, GitConnection } from "@devflow/shared";
 
 import styles from "./profile-settings.module.css";
 
@@ -746,6 +750,10 @@ function SetupPanel() {
   const [figmaConnected, setFigmaConnected] = useState(false);
   const [isLoadingFigma, setIsLoadingFigma] = useState(true);
   const [isDisconnectingFigma, setIsDisconnectingFigma] = useState(false);
+  const [gitConnections, setGitConnections] = useState<GitConnection[]>([]);
+  const [gitConfigured, setGitConfigured] = useState({ github: false, gitlab: false });
+  const [isLoadingGit, setIsLoadingGit] = useState(true);
+  const [disconnectingGitId, setDisconnectingGitId] = useState<string>();
   const apiReferenceUrl = getApiAssetUrl("/openapi.json");
   const apiExample = `curl -H "Authorization: Bearer YOUR_TOKEN" \\
   ${getApiAssetUrl("/api/v1/auth/me")}`;
@@ -759,6 +767,29 @@ function SetupPanel() {
       .catch(() => setSetupError("Unable to load Figma connection status."))
       .finally(() => setIsLoadingFigma(false));
   }, []);
+
+  useEffect(() => {
+    void getGitConnections()
+      .then((response) => {
+        setGitConnections(response.connections);
+        setGitConfigured(response.configured);
+      })
+      .catch(() => setSetupError("Unable to load Git connection status."))
+      .finally(() => setIsLoadingGit(false));
+  }, []);
+
+  async function disconnectGit(connection: GitConnection) {
+    setDisconnectingGitId(connection.id);
+    try {
+      await disconnectGitConnection(connection.id);
+      setGitConnections((current) => current.filter((item) => item.id !== connection.id));
+      setSetupMessage(`${connection.provider === "github" ? "GitHub" : "GitLab"} account disconnected.`);
+    } catch {
+      setSetupError("Unable to disconnect Git account.");
+    } finally {
+      setDisconnectingGitId(undefined);
+    }
+  }
 
   useEffect(() => {
     void getApiTokens()
@@ -858,6 +889,24 @@ function SetupPanel() {
               Figma setup required
             </button>
           )}
+        </div>
+        <div className={styles.integrationRow}>
+          <GitBranch aria-hidden="true" size={22} />
+          <div>
+            <strong>GitHub & GitLab</strong>
+            <span>
+              {isLoadingGit
+                ? "Checking your Git connections…"
+                : gitConnections.length
+                  ? `Connected: ${gitConnections.map((connection) => `${connection.provider === "github" ? "GitHub" : "GitLab"} (${connection.username})`).join(", ")}.`
+                  : "Connect a personal Git account to use repositories, branches, pull requests and CI in DevFlow."}
+            </span>
+          </div>
+          <div className={styles.integrationActions}>
+            {gitConnections.map((connection) => <button className={styles.textButton} disabled={disconnectingGitId === connection.id} key={connection.id} onClick={() => void disconnectGit(connection)} type="button">{disconnectingGitId === connection.id ? "Disconnecting…" : `Disconnect ${connection.provider === "github" ? "GitHub" : "GitLab"}`}</button>)}
+            {!gitConnections.some((connection) => connection.provider === "github") && gitConfigured.github ? <button className={styles.secondaryButton} disabled={isLoadingGit} onClick={() => startGitConnection("github")} type="button">Connect GitHub</button> : null}
+            {!gitConnections.some((connection) => connection.provider === "gitlab") && gitConfigured.gitlab ? <button className={styles.secondaryButton} disabled={isLoadingGit} onClick={() => startGitConnection("gitlab")} type="button">Connect GitLab</button> : null}
+          </div>
         </div>
       </section>
 

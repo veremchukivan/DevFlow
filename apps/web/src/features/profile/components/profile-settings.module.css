@@ -355,11 +355,19 @@
   color: #7a4bd1;
   flex: 0 0 auto;
 }
-.integrationRow > div {
+.integrationRow > div:not(.integrationActions) {
   display: grid;
   flex: 1;
   gap: 4px;
   min-width: 0;
+}
+.integrationActions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 .integrationRow strong {
   font-size: 14px;
@@ -552,7 +560,11 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .integrationRow > div {
+  .integrationRow > div:not(.integrationActions) {
     flex-basis: calc(100% - 40px);
+  }
+  .integrationActions {
+    flex-basis: 100%;
+    justify-content: flex-start;
   }
 }

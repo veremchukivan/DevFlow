@@ -1242,6 +1242,10 @@ export function getGitConnections(): Promise<GitConnectionsResponse> {
   return request("/api/v1/integrations/git/connections", { method: "GET" }, gitConnectionsResponseSchema);
 }
 
+export function disconnectGitConnection(connectionId: string): Promise<void> {
+  return requestNoContent(`/api/v1/integrations/git/connections/${connectionId}`, { method: "DELETE" });
+}
+
 export function startGitConnection(provider: "github" | "gitlab") {
   if (typeof window === "undefined") return;
   window.location.assign(`${getApiUrl()}/api/v1/integrations/git/${provider}/connect`);
