@@ -41,6 +41,7 @@ import { aiSettingsRouter } from "./modules/ai-settings/ai-settings.routes.js";
 import { workspaceAutomationRouter } from "./modules/workspace-automation/workspace-automation.routes.js";
 import { workspaceSettingsRouter } from "./modules/workspace-settings/workspace-settings.routes.js";
 import { workspaceCallsRouter } from "./modules/workspace-calls/workspace-calls.routes.js";
+import { gitIntegrationsRouter, projectRepositoryRouter, taskGitRouter } from "./modules/git-integrations/git-integrations.routes.js";
 
 export function createApp() {
   const app = express();
@@ -94,6 +95,7 @@ export function createApp() {
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/ai-settings", aiSettingsRouter);
   app.use("/api/v1/integrations/figma", figmaRouter);
+  app.use("/api/v1/integrations/git", gitIntegrationsRouter);
   app.use("/api/v1/notifications", notificationsRouter);
   app.use("/api/v1/invitations", publicInvitationsRouter);
   app.use("/api/v1/workspaces", workspacesRouter);
@@ -119,6 +121,10 @@ export function createApp() {
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/development-flow",
     taskDevelopmentFlowsRouter,
+  );
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/git",
+    taskGitRouter,
   );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks/:taskId/activity",
@@ -151,6 +157,10 @@ export function createApp() {
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/sprints",
     projectSprintsRouter,
+  );
+  app.use(
+    "/api/v1/workspaces/:workspaceId/projects/:projectId/repository",
+    projectRepositoryRouter,
   );
   app.use(
     "/api/v1/workspaces/:workspaceId/projects/:projectId/tasks",

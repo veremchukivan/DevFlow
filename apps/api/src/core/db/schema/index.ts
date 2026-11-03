@@ -1,6 +1,7 @@
 export * from "./auth-tokens.js";
 export * from "./api-tokens.js";
 export * from "./figma-connections.js";
+export * from "./git-integrations.js";
 export * from "./notifications.js";
 export * from "./notification-preferences.js";
 export * from "./project-statuses.js";

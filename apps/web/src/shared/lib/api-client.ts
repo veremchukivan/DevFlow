@@ -13,6 +13,10 @@ import {
   emailVerificationTokenRequestSchema,
   healthResponseSchema,
   figmaFilePreviewResponseSchema,
+  gitConnectionsResponseSchema,
+  projectRepositoryResponseSchema,
+  taskGitLinkResponseSchema,
+  taskGitLinksResponseSchema,
   loginRequestSchema,
   notificationListResponseSchema,
   notificationPreferencesSchema,
@@ -102,6 +106,9 @@ import {
   type DeleteAccountRequest,
   type HealthResponse,
   type FigmaFilePreview,
+  type GitConnectionsResponse,
+  type ProjectRepository,
+  type TaskGitLink,
   type LoginRequest,
   type NotificationListResponse,
   type NotificationPreferences,
@@ -1229,6 +1236,49 @@ export function getTask(
     { method: "GET" },
     taskResponseSchema,
   );
+}
+
+export function getGitConnections(): Promise<GitConnectionsResponse> {
+  return request("/api/v1/integrations/git/connections", { method: "GET" }, gitConnectionsResponseSchema);
+}
+
+export function startGitConnection(provider: "github" | "gitlab") {
+  if (typeof window === "undefined") return;
+  window.location.assign(`${getApiUrl()}/api/v1/integrations/git/${provider}/connect`);
+}
+
+export function getProjectRepository(workspaceId: string, projectId: string): Promise<{ repository: ProjectRepository | null }> {
+  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`, { method: "GET" }, projectRepositoryResponseSchema);
+}
+
+export function connectProjectRepository(workspaceId: string, projectId: string, input: { connectionId: string; fullName: string }): Promise<{ repository: ProjectRepository }> {
+  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`, { body: JSON.stringify(input), method: "PUT" }, projectRepositoryResponseSchema.transform((value) => ({ repository: value.repository! })));
+}
+
+export function removeProjectRepository(workspaceId: string, projectId: string): Promise<void> {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`, { method: "DELETE" });
+}
+
+export function getProjectReleaseNotes(workspaceId: string, projectId: string): Promise<{ generatedAt: string; markdown: string; mergedChanges: number }> {
+  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository/release-notes`, { method: "GET" }, z.object({ generatedAt: z.string().datetime(), markdown: z.string(), mergedChanges: z.number().int().nonnegative() }));
+}
+
+const taskGitPath = (workspaceId: string, projectId: string, taskId: string) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/git`;
+
+export function getTaskGitLinks(workspaceId: string, projectId: string, taskId: string): Promise<{ links: TaskGitLink[] }> {
+  return request(taskGitPath(workspaceId, projectId, taskId), { method: "GET" }, taskGitLinksResponseSchema);
+}
+
+export function createTaskGitBranch(workspaceId: string, projectId: string, taskId: string, input: { name: string; baseBranch?: string }): Promise<{ link: TaskGitLink }> {
+  return request(`${taskGitPath(workspaceId, projectId, taskId)}/branch`, { body: JSON.stringify(input), method: "POST" }, taskGitLinkResponseSchema);
+}
+
+export function createTaskPullRequest(workspaceId: string, projectId: string, taskId: string, input: { baseBranch?: string; body?: string; title?: string }): Promise<{ link: TaskGitLink }> {
+  return request(`${taskGitPath(workspaceId, projectId, taskId)}/pull-request`, { body: JSON.stringify(input), method: "POST" }, taskGitLinkResponseSchema);
+}
+
+export function syncTaskGitLinks(workspaceId: string, projectId: string, taskId: string): Promise<{ links: TaskGitLink[]; ciStatus: "not_configured" | "pending" | "passing" | "failing"; synchronizedAt: string }> {
+  return request(`${taskGitPath(workspaceId, projectId, taskId)}/sync`, { method: "POST" }, z.object({ links: z.array(taskGitLinkResponseSchema.shape.link), ciStatus: z.enum(["not_configured", "pending", "passing", "failing"]), synchronizedAt: z.string().datetime() }));
 }
 
 const developmentFlowPath = (

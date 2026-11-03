@@ -104,6 +104,7 @@ import { TaskWatchersPanel } from "./task-watchers-panel";
 import { TaskTimeTrackingPanel } from "./task-time-tracking-panel";
 import { TaskRelationsPanel } from "./task-relations-panel";
 import { ProjectTeamModal } from "./project-team-modal";
+import { ProjectRepositorySettings } from "./project-repository-settings";
 import { notifyProjectsChanged } from "@/shared/lib/workspace-events";
 import styles from "@/shared/styles/ui.module.css";
 
@@ -2226,6 +2227,11 @@ export function ProjectBoard() {
               </form>
             ) : null}
           </section>
+          <ProjectRepositorySettings
+            canUpdate={canUpdateProject}
+            projectId={projectId}
+            workspaceId={workspaceId}
+          />
           <section className={styles.workspaceSection}>
             <div className={styles.sectionHeading}>
               <div>

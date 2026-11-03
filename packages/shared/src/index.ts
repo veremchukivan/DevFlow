@@ -3,6 +3,7 @@ export * from "./schemas/ai-settings.js";
 export * from "./schemas/auth.js";
 export * from "./schemas/health.js";
 export * from "./schemas/figma.js";
+export * from "./schemas/git-integrations.js";
 export * from "./schemas/notifications.js";
 export * from "./schemas/notification-preferences.js";
 export * from "./schemas/pagination.js";

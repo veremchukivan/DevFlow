@@ -20,13 +20,17 @@ import {
   approveTaskDevelopmentReview,
   createTaskDevelopmentFlow,
   createTaskDevelopmentFlowSession,
+  createTaskGitBranch,
+  createTaskPullRequest,
   getTaskDevelopmentFlow,
+  getTaskGitLinks,
   rejectTaskDevelopmentPlan,
   rejectTaskDevelopmentReview,
   transitionTaskDevelopmentFlow,
   updateTaskDevelopmentFlow,
+  syncTaskGitLinks,
 } from "@/shared/lib/api-client";
-import type { Task, TaskDevelopmentFlow, TaskDevelopmentFlowSession } from "@devflow/shared";
+import type { Task, TaskDevelopmentFlow, TaskDevelopmentFlowSession, TaskGitLink } from "@devflow/shared";
 
 import styles from "./task-development-flow-panel.module.css";
 
@@ -61,6 +65,7 @@ export function TaskDevelopmentFlowPanel({
 }) {
   const [flow, setFlow] = useState<TaskDevelopmentFlow | null>();
   const [sessions, setSessions] = useState<TaskDevelopmentFlowSession[]>([]);
+  const [gitLinks, setGitLinks] = useState<TaskGitLink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -75,6 +80,8 @@ export function TaskDevelopmentFlowPanel({
       );
       setFlow(response.flow);
       setSessions(response.sessions);
+      const gitResponse = await getTaskGitLinks(workspaceId, task.projectId, task.id);
+      setGitLinks(gitResponse.links);
       setError(undefined);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to load Development Flow."));
@@ -203,6 +210,35 @@ export function TaskDevelopmentFlowPanel({
     }
   }
 
+  async function createBranch() {
+    const name = window.prompt("Branch name", `feature/task-${task.number}-${slug(task.title)}`)?.trim();
+    if (!name) return;
+    setIsSaving(true);
+    try {
+      await createTaskGitBranch(workspaceId, task.projectId, task.id, { name });
+      await load();
+    } catch (caughtError) { setError(messageFor(caughtError, "Unable to create branch.")); } finally { setIsSaving(false); }
+  }
+
+  async function createPullRequest() {
+    setIsSaving(true);
+    try {
+      await createTaskPullRequest(workspaceId, task.projectId, task.id, {
+        body: flow?.summary ?? "",
+        title: `Task ${task.number}: ${task.title}`,
+      });
+      await load();
+    } catch (caughtError) { setError(messageFor(caughtError, "Unable to create pull request.")); } finally { setIsSaving(false); }
+  }
+
+  async function syncGit() {
+    setIsSaving(true);
+    try {
+      await syncTaskGitLinks(workspaceId, task.projectId, task.id);
+      await load();
+    } catch (caughtError) { setError(messageFor(caughtError, "Unable to synchronize Git activity.")); } finally { setIsSaving(false); }
+  }
+
   return (
     <section className={styles.panel} aria-labelledby={`development-flow-${task.id}`}>
       <div className={styles.heading}>
@@ -271,6 +307,15 @@ export function TaskDevelopmentFlowPanel({
             {canUpdate ? <button className={styles.saveButton} disabled={isSaving} type="submit"><Save aria-hidden="true" size={15} /> Save flow details</button> : null}
           </form>
           {canUpdate ? <div className={styles.actions}>{flowAction(flow.state, isSaving, transition, decide)}</div> : null}
+          <section className={styles.sessions} aria-label="Git delivery links">
+            <div><h4><GitBranch aria-hidden="true" size={16} /> Repository delivery</h4><span>{gitLinks.length}</span></div>
+            {canUpdate ? <div className={styles.actions}>
+              {!flow.branchName ? <button disabled={isSaving} onClick={() => void createBranch()} type="button"><GitBranch aria-hidden="true" size={14} /> Create branch</button> : null}
+              {flow.branchName && !flow.pullRequestUrl ? <button disabled={isSaving} onClick={() => void createPullRequest()} type="button"><Send aria-hidden="true" size={14} /> Create pull request</button> : null}
+              <button disabled={isSaving} onClick={() => void syncGit()} type="button">Sync Git & CI</button>
+            </div> : null}
+            {gitLinks.length ? <ul>{gitLinks.map((link) => <li key={link.id}><a href={link.url} rel="noreferrer" target="_blank"><span>{link.type.replace("_", " ")}: {link.label}</span><small>{link.status ?? "linked"}</small></a></li>)}</ul> : <p className={styles.empty}>Connect a repository in project settings to create and synchronize delivery links.</p>}
+          </section>
           {flow.state === "in_progress" ? (
             <section className={styles.sessions} aria-labelledby={`agent-sessions-${task.id}`}>
               <div><h4 id={`agent-sessions-${task.id}`}><Bot aria-hidden="true" size={16} /> AI agent sessions</h4><span>{sessions.length}</span></div>
@@ -303,6 +348,10 @@ function flowAction(
 function valueOrNull(value: FormDataEntryValue | null) {
   const text = String(value ?? "").trim();
   return text || null;
+}
+
+function slug(value: string) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 48) || "work";
 }
 
 function messageFor(error: unknown, fallback: string) {
