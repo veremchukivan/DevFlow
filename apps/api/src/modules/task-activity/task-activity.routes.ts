@@ -1,13 +1,13 @@
 import {
   paginationQuerySchema,
   taskActivityParamsSchema,
-  type TaskActivityEventListResponse
+  type TaskActivityEventListResponse,
 } from "@devflow/shared";
 import { Router } from "express";
 
 import {
   type AuthenticatedRequest,
-  requireAuth
+  requireAuth,
 } from "../auth/auth.middleware.js";
 import { listTaskActivity } from "./task-activity.service.js";
 
@@ -23,12 +23,12 @@ taskActivityRouter.get("/", async (req, res) => {
     projectId: params.projectId,
     taskId: params.taskId,
     userId: getAuthenticatedUserId(req),
-    workspaceId: params.workspaceId
+    workspaceId: params.workspaceId,
   });
 
   res.json({
     events: result.events.map(toTaskActivityEventDto),
-    pageInfo: result.pageInfo
+    pageInfo: result.pageInfo,
   } satisfies TaskActivityEventListResponse);
 });
 
@@ -49,7 +49,17 @@ function toTaskActivityEventDto(event: {
     | "task_restored"
     | "task_comment_created"
     | "task_comment_updated"
-    | "task_comment_deleted";
+    | "task_comment_deleted"
+    | "task_attachment_added"
+    | "task_attachment_removed"
+    | "task_relation_added"
+    | "task_relation_removed"
+    | "task_checklist_item_added"
+    | "task_checklist_item_updated"
+    | "task_checklist_item_removed"
+    | "task_time_logged"
+    | "task_timer_started"
+    | "task_timer_stopped";
   id: string;
   projectId: string;
   taskId: string;
@@ -60,7 +70,7 @@ function toTaskActivityEventDto(event: {
       event.actorId && event.actorDisplayName
         ? {
             displayName: event.actorDisplayName,
-            id: event.actorId
+            id: event.actorId,
           }
         : null,
     actorUserId: event.actorUserId,
@@ -70,6 +80,6 @@ function toTaskActivityEventDto(event: {
     id: event.id,
     projectId: event.projectId,
     taskId: event.taskId,
-    workspaceId: event.workspaceId
+    workspaceId: event.workspaceId,
   };
 }

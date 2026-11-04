@@ -1,10 +1,12 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   check,
   date,
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -15,6 +17,7 @@ import {
 
 import { softDeleteColumn, timestampColumns } from "./_common.js";
 import { projectStatuses } from "./project-statuses.js";
+import { projectSprints } from "./project-sprints.js";
 import { projects } from "./projects.js";
 import { users } from "./users.js";
 import { workspaces } from "./workspaces.js";
@@ -26,6 +29,14 @@ export const taskPriorityEnum = pgEnum("task_priority", [
   "urgent",
 ]);
 
+export const taskTypeEnum = pgEnum("task_type", [
+  "epic",
+  "bug",
+  "feature",
+  "story",
+  "task",
+]);
+
 export const tasks = pgTable(
   "tasks",
   {
@@ -35,10 +46,25 @@ export const tasks = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     projectId: uuid("project_id").notNull(),
     number: integer("number").notNull(),
+    parentTaskId: uuid("parent_task_id").references(
+      (): AnyPgColumn => tasks.id,
+      { onDelete: "restrict" },
+    ),
     statusId: uuid("status_id").notNull(),
+    position: integer("position").notNull().default(1000),
+    sprintId: uuid("sprint_id"),
+    epicId: uuid("epic_id"),
+    releaseId: uuid("release_id"),
+    complexityPoints: integer("complexity_points"),
+    type: taskTypeEnum("type").notNull().default("task"),
     title: varchar("title", { length: 200 }).notNull(),
     description: text("description"),
+    customFields: jsonb("custom_fields")
+      .$type<Record<string, string | number | null>>()
+      .notNull()
+      .default({}),
     dueDate: date("due_date"),
+    estimateMinutes: integer("estimate_minutes"),
     priority: taskPriorityEnum("priority").notNull().default("medium"),
     assigneeUserId: uuid("assignee_user_id").references(() => users.id, {
       onDelete: "set null",
@@ -65,6 +91,15 @@ export const tasks = pgTable(
       ],
       name: "tasks_project_status_fk",
     }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.workspaceId, table.projectId, table.sprintId],
+      foreignColumns: [
+        projectSprints.workspaceId,
+        projectSprints.projectId,
+        projectSprints.id,
+      ],
+      name: "tasks_project_sprint_fk",
+    }).onDelete("restrict"),
     uniqueIndex("tasks_project_number_unique").on(
       table.workspaceId,
       table.projectId,
@@ -80,6 +115,24 @@ export const tasks = pgTable(
       table.projectId,
       table.statusId,
     ),
+    index("tasks_project_status_position_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.statusId,
+      table.position,
+    ),
+    index("tasks_project_sprint_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.sprintId,
+    ),
+    index("tasks_project_epic_idx").on(table.workspaceId, table.projectId, table.epicId),
+    index("tasks_project_release_idx").on(table.workspaceId, table.projectId, table.releaseId),
+    index("tasks_project_parent_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.parentTaskId,
+    ),
     index("tasks_project_deleted_at_idx").on(
       table.workspaceId,
       table.projectId,
@@ -88,6 +141,11 @@ export const tasks = pgTable(
     index("tasks_assignee_user_id_idx").on(table.assigneeUserId),
     index("tasks_reporter_user_id_idx").on(table.reporterUserId),
     check("tasks_number_positive_check", sql`${table.number} > 0`),
+    check(
+      "tasks_estimate_minutes_nonnegative_check",
+      sql`${table.estimateMinutes} is null or ${table.estimateMinutes} >= 0`,
+    ),
+    check("tasks_complexity_points_nonnegative_check", sql`${table.complexityPoints} is null or ${table.complexityPoints} >= 0`),
   ],
 );
 

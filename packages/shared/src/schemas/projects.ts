@@ -76,7 +76,41 @@ export const projectStatusParamsSchema = projectParamsSchema.extend({
   statusId: z.uuid()
 });
 
+export const projectFigmaLinkParamsSchema = projectParamsSchema.extend({
+  linkId: z.uuid()
+});
+
+export const createProjectFigmaLinkRequestSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  url: z
+    .url()
+    .refine(
+      (value) => /^https?:\/\/(?:[a-z0-9-]+\.)*figma\.com(?:[/:?#]|$)/i.test(value),
+      { message: "Figma link must point to figma.com" },
+    )
+});
+
+export const projectFigmaLinkSchema = z.object({
+  createdAt: z.string().datetime(),
+  createdByUserId: z.uuid().nullable(),
+  id: z.uuid(),
+  name: z.string(),
+  projectId: z.uuid(),
+  updatedAt: z.string().datetime(),
+  url: z.url(),
+  workspaceId: z.uuid()
+});
+
+export const projectFigmaLinkListResponseSchema = z.object({
+  links: z.array(projectFigmaLinkSchema)
+});
+
+export const projectFigmaLinkResponseSchema = z.object({
+  link: projectFigmaLinkSchema
+});
+
 export const projectSchema = z.object({
+  iconUrl: z.string().max(500).nullable(),
   createdAt: z.string().datetime(),
   description: z.string().nullable(),
   id: z.uuid(),
@@ -117,3 +151,7 @@ export type UpdateProjectStatusRequest = z.infer<
 export type ReorderProjectStatusesRequest = z.infer<
   typeof reorderProjectStatusesRequestSchema
 >;
+export type CreateProjectFigmaLinkRequest = z.infer<
+  typeof createProjectFigmaLinkRequestSchema
+>;
+export type ProjectFigmaLink = z.infer<typeof projectFigmaLinkSchema>;

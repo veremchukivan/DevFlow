@@ -9,18 +9,33 @@ export const taskActivityEventTypeSchema = z.enum([
   "task_restored",
   "task_comment_created",
   "task_comment_updated",
-  "task_comment_deleted"
+  "task_comment_deleted",
+  "task_attachment_added",
+  "task_attachment_removed",
+  "task_relation_added",
+  "task_relation_removed",
+  "task_checklist_item_added",
+  "task_checklist_item_updated",
+  "task_checklist_item_removed",
+  "task_time_logged",
+  "task_timer_started",
+  "task_timer_stopped",
 ]);
 
 export const taskActivityParamsSchema = z.object({
   projectId: z.uuid(),
   taskId: z.uuid(),
-  workspaceId: z.uuid()
+  workspaceId: z.uuid(),
+});
+
+export const projectActivityParamsSchema = z.object({
+  projectId: z.uuid(),
+  workspaceId: z.uuid(),
 });
 
 export const taskActivityActorSchema = z.object({
   displayName: z.string(),
-  id: z.uuid()
+  id: z.uuid(),
 });
 
 export const taskActivityEventSchema = z.object({
@@ -32,17 +47,17 @@ export const taskActivityEventSchema = z.object({
   id: z.uuid(),
   projectId: z.uuid(),
   taskId: z.uuid(),
-  workspaceId: z.uuid()
+  taskKey: z.string().optional(),
+  taskTitle: z.string().optional(),
+  workspaceId: z.uuid(),
 });
 
 export const taskActivityEventListResponseSchema = z.object({
   events: z.array(taskActivityEventSchema),
-  pageInfo: pageInfoSchema
+  pageInfo: pageInfoSchema,
 });
 
-export type TaskActivityEventType = z.infer<
-  typeof taskActivityEventTypeSchema
->;
+export type TaskActivityEventType = z.infer<typeof taskActivityEventTypeSchema>;
 export type TaskActivityEvent = z.infer<typeof taskActivityEventSchema>;
 export type TaskActivityEventListResponse = z.infer<
   typeof taskActivityEventListResponseSchema

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/shared/components/app-shell";
+import { AppShell } from "../shared/components/app-shell";
 
+import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 import styles from "./layout.module.css";
 
@@ -16,6 +17,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /*  */
   return (
     <html lang="en">
       <body className={styles.body}>

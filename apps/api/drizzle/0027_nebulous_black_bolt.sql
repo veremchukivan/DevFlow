@@ -1,0 +1,4 @@
+ALTER TABLE "project_view_preferences" ADD COLUMN "task_card_accent" varchar(16) DEFAULT 'status' NOT NULL;--> statement-breakpoint
+ALTER TABLE "project_view_preferences" ADD COLUMN "task_card_color" varchar(16) DEFAULT 'neutral' NOT NULL;--> statement-breakpoint
+ALTER TABLE "project_view_preferences" ADD CONSTRAINT "project_view_preferences_task_card_accent_check" CHECK ("project_view_preferences"."task_card_accent" in ('none', 'status', 'priority'));--> statement-breakpoint
+ALTER TABLE "project_view_preferences" ADD CONSTRAINT "project_view_preferences_task_card_color_check" CHECK ("project_view_preferences"."task_card_color" in ('neutral', 'blue', 'violet', 'sand'));

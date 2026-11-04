@@ -8,6 +8,26 @@
   --brand: #4077bc;
   --brand-hover: #316bb1;
   --danger: #bd2c2c;
+
+  /* Bootstrap is the shared component foundation; these keep its utilities
+     visually consistent with the existing DevFlow CSS modules. */
+  --bs-body-bg: var(--canvas);
+  --bs-body-color: var(--ink);
+  --bs-body-font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --bs-primary: var(--brand);
+  --bs-primary-rgb: 64, 119, 188;
+  --bs-secondary: #657085;
+  --bs-success: #24745d;
+  --bs-danger: var(--danger);
+  --bs-light: #f5f7fb;
+  --bs-border-color: var(--line);
+  --bs-border-radius: 0.5rem;
+  --bs-border-radius-sm: 0.375rem;
+  --bs-box-shadow-sm: 0 0.125rem 0.35rem rgb(24 33 47 / 8%);
+  --bs-box-shadow: 0 0.5rem 1.5rem rgb(24 33 47 / 10%);
+  --bs-focus-ring-color: rgb(64 119 188 / 22%);
 }
 
 * {
@@ -16,6 +36,9 @@
 
 html,
 body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--bs-body-font-family);
   margin: 0;
   min-height: 100%;
 }
@@ -26,8 +49,29 @@ select,
 textarea {
   font: inherit;
 }
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+select,
+textarea {
+  border-color: var(--bs-border-color);
+  border-radius: var(--bs-border-radius-sm);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+  outline: 0;
+}
 button {
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 button:disabled {
   cursor: wait;

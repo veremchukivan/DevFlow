@@ -1,17 +1,20 @@
 import type {
   CreateTaskCommentRequest,
   PaginationQuery,
-  UpdateTaskCommentRequest
+  UpdateTaskCommentRequest,
 } from "@devflow/shared";
 
 import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { sanitizeRichText } from "../../core/rich-text/sanitize.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
+import { notifyTaskWatchers } from "../notifications/notifications.service.js";
+import { listTaskWatcherUserIds } from "../task-watchers/task-watchers.repository.js";
 import {
   canCreateTaskComment,
   canDeleteTaskComment,
-  canUpdateTaskComment
+  canUpdateTaskComment,
 } from "./task-comments.policy.js";
 import {
   createTaskComment,
@@ -20,8 +23,11 @@ import {
   findTaskInProject,
   listTaskComments,
   softDeleteTaskComment,
-  updateTaskComment
+  updateTaskComment,
 } from "./task-comments.repository.js";
+import { listCommentAttachments } from "../task-attachments/task-attachments.repository.js";
+import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
+import { runWorkspaceAutomation } from "../workspace-automation/workspace-automation.engine.js";
 
 export async function createComment(input: {
   input: CreateTaskCommentRequest;
@@ -36,22 +42,22 @@ export async function createComment(input: {
     throw new AppError(
       403,
       "TASK_COMMENT_CREATE_FORBIDDEN",
-      "You cannot comment on tasks in this workspace"
+      "You cannot comment on tasks in this workspace",
     );
   }
 
-  await requireTask(input);
+  const task = await requireTask(input);
 
-  return db.transaction(async (tx) => {
+  const comment = await db.transaction(async (tx) => {
     const comment = await createTaskComment(
       {
         authorUserId: input.userId,
-        body: input.input.body,
+        body: sanitizeRichText(input.input.body, "Comment"),
         projectId: input.projectId,
         taskId: input.taskId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
 
     if (!comment) {
@@ -62,18 +68,38 @@ export async function createComment(input: {
       {
         actorUserId: input.userId,
         data: {
-          commentId: comment.id
+          commentId: comment.id,
         },
         eventType: "task_comment_created",
         projectId: input.projectId,
         taskId: input.taskId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
 
     return comment;
   });
+  const watcherUserIds = await listTaskWatcherUserIds(input);
+  await notifyTaskWatchers({
+    actorUserId: input.userId,
+    projectId: input.projectId,
+    recipientUserIds: [task.assigneeUserId, ...watcherUserIds],
+    taskId: input.taskId,
+    taskKey: `${task.projectKey}-${task.number}`,
+    taskTitle: task.title,
+    type: "task_commented",
+    workspaceId: input.workspaceId,
+  });
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  if (settings.features.automation !== false) {
+    try {
+      await runWorkspaceAutomation({ actorUserId: input.userId, projectId: input.projectId, taskId: input.taskId, triggerType: "comment_created", workspaceId: input.workspaceId });
+    } catch {
+      // A comment must remain created even if a configured flow fails.
+    }
+  }
+  return (await hydrateComments([comment], input))[0]!;
 }
 
 export async function listComments(input: {
@@ -90,12 +116,12 @@ export async function listComments(input: {
     pagination: input.pagination,
     projectId: input.projectId,
     taskId: input.taskId,
-    workspaceId: input.workspaceId
+    workspaceId: input.workspaceId,
   });
 
   return {
-    comments: result.items,
-    pageInfo: buildPageInfo({ ...input.pagination, total: result.total })
+    comments: await hydrateComments(result.items, input),
+    pageInfo: buildPageInfo({ ...input.pagination, total: result.total }),
   };
 }
 
@@ -115,47 +141,53 @@ export async function updateComment(input: {
   if (
     !canUpdateTaskComment(
       membership.role,
-      comment.authorUserId === input.userId
+      comment.authorUserId === input.userId,
     )
   ) {
     throw new AppError(
       403,
       "TASK_COMMENT_UPDATE_FORBIDDEN",
-      "You cannot update this task comment"
+      "You cannot update this task comment",
     );
   }
 
   return db.transaction(async (tx) => {
     const updatedComment = await updateTaskComment(
       {
-        body: input.input.body,
+        body: sanitizeRichText(input.input.body, "Comment"),
         commentId: input.commentId,
         projectId: input.projectId,
         taskId: input.taskId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
 
     if (!updatedComment) {
-      throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
+      throw new AppError(
+        404,
+        "TASK_COMMENT_NOT_FOUND",
+        "Task comment not found",
+      );
     }
 
     await recordTaskActivity(
       {
         actorUserId: input.userId,
         data: {
-          commentId: input.commentId
+          commentId: input.commentId,
         },
         eventType: "task_comment_updated",
         projectId: input.projectId,
         taskId: input.taskId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
 
-    return updatedComment;
+    return hydrateComments([updatedComment], input).then(
+      (comments) => comments[0]!,
+    );
   });
 }
 
@@ -174,13 +206,13 @@ export async function deleteComment(input: {
   if (
     !canDeleteTaskComment(
       membership.role,
-      comment.authorUserId === input.userId
+      comment.authorUserId === input.userId,
     )
   ) {
     throw new AppError(
       403,
       "TASK_COMMENT_DELETE_FORBIDDEN",
-      "You cannot delete this task comment"
+      "You cannot delete this task comment",
     );
   }
 
@@ -188,21 +220,25 @@ export async function deleteComment(input: {
     const deletedComment = await softDeleteTaskComment(input, tx);
 
     if (!deletedComment) {
-      throw new AppError(404, "TASK_COMMENT_NOT_FOUND", "Task comment not found");
+      throw new AppError(
+        404,
+        "TASK_COMMENT_NOT_FOUND",
+        "Task comment not found",
+      );
     }
 
     await recordTaskActivity(
       {
         actorUserId: input.userId,
         data: {
-          commentId: input.commentId
+          commentId: input.commentId,
         },
         eventType: "task_comment_deleted",
         projectId: input.projectId,
         taskId: input.taskId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       },
-      tx
+      tx,
     );
   });
 }
@@ -247,4 +283,26 @@ async function requireComment(input: {
   }
 
   return comment;
+}
+
+async function hydrateComments<
+  T extends { id: string; projectId: string; taskId: string; workspaceId: string },
+>(comments: T[], scope: { projectId: string; taskId: string; workspaceId: string }) {
+  const attachments = await listCommentAttachments({
+    ...scope,
+    commentIds: comments.map((comment) => comment.id),
+  });
+  const attachmentsByCommentId = new Map<string, typeof attachments>();
+
+  for (const attachment of attachments) {
+    if (!attachment.commentId) continue;
+    const current = attachmentsByCommentId.get(attachment.commentId) ?? [];
+    current.push(attachment);
+    attachmentsByCommentId.set(attachment.commentId, current);
+  }
+
+  return comments.map((comment) => ({
+    ...comment,
+    attachments: attachmentsByCommentId.get(comment.id) ?? [],
+  }));
 }

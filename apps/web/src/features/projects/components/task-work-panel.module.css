@@ -1,0 +1,1067 @@
+.panel {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.62fr);
+  padding-top: 24px;
+}
+
+.descriptionSection,
+.checklistSection,
+.subtasksSection,
+.attachmentsSection,
+.timeTrackingSection,
+.watchersSection,
+.relationsSection,
+.activitySection {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.descriptionSection {
+  border: 0;
+  border-radius: 0;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  padding: 0;
+}
+
+.descriptionSection textarea {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.55;
+  margin-top: 16px;
+  padding: 11px;
+  resize: vertical;
+  width: 100%;
+}
+
+.descriptionSection > div:last-child {
+  margin-top: 16px;
+}
+
+.attachmentsSection {
+  border: 0;
+  border-radius: 0;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding: 0;
+}
+
+.attachmentsSectionDragActive {
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  outline: 2px dashed var(--brand);
+  outline-offset: 8px;
+}
+
+.timeTrackingSection {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+
+.checklistSection {
+  grid-column: 1;
+  grid-row: 4;
+}
+
+.watchersSection {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+
+.subtasksSection {
+  grid-column: 2;
+  grid-row: 5;
+}
+
+.checklistSection {
+  grid-row: 5;
+}
+
+.relationsSection,
+.activitySection {
+  grid-column: 1 / -1;
+}
+
+.sectionHeading,
+.commentHeading,
+.tabs,
+.inlineForm,
+.commentActions,
+.editCommentForm > div {
+  align-items: center;
+  display: flex;
+}
+
+.sectionHeading {
+  color: var(--muted);
+  justify-content: space-between;
+}
+
+.sectionHeading h3 {
+  color: var(--ink);
+  font-size: 16px;
+  margin: 0;
+}
+
+.sectionHeading p {
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.inlineForm {
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.inlineForm input,
+.commentForm textarea,
+.editCommentForm textarea {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+}
+
+.inlineForm input {
+  flex: 1;
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.inlineForm button,
+.commentComposerActions > button,
+.editCommentForm > div > button {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.inlineForm button:disabled,
+.commentComposerActions > button:disabled,
+.editCommentForm > div > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.timeSummary {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  margin-top: 16px;
+}
+
+.timeSummary > div {
+  background: color-mix(in srgb, var(--surface) 82%, var(--brand) 4%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+}
+
+.timeSummary span,
+.timeEntryForm span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.timeSummary strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.timerButton,
+.timeEntryForm button {
+  align-items: center;
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 7px;
+  color: white;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 700;
+  gap: 7px;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 13px;
+}
+
+.timerButton:disabled,
+.timeEntryForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.activeTimer {
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 10px 0 0;
+}
+
+.timeEntryForm {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  margin-top: 14px;
+}
+
+.timeEntryForm label {
+  display: grid;
+  gap: 5px;
+}
+
+.timeEntryForm input {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 38px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.timeEntryList {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.timeEntryList li {
+  align-items: center;
+  display: grid;
+  font-size: 13px;
+  gap: 8px;
+  grid-template-columns: minmax(92px, 0.35fr) minmax(0, 1fr) auto;
+}
+
+.timeEntryList li span:first-child {
+  color: var(--muted);
+}
+
+.watcherControls {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+}
+
+.watcherControls > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.watcherControls button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.watcherControls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.watcherList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.watcherList li {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 6px;
+  padding: 4px 9px 4px 4px;
+}
+
+.watcherList li span {
+  align-items: center;
+  background: var(--brand);
+  border-radius: 50%;
+  color: white;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.uploadButton {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 16px;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.uploadButton:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.uploadButton input {
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.attachmentDropHint {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.attachmentList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.attachmentList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 9px 10px;
+}
+
+.attachmentList li:has(.attachmentImageLink),
+.attachmentList li:has(.attachmentVideo) {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(118px, 180px) minmax(0, 1fr) auto;
+}
+
+.attachmentImageLink,
+.attachmentVideo {
+  background: #edf1f5;
+  border: 0;
+  border-radius: 5px;
+  display: block;
+  height: 104px;
+  max-width: 180px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.attachmentImageLink {
+  cursor: zoom-in;
+  padding: 0;
+}
+
+.attachmentImage {
+  height: 100%;
+  object-fit: cover;
+  transition: transform 160ms ease;
+  width: 100%;
+}
+
+.attachmentImageLink:hover .attachmentImage {
+  transform: scale(1.035);
+}
+
+.attachmentVideo {
+  object-fit: cover;
+}
+
+.attachmentList strong,
+.attachmentList span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.attachmentList strong {
+  font-size: 14px;
+}
+
+.attachmentList span {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.attachmentActions {
+  align-items: center;
+  display: flex;
+  gap: 3px;
+}
+
+.attachmentActions a {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.attachmentActions a:hover {
+  color: var(--brand);
+}
+
+.attachmentActions button:not(.deleteButton) {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+
+.attachmentActions button:not(.deleteButton):hover {
+  color: var(--brand);
+}
+
+.replaceAttachmentButton {
+  align-items: center;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  position: relative;
+  width: 30px;
+}
+
+.replaceAttachmentButton:hover,
+.replaceAttachmentButton:focus-within {
+  color: var(--brand);
+}
+
+.replaceAttachmentButton input {
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.replaceAttachmentButton:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.attachmentPreviewDialog {
+  display: grid;
+  gap: 14px;
+}
+
+.attachmentDialogImage,
+.attachmentDialogVideo {
+  background: #101a24;
+  border-radius: 7px;
+  display: block;
+  max-height: min(65dvh, 680px);
+  max-width: 100%;
+  width: 100%;
+}
+
+.attachmentDialogImage {
+  object-fit: contain;
+}
+
+.downloadPreviewLink {
+  align-items: center;
+  color: var(--brand);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 7px;
+  justify-self: start;
+  text-decoration: none;
+}
+
+.downloadPreviewLink:hover {
+  text-decoration: underline;
+}
+
+.relationForm {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(120px, 0.55fr) minmax(0, 1fr) auto;
+  margin-top: 16px;
+}
+
+.relationForm select {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+  padding: 0 9px;
+}
+
+.relationForm button {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.relationForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.relationList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.relationList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 9px 10px;
+}
+
+.relationType {
+  background: #edf3ff;
+  border-radius: 999px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 7px;
+  text-transform: capitalize;
+}
+
+.relationList strong,
+.relationList span:not(.relationType) {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.relatedTaskLink {
+  color: inherit;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.relatedTaskLink:hover strong {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.relationList strong {
+  font-size: 14px;
+}
+
+.relationList span:not(.relationType) {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.checklist,
+.commentList,
+.historyList {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.checklist li {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.checklistActions {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+}
+.iconButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+.iconButton:hover {
+  color: var(--brand);
+}
+.inlineEditForm {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: 6px;
+}
+.inlineEditForm input {
+  background: var(--surface);
+  border: 1px solid #b9c4d1;
+  border-radius: 5px;
+  color: var(--ink);
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+  padding: 6px 8px;
+}
+.inlineEditForm button {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 5px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  min-height: 32px;
+  padding: 0 8px;
+}
+.inlineEditForm button:last-child {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+.parentTaskLink,
+.subtaskList a {
+  color: inherit;
+  text-decoration: none;
+}
+.parentTaskLink {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 3px;
+  margin-top: 16px;
+  padding: 10px;
+}
+.parentTaskLink span,
+.subtaskList span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.parentTaskLink:hover strong,
+.subtaskList a:hover strong {
+  color: var(--brand);
+  text-decoration: underline;
+}
+.subtaskList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.subtaskList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 9px 10px;
+}
+.subtaskList a {
+  min-width: 0;
+}
+.subtaskList a strong,
+.subtaskList a span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.subtaskList li > span {
+  background: #edf3ff;
+  border-radius: 999px;
+  color: var(--brand);
+  font-weight: 700;
+  padding: 4px 7px;
+}
+
+.checklist label {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  min-width: 0;
+}
+
+.checklist input {
+  accent-color: var(--brand);
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.completed span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.tabs {
+  border-bottom: 1px solid var(--line);
+  gap: 6px;
+}
+
+.tabs button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 8px;
+}
+
+.tabs button.activeTab {
+  border-bottom-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.commentForm {
+  display: grid;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.commentFormDragActive {
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-radius: 8px;
+  outline: 2px dashed var(--brand);
+  outline-offset: 5px;
+}
+
+.commentComposerActions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.commentShortcut {
+  color: var(--muted);
+  font-size: 12px;
+  margin: -2px 0 0;
+}
+
+.commentUploadButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 11px;
+}
+
+.commentUploadButton:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.commentUploadButton input {
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.commentDraftFiles,
+.commentAttachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.commentDraftFiles li {
+  align-items: center;
+  background: #f0f4f8;
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 4px;
+  padding: 5px 8px;
+}
+
+.commentDraftFiles button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 2px;
+}
+
+.commentDraftFiles button:hover,
+.commentDraftFiles button:focus-visible {
+  background: #fee2e2;
+  color: #b42318;
+  outline: 0;
+}
+
+.commentDraftFiles button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.commentAttachmentList {
+  margin-top: 12px;
+}
+
+.commentAttachmentList li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 7px;
+  max-width: 220px;
+  overflow: hidden;
+  padding: 7px;
+}
+
+.commentAttachmentList .attachmentImageLink,
+.commentAttachmentList .attachmentVideo {
+  height: 110px;
+  max-width: 204px;
+}
+
+.commentAttachmentList li > span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.commentList > li {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+
+.commentHeading {
+  justify-content: space-between;
+}
+
+.commentHeading strong,
+.historyList span {
+  font-size: 14px;
+}
+
+.commentHeading time,
+.historyList time {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.commentActions {
+  gap: 3px;
+}
+
+.commentActions button,
+.deleteButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+
+.commentActions button:hover {
+  color: var(--brand);
+}
+
+.deleteButton:hover {
+  color: var(--danger);
+}
+
+.commentList p {
+  line-height: 1.5;
+  margin: 9px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.editCommentForm {
+  display: grid;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.editCommentForm > div {
+  gap: 8px;
+}
+
+.editCommentForm > div button:last-child {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.historyList li {
+  align-items: flex-start;
+  display: flex;
+  gap: 9px;
+}
+
+.historyList svg {
+  color: var(--brand);
+  margin-top: 2px;
+}
+
+.empty,
+.error {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 16px 0 0;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.srOnly {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+@media (max-width: 600px) {
+  .panel {
+    grid-template-columns: 1fr;
+  }
+
+  .descriptionSection,
+  .attachmentsSection,
+  .timeTrackingSection,
+  .watchersSection,
+  .checklistSection,
+  .subtasksSection,
+  .relationsSection,
+  .activitySection {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .checklistSection,
+  .activitySection {
+    padding: 14px;
+  }
+
+  .inlineForm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .timeSummary,
+  .timeEntryForm {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .relationForm {
+    grid-template-columns: 1fr;
+  }
+
+  .attachmentList li:has(.attachmentImageLink),
+  .attachmentList li:has(.attachmentVideo) {
+    grid-template-columns: minmax(94px, 130px) minmax(0, 1fr) auto;
+  }
+
+  .attachmentImageLink,
+  .attachmentVideo {
+    height: 88px;
+  }
+}

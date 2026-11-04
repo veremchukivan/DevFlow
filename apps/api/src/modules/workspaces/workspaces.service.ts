@@ -2,29 +2,27 @@ import { randomBytes } from "node:crypto";
 import type {
   CreateWorkspaceRequest,
   PaginationQuery,
-  UpdateWorkspaceRequest
+  UpdateWorkspaceRequest,
 } from "@devflow/shared";
 
 import { AppError } from "../../core/errors/app-error.js";
 import { buildPageInfo } from "../../core/pagination.js";
-import {
-  canDeleteWorkspace,
-  canUpdateWorkspace
-} from "./workspaces.policy.js";
+import { deleteStoredImage, saveImage } from "../../core/uploads/images.js";
+import { canDeleteWorkspace, canUpdateWorkspace } from "./workspaces.policy.js";
 import {
   createWorkspaceWithOwner,
   findWorkspaceBySlug,
   findWorkspaceForUser,
   listWorkspacesForUser,
-  softDeleteWorkspaceInDb,
-  updateWorkspaceInDb
+  softDeleteWorkspaceAndEnsureReplacement,
+  updateWorkspaceInDb,
 } from "./workspaces.repository.js";
 
 const maxSlugAttempts = 10;
 
 export async function createWorkspace(
   ownerUserId: string,
-  input: CreateWorkspaceRequest
+  input: CreateWorkspaceRequest,
 ) {
   const slug = await buildAvailableSlug(input.slug ?? input.name);
 
@@ -32,14 +30,14 @@ export async function createWorkspace(
     return await createWorkspaceWithOwner({
       name: input.name,
       ownerUserId,
-      slug
+      slug,
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(
         409,
         "WORKSPACE_SLUG_TAKEN",
-        "A workspace with this slug already exists"
+        "A workspace with this slug already exists",
       );
     }
 
@@ -56,9 +54,9 @@ export async function listWorkspaces(input: {
   return {
     pageInfo: buildPageInfo({
       ...input.pagination,
-      total: result.total
+      total: result.total,
     }),
-    workspaces: result.workspaces
+    workspaces: result.workspaces,
   };
 }
 
@@ -75,7 +73,7 @@ export async function getWorkspace(userId: string, workspaceId: string) {
 export async function updateWorkspace(
   userId: string,
   workspaceId: string,
-  input: UpdateWorkspaceRequest
+  input: UpdateWorkspaceRequest,
 ) {
   const workspace = await findWorkspaceForUser({ userId, workspaceId });
 
@@ -87,7 +85,7 @@ export async function updateWorkspace(
     throw new AppError(
       403,
       "WORKSPACE_UPDATE_FORBIDDEN",
-      "You cannot update this workspace"
+      "You cannot update this workspace",
     );
   }
 
@@ -98,7 +96,7 @@ export async function updateWorkspace(
       throw new AppError(
         409,
         "WORKSPACE_SLUG_TAKEN",
-        "A workspace with this slug already exists"
+        "A workspace with this slug already exists",
       );
     }
     slug = input.slug;
@@ -108,7 +106,7 @@ export async function updateWorkspace(
     const updated = await updateWorkspaceInDb({
       name: input.name,
       slug: input.slug ? slug : undefined,
-      workspaceId
+      workspaceId,
     });
 
     if (!updated) {
@@ -117,14 +115,14 @@ export async function updateWorkspace(
 
     return {
       ...updated,
-      role: workspace.role
+      role: workspace.role,
     };
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(
         409,
         "WORKSPACE_SLUG_TAKEN",
-        "A workspace with this slug already exists"
+        "A workspace with this slug already exists",
       );
     }
 
@@ -143,15 +141,81 @@ export async function deleteWorkspace(userId: string, workspaceId: string) {
     throw new AppError(
       403,
       "WORKSPACE_DELETE_FORBIDDEN",
-      "Only workspace owners can delete a workspace"
+      "Only workspace owners can delete a workspace",
     );
   }
 
-  const deleted = await softDeleteWorkspaceInDb(workspaceId);
+  const replacementSlug = await buildAvailableSlug("personal-workspace");
+  const deleted = await softDeleteWorkspaceAndEnsureReplacement({
+    name: "Personal workspace",
+    ownerUserId: workspace.ownerUserId ?? userId,
+    slug: replacementSlug,
+    userId,
+    workspaceId,
+  });
 
   if (!deleted) {
     throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
   }
+
+  await deleteStoredImage(workspace.iconUrl);
+}
+
+export async function updateWorkspaceIcon(input: {
+  file: Express.Multer.File;
+  userId: string;
+  workspaceId: string;
+}) {
+  const workspace = await getWorkspace(input.userId, input.workspaceId);
+
+  if (!canUpdateWorkspace(workspace.role)) {
+    throw new AppError(
+      403,
+      "WORKSPACE_UPDATE_FORBIDDEN",
+      "You cannot update this workspace",
+    );
+  }
+
+  const iconUrl = await saveImage({ file: input.file, kind: "workspaces" });
+  const updated = await updateWorkspaceInDb({
+    iconUrl,
+    workspaceId: input.workspaceId,
+  });
+
+  if (!updated) {
+    await deleteStoredImage(iconUrl);
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
+
+  await deleteStoredImage(workspace.iconUrl);
+  return { ...updated, role: workspace.role };
+}
+
+export async function removeWorkspaceIcon(input: {
+  userId: string;
+  workspaceId: string;
+}) {
+  const workspace = await getWorkspace(input.userId, input.workspaceId);
+
+  if (!canUpdateWorkspace(workspace.role)) {
+    throw new AppError(
+      403,
+      "WORKSPACE_UPDATE_FORBIDDEN",
+      "You cannot update this workspace",
+    );
+  }
+
+  const updated = await updateWorkspaceInDb({
+    iconUrl: null,
+    workspaceId: input.workspaceId,
+  });
+
+  if (!updated) {
+    throw new AppError(404, "WORKSPACE_NOT_FOUND", "Workspace not found");
+  }
+
+  await deleteStoredImage(workspace.iconUrl);
+  return { ...updated, role: workspace.role };
 }
 
 async function buildAvailableSlug(input: string) {
@@ -180,7 +244,7 @@ async function buildAvailableSlug(input: string) {
   throw new AppError(
     409,
     "WORKSPACE_SLUG_TAKEN",
-    "A workspace with this slug already exists"
+    "A workspace with this slug already exists",
   );
 }
 

@@ -1,0 +1,207 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import {
+  cleanupDatabase,
+  closeDbConnection,
+  createTestApp,
+  createTestProject,
+  createTestTask,
+  createTestUser,
+  createTestWorkspace,
+  request,
+} from "./helpers/test-app.js";
+
+const app = createTestApp();
+
+describe("Task attachment integration tests", () => {
+  let owner: Awaited<ReturnType<typeof createTestUser>>;
+  let viewer: Awaited<ReturnType<typeof createTestUser>>;
+  let workspace: Awaited<ReturnType<typeof createTestWorkspace>>;
+  let project: Awaited<ReturnType<typeof createTestProject>>;
+  let task: Awaited<ReturnType<typeof createTestTask>>;
+
+  beforeAll(async () => {
+    await cleanupDatabase();
+    owner = await createTestUser(app, {
+      email: "attachments-owner@devflow.io",
+    });
+    viewer = await createTestUser(app, {
+      email: "attachments-viewer@devflow.io",
+    });
+    workspace = await createTestWorkspace(app, owner.cookie, {
+      slug: "task-attachments",
+    });
+    project = await createTestProject(app, owner.cookie, workspace.id, {
+      key: "FILES",
+      name: "Attachments project",
+    });
+    task = await createTestTask(app, owner.cookie, workspace.id, project.id, {
+      title: "Task with attachments",
+    });
+    await request(app)
+      .post(`/api/v1/workspaces/${workspace.id}/members`)
+      .set("Cookie", owner.cookie)
+      .send({ email: viewer.email, role: "viewer" });
+  });
+
+  afterAll(async () => closeDbConnection());
+
+  it("uploads, lists, downloads, and removes a protected attachment", async () => {
+    const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
+    const uploaded = await request(app)
+      .post(basePath)
+      .set("Cookie", owner.cookie)
+      .attach(
+        "file",
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        {
+          contentType: "image/png",
+          filename: "plan.png",
+        },
+      );
+
+    expect(uploaded.status).toBe(201);
+    expect(uploaded.body.attachment.originalFilename).toBe("plan.png");
+    expect(uploaded.body.attachment.mimeType).toBe("image/png");
+    const attachmentId = uploaded.body.attachment.id;
+
+    const activityPath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/activity`;
+    const afterUpload = await request(app)
+      .get(activityPath)
+      .set("Cookie", owner.cookie);
+    expect(afterUpload.status).toBe(200);
+    expect(afterUpload.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ filename: "plan.png" }),
+          eventType: "task_attachment_added",
+        }),
+      ]),
+    );
+
+    const listed = await request(app)
+      .get(basePath)
+      .set("Cookie", viewer.cookie);
+    expect(listed.status).toBe(200);
+    expect(listed.body.attachments).toHaveLength(1);
+
+    const downloaded = await request(app)
+      .get(`${basePath}/${attachmentId}/download`)
+      .set("Cookie", viewer.cookie);
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.headers["content-type"]).toContain("image/png");
+
+    const previewed = await request(app)
+      .get(`${basePath}/${attachmentId}/preview`)
+      .set("Cookie", viewer.cookie);
+    expect(previewed.status).toBe(200);
+    expect(previewed.headers["content-disposition"]).toContain("inline");
+    expect(previewed.headers["content-type"]).toContain("image/png");
+
+    const viewerDelete = await request(app)
+      .delete(`${basePath}/${attachmentId}`)
+      .set("Cookie", viewer.cookie);
+    expect(viewerDelete.status).toBe(403);
+
+    const removed = await request(app)
+      .delete(`${basePath}/${attachmentId}`)
+      .set("Cookie", owner.cookie);
+    expect(removed.status).toBe(204);
+
+    const afterRemoval = await request(app)
+      .get(activityPath)
+      .set("Cookie", owner.cookie);
+    expect(afterRemoval.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ filename: "plan.png" }),
+          eventType: "task_attachment_removed",
+        }),
+      ]),
+    );
+  });
+
+  it("accepts a supported video attachment", async () => {
+    const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
+    const uploaded = await request(app)
+      .post(basePath)
+      .set("Cookie", owner.cookie)
+      .attach(
+        "file",
+        Buffer.from([
+          0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0,
+          0,
+        ]),
+        {
+          contentType: "video/mp4",
+          filename: "walkthrough.mp4",
+        },
+      );
+
+    expect(uploaded.status).toBe(201);
+    expect(uploaded.body.attachment.mimeType).toBe("video/mp4");
+
+    const previewed = await request(app)
+      .get(`${basePath}/${uploaded.body.attachment.id}/preview`)
+      .set("Cookie", owner.cookie)
+      .set("Range", "bytes=0-3");
+    expect(previewed.status).toBe(206);
+    expect(previewed.headers["content-range"]).toBe("bytes 0-3/16");
+    expect(previewed.headers["accept-ranges"]).toBe("bytes");
+  });
+
+  it("allows task media in a description only when the attachment belongs to that task", async () => {
+    const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
+    const uploaded = await request(app)
+      .post(basePath)
+      .set("Cookie", owner.cookie)
+      .attach(
+        "file",
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        { contentType: "image/png", filename: "embedded-plan.png" },
+      );
+    expect(uploaded.status).toBe(201);
+
+    const description = `<p>Latest design</p><img data-task-attachment-id="${uploaded.body.attachment.id}" alt="">`;
+    const updated = await request(app)
+      .patch(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`,
+      )
+      .set("Cookie", owner.cookie)
+      .set("If-Match", `"${task.version}"`)
+      .send({ description });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.task.description).toContain(
+      `data-task-attachment-id="${uploaded.body.attachment.id}"`,
+    );
+
+    const invalid = await request(app)
+      .patch(
+        `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}`,
+      )
+      .set("Cookie", owner.cookie)
+      .set("If-Match", `"${updated.body.task.version}"`)
+      .send({
+        description:
+          '<img data-task-attachment-id="aab998ba-0a76-4c7c-925a-2d098adbd1cf" alt="">',
+      });
+
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("DESCRIPTION_ATTACHMENT_INVALID");
+  });
+
+  it("rejects an attachment whose bytes do not match the declared type", async () => {
+    const basePath = `/api/v1/workspaces/${workspace.id}/projects/${project.id}/tasks/${task.id}/attachments`;
+    const uploaded = await request(app)
+      .post(basePath)
+      .set("Cookie", owner.cookie)
+      .attach("file", Buffer.from("<script>alert('not an image')</script>"), {
+        contentType: "image/png",
+        filename: "unsafe.png",
+      });
+
+    expect(uploaded.status).toBe(400);
+    expect(uploaded.body.error.code).toBe("FILE_CONTENT_INVALID");
+  });
+});

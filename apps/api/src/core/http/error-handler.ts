@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from "express";
+import { MulterError } from "multer";
 import { ZodError } from "zod";
 
 import { AppError } from "../errors/app-error.js";
@@ -11,8 +12,8 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
       error: {
         code: error.code,
         message: error.message,
-        requestId
-      }
+        requestId,
+      },
     });
     return;
   }
@@ -23,8 +24,25 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
         code: "VALIDATION_ERROR",
         message: "Request validation failed",
         issues: error.issues,
-        requestId
-      }
+        requestId,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof MulterError) {
+    res.status(400).json({
+      error: {
+        code:
+          error.code === "LIMIT_FILE_SIZE"
+            ? "FILE_TOO_LARGE"
+            : "UPLOAD_INVALID",
+        message:
+          error.code === "LIMIT_FILE_SIZE"
+            ? "File exceeds the allowed size"
+            : "Invalid image upload",
+        requestId,
+      },
     });
     return;
   }
@@ -35,8 +53,8 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     error: {
       code: "INTERNAL_SERVER_ERROR",
       message: "Something went wrong",
-      requestId
-    }
+      requestId,
+    },
   });
 };
 
@@ -48,4 +66,3 @@ function reqLogger(error: unknown, requestId: string | undefined) {
 
   console.error(error);
 }
-

@@ -76,6 +76,7 @@ services:
       MP_DATA_FILE: /data/mailpit.db
 
   api-migrate:
+    image: devflow-api:latest
     build:
       context: ../..
       dockerfile: infra/docker/api.Dockerfile
@@ -90,6 +91,8 @@ services:
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
       EMAIL_VERIFICATION_TTL_HOURS: ${EMAIL_VERIFICATION_TTL_HOURS:-24}
       PASSWORD_RESET_TTL_HOURS: ${PASSWORD_RESET_TTL_HOURS:-1}
       REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
@@ -99,6 +102,17 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      FIGMA_CLIENT_ID: ${FIGMA_CLIENT_ID:-}
+      FIGMA_CLIENT_SECRET: ${FIGMA_CLIENT_SECRET:-}
+      FIGMA_REDIRECT_URI: ${FIGMA_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/figma/callback}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/git/github/callback}
+      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
+      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
+      GITLAB_REDIRECT_URI: ${GITLAB_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/git/gitlab/callback}
+      INTEGRATION_WEBHOOK_URL: ${INTEGRATION_WEBHOOK_URL:-}
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
     depends_on:
       postgres:
@@ -107,6 +121,7 @@ services:
         condition: service_completed_successfully
 
   api:
+    image: devflow-api:latest
     build:
       context: ../..
       dockerfile: infra/docker/api.Dockerfile
@@ -116,10 +131,13 @@ services:
       API_PORT: 4000
       DATABASE_URL: ${DOCKER_RUNTIME_DATABASE_URL:?Set DOCKER_RUNTIME_DATABASE_URL in .env}
       INVITATION_TTL_DAYS: ${INVITATION_TTL_DAYS:-7}
+      E2E_TEST_MODE: ${E2E_TEST_MODE:-false}
       NODE_ENV: ${NODE_ENV:-development}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-devflow_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       SESSION_CLEANUP_INTERVAL_HOURS: ${SESSION_CLEANUP_INTERVAL_HOURS:-24}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
       EMAIL_VERIFICATION_TTL_HOURS: ${EMAIL_VERIFICATION_TTL_HOURS:-24}
       PASSWORD_RESET_TTL_HOURS: ${PASSWORD_RESET_TTL_HOURS:-1}
       REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
@@ -129,12 +147,26 @@ services:
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      FIGMA_CLIENT_ID: ${FIGMA_CLIENT_ID:-}
+      FIGMA_CLIENT_SECRET: ${FIGMA_CLIENT_SECRET:-}
+      FIGMA_REDIRECT_URI: ${FIGMA_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/figma/callback}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/git/github/callback}
+      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
+      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
+      GITLAB_REDIRECT_URI: ${GITLAB_REDIRECT_URI:-http://127.0.0.1:4000/api/v1/integrations/git/gitlab/callback}
+      INTEGRATION_WEBHOOK_URL: ${INTEGRATION_WEBHOOK_URL:-}
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
       SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
       TRUST_PROXY: ${TRUST_PROXY:-0}
       WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in .env}
       WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-}
+      UPLOADS_DIR: /app/apps/api/uploads
     ports:
       - "127.0.0.1:4000:4000"
+    volumes:
+      - devflow_uploads:/app/apps/api/uploads
     depends_on:
       api-migrate:
         condition: service_completed_successfully
@@ -147,6 +179,8 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     container_name: devflow-web
     restart: unless-stopped
     environment:
@@ -179,3 +213,4 @@ volumes:
   devflow_postgres_data:
   devflow_redis_data:
   devflow_mailpit_data:
+  devflow_uploads:

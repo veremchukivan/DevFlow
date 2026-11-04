@@ -14,8 +14,10 @@ export async function cleanupDatabase() {
   await db.execute(sql`
     TRUNCATE TABLE 
       task_activity_events,
+      task_checklist_items,
       task_comments,
       tasks,
+      project_sprints,
       project_statuses,
       projects,
       workspace_invitations,
@@ -39,7 +41,7 @@ export async function createTestUser(
     displayName?: string;
     email?: string;
     password?: string;
-  }
+  },
 ) {
   const suffix = uniqueSuffix();
   const email = overrides?.email ?? `user_${suffix}@devflow.io`;
@@ -52,7 +54,7 @@ export async function createTestUser(
 
   if (response.status !== 201) {
     throw new Error(
-      `Failed to create test user: ${response.status} ${JSON.stringify(response.body)}`
+      `Failed to create test user: ${response.status} ${JSON.stringify(response.body)}`,
     );
   }
 
@@ -71,7 +73,7 @@ export async function createTestUser(
       id: string;
       isEmailVerified: boolean;
       isPlatformAdmin: boolean;
-    }
+    },
   };
 }
 
@@ -81,11 +83,12 @@ export async function createTestWorkspace(
   overrides?: {
     name?: string;
     slug?: string;
-  }
+  },
 ) {
   const suffix = uniqueSuffix();
   const name = overrides?.name ?? `Workspace ${suffix}`;
-  const slug = overrides?.slug ?? `ws-${suffix}`.toLowerCase().replace(/_/g, "-");
+  const slug =
+    overrides?.slug ?? `ws-${suffix}`.toLowerCase().replace(/_/g, "-");
 
   const response = await request(app)
     .post("/api/v1/workspaces")
@@ -94,7 +97,7 @@ export async function createTestWorkspace(
 
   if (response.status !== 201) {
     throw new Error(
-      `Failed to create test workspace: ${response.status} ${JSON.stringify(response.body)}`
+      `Failed to create test workspace: ${response.status} ${JSON.stringify(response.body)}`,
     );
   }
 
@@ -117,7 +120,7 @@ export async function createTestProject(
     description?: string;
     key?: string;
     name?: string;
-  }
+  },
 ) {
   const suffix = uniqueSuffix();
   const name = overrides?.name ?? `Project ${suffix}`;
@@ -129,12 +132,12 @@ export async function createTestProject(
     .send({
       description: overrides?.description ?? "Test project description",
       key,
-      name
+      name,
     });
 
   if (response.status !== 201) {
     throw new Error(
-      `Failed to create test project: ${response.status} ${JSON.stringify(response.body)}`
+      `Failed to create test project: ${response.status} ${JSON.stringify(response.body)}`,
     );
   }
 
@@ -163,10 +166,13 @@ export async function createTestTask(
   overrides?: {
     assigneeUserId?: string;
     description?: string;
+    dueDate?: string;
+    parentTaskId?: string;
     priority?: "low" | "medium" | "high" | "urgent";
+    sprintId?: string;
     statusId?: string;
     title?: string;
-  }
+  },
 ) {
   const suffix = uniqueSuffix();
   const title = overrides?.title ?? `Task ${suffix}`;
@@ -177,14 +183,17 @@ export async function createTestTask(
     .send({
       assigneeUserId: overrides?.assigneeUserId,
       description: overrides?.description,
+      dueDate: overrides?.dueDate,
+      parentTaskId: overrides?.parentTaskId,
       priority: overrides?.priority ?? "medium",
+      sprintId: overrides?.sprintId,
       statusId: overrides?.statusId,
-      title
+      title,
     });
 
   if (response.status !== 201) {
     throw new Error(
-      `Failed to create test task: ${response.status} ${JSON.stringify(response.body)}`
+      `Failed to create test task: ${response.status} ${JSON.stringify(response.body)}`,
     );
   }
 
@@ -194,6 +203,7 @@ export async function createTestTask(
     id: string;
     key: string;
     number: number;
+    parentTaskId: string | null;
     priority: "low" | "medium" | "high" | "urgent";
     projectId: string;
     status: {
@@ -204,10 +214,10 @@ export async function createTestTask(
       position: number;
     };
     statusId: string;
+    sprintId: string | null;
     title: string;
     updatedAt: string;
     version: number;
     workspaceId: string;
   };
 }
-

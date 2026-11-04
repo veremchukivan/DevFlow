@@ -1,10 +1,12 @@
 import {
   createTaskRequestSchema,
+  createTaskFigmaLinkRequestSchema,
   listTasksQuerySchema,
+  repositionTaskRequestSchema,
   projectTasksParamsSchema,
   taskParamsSchema,
+  taskFigmaLinkParamsSchema,
   updateTaskRequestSchema,
-  taskLabelsRequestSchema,
   type TaskListResponse,
   type TaskResponse,
 } from "@devflow/shared";
@@ -17,16 +19,16 @@ import {
 } from "../auth/auth.middleware.js";
 import {
   createTask,
+  addTaskFigmaLink,
   deleteTask,
   restoreTask,
   getTask,
+  getTaskFigmaLinks,
   listTasks,
+  repositionTask,
   updateTask,
+  removeTaskFigmaLink,
 } from "./tasks.service.js";
-import {
-  listTaskLabels,
-  replaceTaskLabels,
-} from "../labels/labels.repository.js";
 
 export const tasksRouter = Router({ mergeParams: true });
 
@@ -75,6 +77,28 @@ tasksRouter.get("/:taskId", async (req, res) => {
   res.json(toTaskResponse(task));
 });
 
+tasksRouter.get("/:taskId/figma-links", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  const links = await getTaskFigmaLinks({ ...params, userId: getAuthenticatedUserId(req) });
+  res.json({ links: links.map(toTaskFigmaLinkDto) });
+});
+
+tasksRouter.post("/:taskId/figma-links", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  const link = await addTaskFigmaLink({
+    ...params,
+    input: createTaskFigmaLinkRequestSchema.parse(req.body),
+    userId: getAuthenticatedUserId(req),
+  });
+  res.status(201).json({ link: toTaskFigmaLinkDto(link) });
+});
+
+tasksRouter.delete("/:taskId/figma-links/:linkId", async (req, res) => {
+  const params = taskFigmaLinkParamsSchema.parse(req.params);
+  await removeTaskFigmaLink({ ...params, userId: getAuthenticatedUserId(req) });
+  res.status(204).send();
+});
+
 tasksRouter.patch("/:taskId", async (req, res) => {
   const params = taskParamsSchema.parse(req.params);
   const input = updateTaskRequestSchema.parse(req.body);
@@ -89,6 +113,16 @@ tasksRouter.patch("/:taskId", async (req, res) => {
 
   res.set("ETag", toTaskEtag(task.version));
   res.json(toTaskResponse(task));
+});
+
+tasksRouter.put("/:taskId/position", async (req, res) => {
+  const params = taskParamsSchema.parse(req.params);
+  await repositionTask({
+    ...params,
+    ...repositionTaskRequestSchema.parse(req.body),
+    userId: getAuthenticatedUserId(req),
+  });
+  res.status(204).send();
 });
 
 tasksRouter.delete("/:taskId", async (req, res) => {
@@ -106,49 +140,34 @@ tasksRouter.delete("/:taskId", async (req, res) => {
 
 tasksRouter.post("/:taskId/restore", async (req, res) => {
   const params = taskParamsSchema.parse(req.params);
-  await restoreTask({ ...params, expectedVersion: getExpectedTaskVersion(req), userId: getAuthenticatedUserId(req) });
-  res.status(204).send();
-});
-
-tasksRouter.get("/:taskId/labels", async (req, res) => {
-  const params = taskParamsSchema.parse(req.params);
-  await getTask({ ...params, userId: getAuthenticatedUserId(req) });
-  const rows = await listTaskLabels(params.taskId);
-  res.json({
-    labels: rows.map(({ labels: label }) => ({
-      ...label,
-      createdAt: label.createdAt.toISOString(),
-      updatedAt: label.updatedAt.toISOString(),
-    })),
-  });
-});
-
-tasksRouter.put("/:taskId/labels", async (req, res) => {
-  const params = taskParamsSchema.parse(req.params);
-  await getTask({ ...params, userId: getAuthenticatedUserId(req) });
-  const input = taskLabelsRequestSchema.parse(req.body);
-  const replaced = await replaceTaskLabels({
+  await restoreTask({
     ...params,
-    labelIds: [...new Set(input.labelIds)],
+    expectedVersion: getExpectedTaskVersion(req),
+    userId: getAuthenticatedUserId(req),
   });
-  if (!replaced)
-    throw new AppError(
-      400,
-      "TASK_LABEL_INVALID",
-      "Labels must belong to this workspace",
-    );
-  const rows = await listTaskLabels(params.taskId);
-  res.json({
-    labels: rows.map(({ labels: label }) => ({
-      ...label,
-      createdAt: label.createdAt.toISOString(),
-      updatedAt: label.updatedAt.toISOString(),
-    })),
-  });
+  res.status(204).send();
 });
 
 function getAuthenticatedUserId(req: unknown) {
   return (req as AuthenticatedRequest).auth.user.id;
+}
+
+function toTaskFigmaLinkDto(link: {
+  createdAt: Date;
+  createdByUserId: string | null;
+  id: string;
+  name: string;
+  projectId: string;
+  taskId: string;
+  updatedAt: Date;
+  url: string;
+  workspaceId: string;
+}) {
+  return {
+    ...link,
+    createdAt: link.createdAt.toISOString(),
+    updatedAt: link.updatedAt.toISOString(),
+  };
 }
 
 function getExpectedTaskVersion(req: {
@@ -189,12 +208,19 @@ function toTaskDto(task: {
   assigneeEmail?: string | null;
   assigneeId?: string | null;
   assigneeUserId: string | null;
+  attachmentCount: number;
+  checklistCompletedCount: number;
+  checklistTotalCount: number;
+  commentCount: number;
   createdAt: Date;
+  customFields: Record<string, string | number | null>;
   description: string | null;
   dueDate: string | null;
+  estimateMinutes: number | null;
   id: string;
-  labels?: Array<{ id: string; name: string; color: string }>;
   number: number;
+  position: number;
+  parentTaskId: string | null;
   priority: "low" | "medium" | "high" | "urgent";
   projectId: string;
   projectKey: string;
@@ -212,7 +238,9 @@ function toTaskDto(task: {
     workspaceId: string;
   };
   statusId: string;
+  sprintId: string | null;
   title: string;
+  type: "epic" | "bug" | "feature" | "story" | "task";
   updatedAt: Date;
   version: number;
   workspaceId: string;
@@ -228,12 +256,21 @@ function toTaskDto(task: {
         : null,
     assigneeUserId: task.assigneeUserId,
     createdAt: task.createdAt.toISOString(),
+    customFields: task.customFields,
     description: task.description,
     dueDate: task.dueDate,
+    estimateMinutes: task.estimateMinutes,
     id: task.id,
-    labels: task.labels ?? [],
+    metrics: {
+      attachmentCount: task.attachmentCount,
+      checklistCompletedCount: task.checklistCompletedCount,
+      checklistTotalCount: task.checklistTotalCount,
+      commentCount: task.commentCount,
+    },
     key: `${task.projectKey}-${task.number}`,
     number: task.number,
+    position: task.position,
+    parentTaskId: task.parentTaskId,
     priority: task.priority,
     projectId: task.projectId,
     reporter:
@@ -255,7 +292,9 @@ function toTaskDto(task: {
       workspaceId: task.status.workspaceId,
     },
     statusId: task.statusId,
+    sprintId: task.sprintId,
     title: task.title,
+    type: task.type,
     updatedAt: task.updatedAt.toISOString(),
     version: task.version,
     workspaceId: task.workspaceId,

@@ -1,12 +1,14 @@
 import type {
   CreateProjectStatusRequest,
   PaginationQuery,
-  UpdateProjectStatusRequest
+  UpdateProjectStatusRequest,
 } from "@devflow/shared";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
+import { projectFigmaLinks } from "../../core/db/schema/project-figma-links.js";
+import { projectMembers } from "../../core/db/schema/project-members.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
@@ -18,22 +20,22 @@ const defaultProjectStatuses = [
     color: "#64748b",
     isDefault: true,
     name: "Backlog",
-    position: 1000
+    position: 1000,
   },
   {
     category: "in_progress" as const,
     color: "#2563eb",
     isDefault: true,
     name: "In Progress",
-    position: 2000
+    position: 2000,
   },
   {
     category: "done" as const,
     color: "#16a34a",
     isDefault: true,
     name: "Done",
-    position: 3000
-  }
+    position: 3000,
+  },
 ];
 
 export async function findActiveWorkspaceMembership(input: {
@@ -43,7 +45,7 @@ export async function findActiveWorkspaceMembership(input: {
   const [membership] = await db
     .select({
       role: workspaceMembers.role,
-      workspaceId: workspaceMembers.workspaceId
+      workspaceId: workspaceMembers.workspaceId,
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
@@ -52,8 +54,8 @@ export async function findActiveWorkspaceMembership(input: {
         eq(workspaceMembers.userId, input.userId),
         eq(workspaceMembers.workspaceId, input.workspaceId),
         eq(workspaceMembers.status, "active"),
-        isNull(workspaces.deletedAt)
-      )
+        isNull(workspaces.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -71,8 +73,8 @@ export async function findProjectByKey(input: {
       and(
         eq(projects.workspaceId, input.workspaceId),
         eq(projects.key, input.key),
-        isNull(projects.deletedAt)
-      )
+        isNull(projects.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -94,7 +96,7 @@ export async function createProjectWithDefaultStatuses(input: {
         key: input.key,
         name: input.name,
         ownerUserId: input.ownerUserId,
-        workspaceId: input.workspaceId
+        workspaceId: input.workspaceId,
       })
       .returning();
 
@@ -108,14 +110,21 @@ export async function createProjectWithDefaultStatuses(input: {
         defaultProjectStatuses.map((status) => ({
           ...status,
           projectId: project.id,
-          workspaceId: input.workspaceId
-        }))
+          workspaceId: input.workspaceId,
+        })),
       )
       .returning();
 
+    await tx.insert(projectMembers).values({
+      projectId: project.id,
+      role: "lead",
+      userId: input.ownerUserId,
+      workspaceId: input.workspaceId,
+    });
+
     return {
       ...project,
-      statuses
+      statuses,
     };
   });
 }
@@ -126,12 +135,12 @@ export async function listProjectsForWorkspace(input: {
 }) {
   const conditions = and(
     eq(projects.workspaceId, input.workspaceId),
-    isNull(projects.deletedAt)
+    isNull(projects.deletedAt),
   );
 
   const [totalRow] = await db
     .select({
-      total: sql<number>`count(*)::int`
+      total: sql<number>`count(*)::int`,
     })
     .from(projects)
     .where(conditions);
@@ -146,7 +155,7 @@ export async function listProjectsForWorkspace(input: {
 
   return {
     projects: rows,
-    total: totalRow?.total ?? 0
+    total: totalRow?.total ?? 0,
   };
 }
 
@@ -161,12 +170,57 @@ export async function findProjectInWorkspace(input: {
       and(
         eq(projects.id, input.projectId),
         eq(projects.workspaceId, input.workspaceId),
-        isNull(projects.deletedAt)
-      )
+        isNull(projects.deletedAt),
+      ),
     )
     .limit(1);
 
   return project;
+}
+
+export async function listProjectFigmaLinks(input: {
+  projectId: string;
+  workspaceId: string;
+}) {
+  return db
+    .select()
+    .from(projectFigmaLinks)
+    .where(
+      and(
+        eq(projectFigmaLinks.projectId, input.projectId),
+        eq(projectFigmaLinks.workspaceId, input.workspaceId),
+      ),
+    )
+    .orderBy(desc(projectFigmaLinks.createdAt));
+}
+
+export async function createProjectFigmaLinkInDb(input: {
+  createdByUserId: string;
+  name: string;
+  projectId: string;
+  url: string;
+  workspaceId: string;
+}) {
+  const [link] = await db.insert(projectFigmaLinks).values(input).returning();
+  return link;
+}
+
+export async function deleteProjectFigmaLinkInDb(input: {
+  linkId: string;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [link] = await db
+    .delete(projectFigmaLinks)
+    .where(
+      and(
+        eq(projectFigmaLinks.id, input.linkId),
+        eq(projectFigmaLinks.projectId, input.projectId),
+        eq(projectFigmaLinks.workspaceId, input.workspaceId),
+      ),
+    )
+    .returning();
+  return link;
 }
 
 export async function listProjectStatuses(input: {
@@ -179,8 +233,8 @@ export async function listProjectStatuses(input: {
     .where(
       and(
         eq(projectStatuses.workspaceId, input.workspaceId),
-        eq(projectStatuses.projectId, input.projectId)
-      )
+        eq(projectStatuses.projectId, input.projectId),
+      ),
     )
     .orderBy(asc(projectStatuses.position));
 }
@@ -191,13 +245,15 @@ export async function createProjectStatusInDb(input: {
   workspaceId: string;
 }) {
   const [positionRow] = await db
-    .select({ position: sql<number>`coalesce(max(${projectStatuses.position}), 0)` })
+    .select({
+      position: sql<number>`coalesce(max(${projectStatuses.position}), 0)`,
+    })
     .from(projectStatuses)
     .where(
       and(
         eq(projectStatuses.workspaceId, input.workspaceId),
-        eq(projectStatuses.projectId, input.projectId)
-      )
+        eq(projectStatuses.projectId, input.projectId),
+      ),
     );
 
   const [status] = await db
@@ -207,7 +263,7 @@ export async function createProjectStatusInDb(input: {
       isDefault: false,
       position: (positionRow?.position ?? 0) + 1000,
       projectId: input.projectId,
-      workspaceId: input.workspaceId
+      workspaceId: input.workspaceId,
     })
     .returning();
 
@@ -227,8 +283,8 @@ export async function updateProjectStatusInDb(input: {
       and(
         eq(projectStatuses.id, input.statusId),
         eq(projectStatuses.workspaceId, input.workspaceId),
-        eq(projectStatuses.projectId, input.projectId)
-      )
+        eq(projectStatuses.projectId, input.projectId),
+      ),
     )
     .returning();
 
@@ -288,8 +344,8 @@ export async function countProjectStatuses(input: {
     .where(
       and(
         eq(projectStatuses.workspaceId, input.workspaceId),
-        eq(projectStatuses.projectId, input.projectId)
-      )
+        eq(projectStatuses.projectId, input.projectId),
+      ),
     );
 
   return row?.count ?? 0;
@@ -307,8 +363,8 @@ export async function countTasksForProjectStatus(input: {
       and(
         eq(tasks.workspaceId, input.workspaceId),
         eq(tasks.projectId, input.projectId),
-        eq(tasks.statusId, input.statusId)
-      )
+        eq(tasks.statusId, input.statusId),
+      ),
     );
 
   return row?.count ?? 0;
@@ -325,8 +381,8 @@ export async function deleteProjectStatusInDb(input: {
       and(
         eq(projectStatuses.id, input.statusId),
         eq(projectStatuses.workspaceId, input.workspaceId),
-        eq(projectStatuses.projectId, input.projectId)
-      )
+        eq(projectStatuses.projectId, input.projectId),
+      ),
     )
     .returning();
 
@@ -348,18 +404,37 @@ export async function updateProjectInDb(input: {
       ...(input.description !== undefined
         ? { description: input.description }
         : {}),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     })
     .where(
       and(
         eq(projects.id, input.projectId),
         eq(projects.workspaceId, input.workspaceId),
-        isNull(projects.deletedAt)
-      )
+        isNull(projects.deletedAt),
+      ),
     )
     .returning();
 
   return project;
+}
+
+export async function updateProjectIconInDb(input: {
+  iconUrl: string | null;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const [project] = await db
+    .update(projects)
+    .set({ iconUrl: input.iconUrl, updatedAt: new Date() })
+    .where(
+      and(
+        eq(projects.id, input.projectId),
+        eq(projects.workspaceId, input.workspaceId),
+        isNull(projects.deletedAt),
+      ),
+    )
+    .returning();
+  return project ?? null;
 }
 
 export async function softDeleteProjectInDb(input: {
@@ -371,14 +446,14 @@ export async function softDeleteProjectInDb(input: {
     .update(projects)
     .set({
       deletedAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
     .where(
       and(
         eq(projects.id, input.projectId),
         eq(projects.workspaceId, input.workspaceId),
-        isNull(projects.deletedAt)
-      )
+        isNull(projects.deletedAt),
+      ),
     )
     .returning();
 

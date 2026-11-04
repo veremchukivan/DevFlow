@@ -63,9 +63,11 @@ the API with the migrator role. PostgreSQL, API, and web ports are bound to
 `127.0.0.1`, so they are only reachable from this computer. Use a reverse
 proxy and a production-specific Compose configuration for public deployment.
 Local Drizzle commands use `DATABASE_MIGRATION_URL`; application processes use
-`DATABASE_URL`.
+`DATABASE_URL`. The Docker services use the corresponding
+`DOCKER_MIGRATION_DATABASE_URL` and `DOCKER_RUNTIME_DATABASE_URL` values,
+because `postgres` is the database hostname inside the Compose network.
 
-The default API connection string in `infra/.env.example` is:
+The default host-side runtime connection string in `infra/.env.example` is:
 
 ```txt
 postgres://devflow_runtime:replace-with-a-unique-runtime-password@localhost:5432/devflow
@@ -89,10 +91,10 @@ pnpm db:test:prepare
 
 ## Local URLs
 
-- Web: http://localhost:3000
-- API: http://localhost:4000
-- API healthcheck: http://localhost:4000/healthz
-- API readiness: http://localhost:4000/readyz
+- Web: http://127.0.0.1:3001
+- API: http://127.0.0.1:4000
+- API healthcheck: http://127.0.0.1:4000/healthz
+- API readiness: http://127.0.0.1:4000/readyz
 
 ## API Documentation
 

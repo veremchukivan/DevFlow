@@ -1,34 +1,58 @@
 import {
   acceptInvitationResponseSchema,
+  aiSettingsSchema,
   addWorkspaceMemberRequestSchema,
   authResponseSchema,
   changePasswordRequestSchema,
+  changeEmailRequestSchema,
+  createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
   createProjectRequestSchema,
+  createProjectFigmaLinkRequestSchema,
+  createProjectSprintRequestSchema,
   createProjectStatusRequestSchema,
   createTaskCommentRequestSchema,
+  createTaskChecklistItemRequestSchema,
+  createTaskFigmaLinkRequestSchema,
   createTaskRequestSchema,
   createWorkspaceInvitationRequestSchema,
   createWorkspaceRequestSchema,
+  deleteAccountRequestSchema,
   emailVerificationTokenRequestSchema,
+  figmaFilePreviewResponseSchema,
   healthResponseSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
   projectListResponseSchema,
+  projectFigmaLinkListResponseSchema,
+  projectFigmaLinkResponseSchema,
+  projectSprintListResponseSchema,
+  projectSprintResponseSchema,
   projectResponseSchema,
   reorderProjectStatusesRequestSchema,
+  repositionTaskRequestSchema,
   publicWorkspaceInvitationResponseSchema,
   registerRequestSchema,
   taskCommentListResponseSchema,
   taskCommentResponseSchema,
+  taskChecklistListResponseSchema,
+  taskChecklistResponseSchema,
+  taskFigmaLinkListResponseSchema,
+  taskFigmaLinkResponseSchema,
+  taskTimeEntryListResponseSchema,
+  taskTimeEntryResponseSchema,
+  createManualTaskTimeEntryRequestSchema,
   taskListResponseSchema,
   taskResponseSchema,
   updateProfileRequestSchema,
   taskActivityEventListResponseSchema,
   updateProjectRequestSchema,
+  updateProjectSprintRequestSchema,
   updateProjectStatusRequestSchema,
   updateTaskCommentRequestSchema,
+  updateTaskChecklistItemRequestSchema,
   updateTaskRequestSchema,
+  updateAiSettingsRequestSchema,
   updateWorkspaceMemberRequestSchema,
   transferWorkspaceOwnershipRequestSchema,
   updateWorkspaceRequestSchema,
@@ -46,32 +70,58 @@ const schemas = {
   AddWorkspaceMemberRequest: addWorkspaceMemberRequestSchema,
   AuthResponse: authResponseSchema,
   ChangePasswordRequest: changePasswordRequestSchema,
+  ChangeEmailRequest: changeEmailRequestSchema,
+  CreateApiTokenRequest: createApiTokenRequestSchema,
+  ApiTokenListResponse: apiTokenListResponseSchema,
+  AiSettings: aiSettingsSchema,
+  CreateApiTokenResponse: createApiTokenResponseSchema,
   CreateProjectRequest: createProjectRequestSchema,
+  CreateProjectFigmaLinkRequest: createProjectFigmaLinkRequestSchema,
+  CreateProjectSprintRequest: createProjectSprintRequestSchema,
   CreateProjectStatusRequest: createProjectStatusRequestSchema,
   CreateTaskCommentRequest: createTaskCommentRequestSchema,
+  CreateTaskChecklistItemRequest: createTaskChecklistItemRequestSchema,
+  CreateTaskFigmaLinkRequest: createTaskFigmaLinkRequestSchema,
   CreateTaskRequest: createTaskRequestSchema,
   CreateWorkspaceInvitationRequest: createWorkspaceInvitationRequestSchema,
   CreateWorkspaceRequest: createWorkspaceRequestSchema,
+  DeleteAccountRequest: deleteAccountRequestSchema,
   EmailVerificationTokenRequest: emailVerificationTokenRequestSchema,
   HealthResponse: healthResponseSchema,
+  FigmaFilePreviewResponse: figmaFilePreviewResponseSchema,
   LoginRequest: loginRequestSchema,
   PasswordResetConfirmRequest: passwordResetConfirmRequestSchema,
   PasswordResetRequest: passwordResetRequestSchema,
   ProjectListResponse: projectListResponseSchema,
+  ProjectFigmaLinkListResponse: projectFigmaLinkListResponseSchema,
+  ProjectFigmaLinkResponse: projectFigmaLinkResponseSchema,
+  ProjectSprintListResponse: projectSprintListResponseSchema,
+  ProjectSprintResponse: projectSprintResponseSchema,
   ProjectResponse: projectResponseSchema,
   ReorderProjectStatusesRequest: reorderProjectStatusesRequestSchema,
+  RepositionTaskRequest: repositionTaskRequestSchema,
   PublicWorkspaceInvitationResponse: publicWorkspaceInvitationResponseSchema,
   RegisterRequest: registerRequestSchema,
   TaskActivityEventListResponse: taskActivityEventListResponseSchema,
   TaskCommentListResponse: taskCommentListResponseSchema,
   TaskCommentResponse: taskCommentResponseSchema,
+  TaskChecklistListResponse: taskChecklistListResponseSchema,
+  TaskChecklistResponse: taskChecklistResponseSchema,
+  TaskFigmaLinkListResponse: taskFigmaLinkListResponseSchema,
+  TaskFigmaLinkResponse: taskFigmaLinkResponseSchema,
+  CreateManualTaskTimeEntryRequest: createManualTaskTimeEntryRequestSchema,
+  TaskTimeEntryListResponse: taskTimeEntryListResponseSchema,
+  TaskTimeEntryResponse: taskTimeEntryResponseSchema,
   TaskListResponse: taskListResponseSchema,
   TaskResponse: taskResponseSchema,
   UpdateProjectRequest: updateProjectRequestSchema,
+  UpdateProjectSprintRequest: updateProjectSprintRequestSchema,
   UpdateProjectStatusRequest: updateProjectStatusRequestSchema,
   UpdateProfileRequest: updateProfileRequestSchema,
   UpdateTaskCommentRequest: updateTaskCommentRequestSchema,
+  UpdateTaskChecklistItemRequest: updateTaskChecklistItemRequestSchema,
   UpdateTaskRequest: updateTaskRequestSchema,
+  UpdateAiSettingsRequest: updateAiSettingsRequestSchema,
   UpdateWorkspaceMemberRequest: updateWorkspaceMemberRequestSchema,
   TransferWorkspaceOwnershipRequest: transferWorkspaceOwnershipRequestSchema,
   UpdateWorkspaceRequest: updateWorkspaceRequestSchema,
@@ -84,7 +134,11 @@ const schemas = {
 };
 
 type SchemaName = keyof typeof schemas;
-type DocumentSchemaName = SchemaName | "ErrorResponse" | "ReadinessResponse";
+type DocumentSchemaName =
+  | SchemaName
+  | "ErrorResponse"
+  | "FigmaConnectionResponse"
+  | "ReadinessResponse";
 
 const json = (schema: DocumentSchemaName) => ({
   content: {
@@ -106,6 +160,21 @@ const response = (
   },
   ...(schema ? json(schema) : {}),
 });
+
+const imageRequestBody = {
+  required: true,
+  content: {
+    "multipart/form-data": {
+      schema: {
+        type: "object",
+        required: ["image"],
+        properties: {
+          image: { type: "string", format: "binary" },
+        },
+      },
+    },
+  },
+};
 
 const errorResponse = (description: string) => ({
   description,
@@ -151,7 +220,7 @@ const pagination = [
   },
 ];
 
-const authenticated = [{ sessionCookie: [] }];
+const authenticated = [{ sessionCookie: [] }, { bearerAuth: [] }];
 const commonErrors = {
   "400": errorResponse("Invalid request"),
   "401": errorResponse("Authentication is required"),
@@ -177,9 +246,12 @@ export const openApiDocument = {
     { name: "Members" },
     { name: "Invitations" },
     { name: "Projects" },
+    { name: "Sprints" },
     { name: "Tasks" },
     { name: "Comments" },
+    { name: "Checklists" },
     { name: "Activity" },
+    { name: "Integrations" },
   ],
   paths: {
     "/healthz": {
@@ -257,6 +329,27 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/v1/auth/profile/avatar": {
+      put: {
+        tags: ["Auth"],
+        operationId: "uploadProfileAvatar",
+        security: authenticated,
+        requestBody: imageRequestBody,
+        responses: {
+          "200": response("Avatar updated", "AuthResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Auth"],
+        operationId: "deleteProfileAvatar",
+        security: authenticated,
+        responses: {
+          "200": response("Avatar removed", "AuthResponse"),
+          ...commonErrors,
+        },
+      },
+    },
     "/api/v1/auth/password/change": {
       post: {
         tags: ["Auth"],
@@ -267,6 +360,117 @@ export const openApiDocument = {
           "204": response("Password changed and sessions cleared"),
           ...commonErrors,
           "400": errorResponse("Current password is incorrect"),
+        },
+      },
+    },
+    "/api/v1/auth/email/change": {
+      post: {
+        tags: ["Auth"],
+        operationId: "requestEmailChange",
+        security: authenticated,
+        requestBody: requestBody("ChangeEmailRequest"),
+        responses: {
+          "204": response("Email change confirmation sent"),
+          ...commonErrors,
+          "400": errorResponse("Current password is incorrect"),
+          "409": errorResponse("Email already registered"),
+        },
+      },
+    },
+    "/api/v1/auth/account": {
+      delete: {
+        tags: ["Auth"],
+        operationId: "deleteAccount",
+        security: authenticated,
+        requestBody: requestBody("DeleteAccountRequest"),
+        responses: {
+          "204": response("Account deleted and sessions cleared"),
+          ...commonErrors,
+          "400": errorResponse("Current password is incorrect"),
+          "409": errorResponse(
+            "Transfer ownership of shared workspaces before deleting the account",
+          ),
+        },
+      },
+    },
+    "/api/v1/auth/api-tokens": {
+      get: { tags: ["Auth"], operationId: "listApiTokens", security: authenticated, responses: { "200": response("API tokens", "ApiTokenListResponse"), ...commonErrors } },
+      post: { tags: ["Auth"], operationId: "createApiToken", security: authenticated, requestBody: requestBody("CreateApiTokenRequest"), responses: { "201": response("API token created", "CreateApiTokenResponse"), ...commonErrors } },
+    },
+    "/api/v1/auth/api-tokens/{tokenId}": {
+      delete: { tags: ["Auth"], operationId: "revokeApiToken", security: authenticated, parameters: [uuidPath("tokenId")], responses: { "204": response("API token revoked"), ...commonErrors } },
+    },
+    "/api/v1/ai-settings": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "getAiSettings",
+        security: authenticated,
+        responses: { "200": response("AI configuration metadata", "AiSettings"), ...commonErrors },
+      },
+      put: {
+        tags: ["Integrations"],
+        operationId: "updateAiSettings",
+        security: authenticated,
+        requestBody: requestBody("UpdateAiSettingsRequest"),
+        responses: {
+          "200": response("AI configuration saved", "AiSettings"),
+          "503": errorResponse("AI encryption is not configured"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Integrations"],
+        operationId: "deleteAiSettings",
+        security: authenticated,
+        responses: { "204": response("AI configuration removed"), ...commonErrors },
+      },
+    },
+    "/api/v1/integrations/figma/connect": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "connectFigma",
+        security: authenticated,
+        responses: {
+          "302": response("Redirect to Figma authorization"),
+          "503": errorResponse("Figma integration is not configured"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/integrations/figma/connection": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "getFigmaConnection",
+        security: authenticated,
+        responses: {
+          "200": response("Figma connection state", "FigmaConnectionResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Integrations"],
+        operationId: "disconnectFigma",
+        security: authenticated,
+        responses: { "204": response("Figma account disconnected"), ...commonErrors },
+      },
+    },
+    "/api/v1/integrations/figma/preview": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "getFigmaFilePreview",
+        security: authenticated,
+        parameters: [
+          {
+            in: "query",
+            name: "url",
+            required: true,
+            schema: { type: "string", format: "uri" },
+          },
+        ],
+        responses: {
+          "200": response("Figma file preview", "FigmaFilePreviewResponse"),
+          "409": errorResponse("Figma connection is required"),
+          ...commonErrors,
         },
       },
     },
@@ -366,6 +570,29 @@ export const openApiDocument = {
         responses: { "204": response("Workspace deleted"), ...commonErrors },
       },
     },
+    "/api/v1/workspaces/{workspaceId}/icon": {
+      put: {
+        tags: ["Workspaces"],
+        operationId: "uploadWorkspaceIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId")],
+        requestBody: imageRequestBody,
+        responses: {
+          "200": response("Workspace image updated", "WorkspaceResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Workspaces"],
+        operationId: "deleteWorkspaceIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId")],
+        responses: {
+          "200": response("Workspace image removed", "WorkspaceResponse"),
+          ...commonErrors,
+        },
+      },
+    },
     "/api/v1/workspaces/{workspaceId}/leave": {
       post: {
         tags: ["Workspaces"],
@@ -429,10 +656,15 @@ export const openApiDocument = {
     },
     "/api/v1/workspaces/{workspaceId}/members/transfer-ownership": {
       post: {
-        tags: ["Members"], operationId: "transferWorkspaceOwnership", security: authenticated,
+        tags: ["Members"],
+        operationId: "transferWorkspaceOwnership",
+        security: authenticated,
         parameters: [uuidPath("workspaceId")],
         requestBody: requestBody("TransferWorkspaceOwnershipRequest"),
-        responses: { "204": response("Ownership transferred"), ...commonErrors },
+        responses: {
+          "204": response("Ownership transferred"),
+          ...commonErrors,
+        },
       },
     },
     "/api/v1/workspaces/{workspaceId}/invitations": {
@@ -568,35 +800,206 @@ export const openApiDocument = {
         responses: { "204": response("Project deleted"), ...commonErrors },
       },
     },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/icon": {
+      put: {
+        tags: ["Projects"],
+        operationId: "uploadProjectIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: imageRequestBody,
+        responses: {
+          "200": response("Project icon updated", "ProjectResponse"),
+          ...commonErrors,
+        },
+      },
+      delete: {
+        tags: ["Projects"],
+        operationId: "deleteProjectIcon",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        responses: {
+          "200": response("Project icon removed", "ProjectResponse"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/figma-links": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "listProjectFigmaLinks",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        responses: {
+          "200": response("Project Figma links", "ProjectFigmaLinkListResponse"),
+          ...commonErrors,
+        },
+      },
+      post: {
+        tags: ["Integrations"],
+        operationId: "createProjectFigmaLink",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: requestBody("CreateProjectFigmaLinkRequest"),
+        responses: {
+          "201": response("Figma link added", "ProjectFigmaLinkResponse"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/figma-links/{linkId}": {
+      delete: {
+        tags: ["Integrations"],
+        operationId: "deleteProjectFigmaLink",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("linkId")],
+        responses: { "204": response("Figma link removed"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/figma-links": {
+      get: {
+        tags: ["Integrations"],
+        operationId: "listTaskFigmaLinks",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("taskId")],
+        responses: {
+          "200": response("Task Figma links", "TaskFigmaLinkListResponse"),
+          ...commonErrors,
+        },
+      },
+      post: {
+        tags: ["Integrations"],
+        operationId: "createTaskFigmaLink",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("taskId")],
+        requestBody: requestBody("CreateTaskFigmaLinkRequest"),
+        responses: {
+          "201": response("Task Figma link added", "TaskFigmaLinkResponse"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/figma-links/{linkId}": {
+      delete: {
+        tags: ["Integrations"],
+        operationId: "deleteTaskFigmaLink",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("taskId"), uuidPath("linkId")],
+        responses: { "204": response("Task Figma link removed"), ...commonErrors },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/sprints": {
+      get: {
+        tags: ["Sprints"],
+        operationId: "listProjectSprints",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        responses: {
+          "200": response("Project sprints", "ProjectSprintListResponse"),
+          ...commonErrors,
+        },
+      },
+      post: {
+        tags: ["Sprints"],
+        operationId: "createProjectSprint",
+        security: authenticated,
+        parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
+        requestBody: requestBody("CreateProjectSprintRequest"),
+        responses: {
+          "201": response("Sprint created", "ProjectSprintResponse"),
+          "409": errorResponse("An active sprint already exists"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/sprints/{sprintId}":
+      {
+        patch: {
+          tags: ["Sprints"],
+          operationId: "updateProjectSprint",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("sprintId"),
+          ],
+          requestBody: requestBody("UpdateProjectSprintRequest"),
+          responses: {
+            "200": response("Sprint updated", "ProjectSprintResponse"),
+            "409": errorResponse("An active sprint already exists"),
+            ...commonErrors,
+          },
+        },
+        delete: {
+          tags: ["Sprints"],
+          operationId: "deleteProjectSprint",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("sprintId"),
+          ],
+          responses: {
+            "204": response("Sprint deleted"),
+            "409": errorResponse("Sprint contains tasks"),
+            ...commonErrors,
+          },
+        },
+      },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses": {
       post: {
-        tags: ["Projects"], operationId: "createProjectStatus", security: authenticated,
+        tags: ["Projects"],
+        operationId: "createProjectStatus",
+        security: authenticated,
         parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
         requestBody: requestBody("CreateProjectStatusRequest"),
-        responses: { "201": response("Status created", "ProjectResponse"), ...commonErrors },
+        responses: {
+          "201": response("Status created", "ProjectResponse"),
+          ...commonErrors,
+        },
       },
     },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/order": {
       put: {
-        tags: ["Projects"], operationId: "reorderProjectStatuses", security: authenticated,
+        tags: ["Projects"],
+        operationId: "reorderProjectStatuses",
+        security: authenticated,
         parameters: [uuidPath("workspaceId"), uuidPath("projectId")],
         requestBody: requestBody("ReorderProjectStatusesRequest"),
-        responses: { "200": response("Statuses reordered", "ProjectResponse"), ...commonErrors },
+        responses: {
+          "200": response("Statuses reordered", "ProjectResponse"),
+          ...commonErrors,
+        },
       },
     },
-    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/{statusId}": {
-      patch: {
-        tags: ["Projects"], operationId: "updateProjectStatus", security: authenticated,
-        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("statusId")],
-        requestBody: requestBody("UpdateProjectStatusRequest"),
-        responses: { "200": response("Status updated", "ProjectResponse"), ...commonErrors },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/statuses/{statusId}":
+      {
+        patch: {
+          tags: ["Projects"],
+          operationId: "updateProjectStatus",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("statusId"),
+          ],
+          requestBody: requestBody("UpdateProjectStatusRequest"),
+          responses: {
+            "200": response("Status updated", "ProjectResponse"),
+            ...commonErrors,
+          },
+        },
+        delete: {
+          tags: ["Projects"],
+          operationId: "deleteProjectStatus",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("statusId"),
+          ],
+          responses: { "204": response("Status deleted"), ...commonErrors },
+        },
       },
-      delete: {
-        tags: ["Projects"], operationId: "deleteProjectStatus", security: authenticated,
-        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("statusId")],
-        responses: { "204": response("Status deleted"), ...commonErrors },
-      },
-    },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks": {
       get: {
         tags: ["Tasks"],
@@ -637,14 +1040,20 @@ export const openApiDocument = {
             in: "query",
             schema: {
               type: "string",
-              enum: ["createdAt", "updatedAt", "priority", "number"],
-              default: "createdAt",
+              enum: [
+                "createdAt",
+                "updatedAt",
+                "priority",
+                "number",
+                "position",
+              ],
+              default: "position",
             },
           },
           {
             name: "sortOrder",
             in: "query",
-            schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+            schema: { type: "string", enum: ["asc", "desc"], default: "asc" },
           },
         ],
         responses: {
@@ -731,13 +1140,49 @@ export const openApiDocument = {
         },
       },
     },
-    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/restore": {
-      post: {
-        tags: ["Tasks"], operationId: "restoreTask", security: authenticated,
-        parameters: [uuidPath("workspaceId"), uuidPath("projectId"), uuidPath("taskId"), { name: "If-Match", in: "header", required: true, schema: { type: "string", pattern: '^"[1-9]\\d*"$' } }],
-        responses: { "204": response("Task restored"), "409": errorResponse("Task version conflict"), "428": errorResponse("Task version is required"), ...commonErrors },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/position":
+      {
+        put: {
+          tags: ["Tasks"],
+          operationId: "repositionTask",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+          ],
+          requestBody: requestBody("RepositionTaskRequest"),
+          responses: {
+            "204": response("Task repositioned"),
+            ...commonErrors,
+          },
+        },
       },
-    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/restore":
+      {
+        post: {
+          tags: ["Tasks"],
+          operationId: "restoreTask",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+            {
+              name: "If-Match",
+              in: "header",
+              required: true,
+              schema: { type: "string", pattern: '^"[1-9]\\d*"$' },
+            },
+          ],
+          responses: {
+            "204": response("Task restored"),
+            "409": errorResponse("Task version conflict"),
+            "428": errorResponse("Task version is required"),
+            ...commonErrors,
+          },
+        },
+      },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/comments":
       {
         get: {
@@ -802,6 +1247,137 @@ export const openApiDocument = {
           responses: { "204": response("Comment deleted"), ...commonErrors },
         },
       },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/checklist":
+      {
+        get: {
+          tags: ["Checklists"],
+          operationId: "listTaskChecklistItems",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+          ],
+          responses: {
+            "200": response("Task checklist", "TaskChecklistListResponse"),
+            ...commonErrors,
+          },
+        },
+        post: {
+          tags: ["Checklists"],
+          operationId: "createTaskChecklistItem",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+          ],
+          requestBody: requestBody("CreateTaskChecklistItemRequest"),
+          responses: {
+            "201": response("Checklist item created", "TaskChecklistResponse"),
+            ...commonErrors,
+          },
+        },
+      },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/checklist/{itemId}":
+      {
+        patch: {
+          tags: ["Checklists"],
+          operationId: "updateTaskChecklistItem",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+            uuidPath("itemId"),
+          ],
+          requestBody: requestBody("UpdateTaskChecklistItemRequest"),
+          responses: {
+            "200": response("Checklist item updated", "TaskChecklistResponse"),
+            ...commonErrors,
+          },
+        },
+        delete: {
+          tags: ["Checklists"],
+          operationId: "deleteTaskChecklistItem",
+          security: authenticated,
+          parameters: [
+            uuidPath("workspaceId"),
+            uuidPath("projectId"),
+            uuidPath("taskId"),
+            uuidPath("itemId"),
+          ],
+          responses: {
+            "204": response("Checklist item deleted"),
+            ...commonErrors,
+          },
+        },
+      },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/time-entries": {
+      get: {
+        tags: ["Time tracking"],
+        operationId: "listTaskTimeEntries",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+        ],
+        responses: {
+          "200": response("Task time entries and summary", "TaskTimeEntryListResponse"),
+          ...commonErrors,
+        },
+      },
+      post: {
+        tags: ["Time tracking"],
+        operationId: "createManualTaskTimeEntry",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+        ],
+        requestBody: requestBody("CreateManualTaskTimeEntryRequest"),
+        responses: {
+          "201": response("Time entry created", "TaskTimeEntryResponse"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/time-entries/start": {
+      post: {
+        tags: ["Time tracking"],
+        operationId: "startTaskTimer",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+        ],
+        responses: {
+          "201": response("Timer started", "TaskTimeEntryResponse"),
+          "409": errorResponse("A timer is already running"),
+          ...commonErrors,
+        },
+      },
+    },
+    "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/time-entries/{entryId}/stop": {
+      post: {
+        tags: ["Time tracking"],
+        operationId: "stopTaskTimer",
+        security: authenticated,
+        parameters: [
+          uuidPath("workspaceId"),
+          uuidPath("projectId"),
+          uuidPath("taskId"),
+          uuidPath("entryId"),
+        ],
+        responses: {
+          "200": response("Timer stopped", "TaskTimeEntryResponse"),
+          ...commonErrors,
+        },
+      },
+    },
     "/api/v1/workspaces/{workspaceId}/projects/{projectId}/tasks/{taskId}/activity":
       {
         get: {
@@ -823,6 +1399,12 @@ export const openApiDocument = {
   },
   components: {
     securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "DevFlow API token",
+        description: "Personal API token generated in Profile > Setup.",
+      },
       sessionCookie: {
         type: "apiKey",
         in: "cookie",
@@ -874,6 +1456,31 @@ export const openApiDocument = {
           },
           status: { type: "string", enum: ["ok", "error"] },
           timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      FigmaConnectionResponse: {
+        type: "object",
+        required: ["configured", "connected", "connection"],
+        properties: {
+          configured: {
+            description:
+              "Whether the deployment has the Figma OAuth configuration required to connect an account.",
+            type: "boolean",
+          },
+          connected: { type: "boolean" },
+          connection: {
+            oneOf: [
+              { type: "null" },
+              {
+                type: "object",
+                required: ["connectedAt", "expiresAt"],
+                properties: {
+                  connectedAt: { type: "string", format: "date-time" },
+                  expiresAt: { type: "string", format: "date-time" },
+                },
+              },
+            ],
+          },
         },
       },
       ...Object.fromEntries(

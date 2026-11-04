@@ -2,6 +2,8 @@ import argon2 from "argon2";
 import { createHash, randomBytes } from "node:crypto";
 import type {
   ChangePasswordRequest,
+  ChangeEmailRequest,
+  CreateApiTokenRequest,
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
@@ -10,20 +12,36 @@ import type {
 import { env } from "../../config/env.js";
 import type { User } from "../../core/db/schema/users.js";
 import { AppError } from "../../core/errors/app-error.js";
+import { deleteStoredImage, saveImage } from "../../core/uploads/images.js";
 import {
   createSession,
+  createApiToken,
   createUser,
+  createUserWithDefaultWorkspace,
   consumeEmailVerificationToken,
+  consumeEmailChangeToken,
   consumePasswordResetToken,
+  deleteOtherSessionsForUser,
+  deleteAccountAndPersonalWorkspaces,
+  deleteSessionForUser,
   deleteSessionByTokenHash,
+  ensureDefaultWorkspaceForUser,
   findUserPasswordById,
   findSessionUserByTokenHash,
   findUserByEmailNormalized,
+  findUserByApiTokenHash,
+  findUserAvatarById,
+  getAccountDataExport,
+  listActiveSessionsForUser,
+  listApiTokens,
   replaceEmailVerificationToken,
+  replaceEmailChangeToken,
   replacePasswordResetToken,
+  revokeApiToken,
   touchSession,
   updatePasswordAndDeleteSessions,
   updateUserDisplayName,
+  updateUserAvatar,
   type SessionUser,
 } from "./auth.repository.js";
 
@@ -102,6 +120,12 @@ export async function login(
     throw invalidCredentialsError();
   }
 
+  await ensureDefaultWorkspaceForUser({
+    displayName: user.displayName,
+    userId: user.id,
+    workspaceSlug: `personal-${randomBytes(6).toString("hex")}`,
+  });
+
   return createAuthResult(user, meta);
 }
 
@@ -122,8 +146,64 @@ export async function getCurrentUser(sessionToken: string) {
   return session.user;
 }
 
+export async function getCurrentUserByApiToken(token: string) {
+  const result = await findUserByApiTokenHash(hashToken(token));
+  if (!result) throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  return result;
+}
+
 export async function logout(sessionToken: string) {
   await deleteSessionByTokenHash(hashSessionToken(sessionToken));
+}
+
+export async function exportAccountData(userId: string) {
+  const data = await getAccountDataExport(userId);
+  if (!data) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  return data;
+}
+
+export async function listAccountSessions(input: {
+  sessionToken: string;
+  userId: string;
+}) {
+  const currentTokenHash = hashSessionToken(input.sessionToken);
+  const sessions = await listActiveSessionsForUser(input.userId);
+
+  return sessions.map((session) => ({
+    ...session,
+    current: session.tokenHash === currentTokenHash,
+  }));
+}
+
+export async function revokeAccountSession(input: {
+  sessionId: string;
+  sessionToken: string;
+  userId: string;
+}) {
+  const session = await deleteSessionForUser({
+    sessionId: input.sessionId,
+    userId: input.userId,
+  });
+
+  if (!session) {
+    throw new AppError(404, "SESSION_NOT_FOUND", "Session was not found");
+  }
+
+  return {
+    current: session.tokenHash === hashSessionToken(input.sessionToken),
+  };
+}
+
+export async function revokeOtherAccountSessions(input: {
+  sessionToken: string;
+  userId: string;
+}) {
+  await deleteOtherSessionsForUser({
+    tokenHash: hashSessionToken(input.sessionToken),
+    userId: input.userId,
+  });
 }
 
 export async function updateProfile(
@@ -136,6 +216,38 @@ export async function updateProfile(
     throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
   }
 
+  return user;
+}
+
+export async function updateProfileAvatar(
+  userId: string,
+  file: Express.Multer.File,
+) {
+  const current = await findUserAvatarById(userId);
+  if (!current) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  const avatarUrl = await saveImage({ file, kind: "avatars" });
+  const user = await updateUserAvatar(userId, avatarUrl);
+  if (!user) {
+    await deleteStoredImage(avatarUrl);
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  await deleteStoredImage(current.avatarUrl);
+  return user;
+}
+
+export async function removeProfileAvatar(userId: string) {
+  const current = await findUserAvatarById(userId);
+  if (!current) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  const user = await updateUserAvatar(userId, null);
+  if (!user) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  await deleteStoredImage(current.avatarUrl);
   return user;
 }
 
@@ -169,6 +281,100 @@ export async function changePassword(
   }
 }
 
+export async function deleteAccount(userId: string, currentPassword: string) {
+  const user = await findUserPasswordById(userId);
+  if (
+    !user?.passwordHash ||
+    !(await argon2.verify(user.passwordHash, currentPassword))
+  ) {
+    throw new AppError(
+      400,
+      "INVALID_CURRENT_PASSWORD",
+      "Current password is incorrect",
+    );
+  }
+  const result = await deleteAccountAndPersonalWorkspaces(userId);
+  if (result.kind === "shared_workspace")
+    throw new AppError(
+      409,
+      "WORKSPACE_OWNERSHIP_TRANSFER_REQUIRED",
+      "Transfer ownership of shared workspaces before deleting your account",
+    );
+  if (result.kind === "user_not_found")
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  await deleteStoredImage(result.avatarUrl);
+}
+
+export async function createPersonalApiToken(userId: string, input: CreateApiTokenRequest) {
+  const secret = `df_${randomBytes(32).toString("base64url")}`;
+  const token = await createApiToken({
+    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    name: input.name,
+    scopes: input.scopes,
+    tokenHash: hashToken(secret),
+    tokenPrefix: secret.slice(0, 11),
+    userId,
+  });
+  return { token: secret, tokenInfo: toApiTokenInfo(token) };
+}
+
+export async function getPersonalApiTokens(userId: string) {
+  return (await listApiTokens(userId)).map(toApiTokenInfo);
+}
+
+export async function revokePersonalApiToken(userId: string, tokenId: string) {
+  if (!(await revokeApiToken(userId, tokenId))) {
+    throw new AppError(404, "API_TOKEN_NOT_FOUND", "API token was not found");
+  }
+}
+
+export async function requestEmailChange(
+  userId: string,
+  input: ChangeEmailRequest,
+) {
+  const user = await findUserPasswordById(userId);
+  if (
+    !user?.passwordHash ||
+    !(await argon2.verify(user.passwordHash, input.currentPassword))
+  ) {
+    throw new AppError(
+      400,
+      "INVALID_CURRENT_PASSWORD",
+      "Current password is incorrect",
+    );
+  }
+
+  const emailNormalized = normalizeEmail(input.email);
+  if (emailNormalized === user.emailNormalized) {
+    throw new AppError(
+      400,
+      "EMAIL_UNCHANGED",
+      "Choose an email address different from your current one",
+    );
+  }
+  const currentUser = await findUserByEmailNormalized(emailNormalized);
+  if (currentUser) {
+    throw new AppError(
+      409,
+      "EMAIL_ALREADY_REGISTERED",
+      "A user with this email already exists",
+    );
+  }
+
+  const token = generateAuthToken();
+  const changedUser = await replaceEmailChangeToken({
+    email: input.email.trim(),
+    emailNormalized,
+    expiresAt: getEmailVerificationExpiresAt(),
+    tokenHash: hashToken(token),
+    userId,
+  });
+  if (!changedUser) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+  return { email: input.email.trim(), token, user: changedUser };
+}
+
 export async function issueEmailVerificationToken(user: SessionUser) {
   if (user.emailVerifiedAt) {
     return null;
@@ -186,7 +392,10 @@ export async function issueEmailVerificationToken(user: SessionUser) {
 }
 
 export async function verifyEmail(token: string) {
-  const user = await consumeEmailVerificationToken(hashToken(token));
+  const tokenHash = hashToken(token);
+  const user =
+    (await consumeEmailVerificationToken(tokenHash)) ??
+    (await consumeEmailChangeToken(tokenHash));
 
   if (!user) {
     throw new AppError(
@@ -307,6 +516,31 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function toApiTokenInfo(token: {
+  createdAt: Date;
+  expiresAt: Date | null;
+  id: string;
+  lastUsedAt: Date | null;
+  name: string;
+  scopes: string[];
+  tokenPrefix: string;
+}) {
+  return {
+    createdAt: token.createdAt.toISOString(),
+    expiresAt: token.expiresAt?.toISOString() ?? null,
+    id: token.id,
+    lastUsedAt: token.lastUsedAt?.toISOString() ?? null,
+    name: token.name,
+    scopes: token.scopes.includes("api:access")
+      ? ["api:read", "api:write"]
+      : token.scopes.filter(
+          (scope): scope is "api:read" | "api:write" =>
+            scope === "api:read" || scope === "api:write",
+        ),
+    tokenPrefix: token.tokenPrefix,
+  };
+}
+
 function invalidCredentialsError() {
   return new AppError(401, "INVALID_CREDENTIALS", "Invalid email or password");
 }
@@ -318,7 +552,10 @@ async function createRegisteredUser(input: {
   passwordHash: string;
 }) {
   try {
-    return await createUser(input);
+    return await createUserWithDefaultWorkspace({
+      ...input,
+      workspaceSlug: `personal-${randomBytes(6).toString("hex")}`,
+    });
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(

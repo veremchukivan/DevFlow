@@ -45,6 +45,130 @@
 .createButton:hover {
   background: #316bb1;
 }
+.searchButton {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 9px 0 11px;
+}
+.searchButton:hover {
+  border-color: #aebdce;
+  color: var(--ink);
+}
+.searchButton kbd {
+  background: #f1f5f9;
+  border: 1px solid #d9e1ea;
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 4px;
+}
+.searchOverlay {
+  align-items: flex-start;
+  background: rgb(15 23 42 / 44%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: min(16dvh, 130px) 20px 20px;
+  position: fixed;
+  z-index: 50;
+}
+.searchDialog {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 30%);
+  max-width: 680px;
+  overflow: hidden;
+  width: 100%;
+}
+.searchInputWrap {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+  padding: 13px 15px;
+}
+.searchInputWrap input {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  flex: 1;
+  font: inherit;
+  font-size: 16px;
+  min-width: 0;
+  outline: none;
+}
+.searchInputWrap button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+.searchInputWrap button:hover {
+  background: #f1f5f9;
+  color: var(--ink);
+}
+.searchResults {
+  max-height: min(56dvh, 460px);
+  overflow: auto;
+}
+.searchResults > p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+  padding: 24px 18px;
+}
+.searchResults ul {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+}
+.searchResults button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+.searchResults button:hover {
+  background: #f1f5f9;
+}
+.searchResults button.searchResultSelected {
+  background: #e9f2ff;
+  outline: 1px solid #b9d5fb;
+}
+.searchResults button span,
+.searchResults button em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+.searchResults button strong {
+  font-size: 14px;
+}
 .userAvatar {
   align-items: center;
   background: #e6eef9;
@@ -57,6 +181,12 @@
   justify-content: center;
   width: 38px;
 }
+.userAvatar img {
+  border-radius: inherit;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
 
 .signOut {
   background: transparent;
@@ -67,6 +197,135 @@
   padding: 0;
   place-items: center;
   width: 38px;
+}
+
+.notifications {
+  position: relative;
+}
+.notificationButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  position: relative;
+  width: 38px;
+}
+.notificationButton:hover {
+  color: var(--brand);
+}
+.notificationCount {
+  align-items: center;
+  background: var(--danger);
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  color: white;
+  display: flex;
+  font-size: 10px;
+  font-weight: 700;
+  height: 18px;
+  justify-content: center;
+  min-width: 18px;
+  position: absolute;
+  right: -3px;
+  top: -3px;
+}
+.notificationPanel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgb(31 44 61 / 18%);
+  position: absolute;
+  right: 0;
+  top: 46px;
+  width: min(360px, calc(100vw - 32px));
+  z-index: 20;
+}
+.notificationHeading {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.notificationHeading span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.notificationActions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.notificationActions button {
+  background: transparent;
+  border: 0;
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px;
+}
+.notificationActions button:disabled {
+  color: var(--muted);
+  cursor: wait;
+}
+.notificationPanel ul {
+  list-style: none;
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 0;
+}
+.notificationPanel li + li {
+  border-top: 1px solid var(--line);
+}
+.notificationPanel li button {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 13px 16px;
+  text-align: left;
+  width: 100%;
+}
+.notificationPanel li button:hover {
+  background: #f5f8fc;
+}
+.notificationPanel li button span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.notificationPanel li button time {
+  color: var(--muted);
+  font-size: 11px;
+}
+.unreadNotification {
+  border-left: 3px solid var(--brand) !important;
+}
+.notificationPanel > p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+  padding: 18px 16px;
+}
+.allNotificationsLink {
+  border-top: 1px solid var(--line);
+  color: var(--brand);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 13px 16px;
+  text-align: center;
+  text-decoration: none;
+}
+.allNotificationsLink:hover {
+  background: #f5f8fc;
 }
 .signOut:hover {
   color: var(--brand);
@@ -81,5 +340,47 @@
   }
   .breadcrumb {
     display: none;
+  }
+  .searchButton span,
+  .searchButton kbd {
+    display: none;
+  }
+  .searchButton {
+    height: 38px;
+    justify-content: center;
+    padding: 0;
+    width: 38px;
+  }
+}
+
+@media (max-width: 560px) {
+  .content {
+    gap: 9px;
+    min-height: 64px;
+    padding: 0 14px;
+  }
+  .userMenu {
+    gap: 5px;
+  }
+  .createButton {
+    font-size: 0;
+    justify-content: center;
+    min-width: 38px;
+    padding: 0;
+  }
+  .createButton svg {
+    margin: 0;
+  }
+  .signOut {
+    display: none;
+  }
+  .searchOverlay {
+    padding: 12px;
+  }
+  .searchDialog {
+    border-radius: 10px;
+  }
+  .searchResults {
+    max-height: calc(100dvh - 110px);
   }
 }

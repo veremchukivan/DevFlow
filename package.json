@@ -25,6 +25,7 @@
     "infra:up:integrations": "docker compose --env-file .env -f infra/docker/docker-compose.yml --profile integrations up -d --build",
     "infra:up:proxy": "docker compose --env-file .env -f infra/docker/docker-compose.yml --profile proxy up -d --build",
     "infra:up": "docker compose --env-file .env -f infra/docker/docker-compose.yml up -d --build",
+    "infra:verify-production": "bash infra/scripts/verify-production-config.sh",
     "lint": "turbo lint",
     "test": "turbo test",
     "typecheck": "turbo typecheck",

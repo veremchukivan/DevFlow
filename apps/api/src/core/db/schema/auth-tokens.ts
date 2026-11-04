@@ -14,6 +14,7 @@ import { users } from "./users.js";
 
 export const authTokenTypeEnum = pgEnum("auth_token_type", [
   "email_verification",
+  "email_change",
   "password_reset"
 ]);
 

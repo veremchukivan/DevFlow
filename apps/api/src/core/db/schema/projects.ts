@@ -22,6 +22,7 @@ export const projects = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     key: varchar("key", { length: 12 }).notNull(),
     name: varchar("name", { length: 160 }).notNull(),
+    iconUrl: varchar("icon_url", { length: 500 }),
     description: text("description"),
     ownerUserId: uuid("owner_user_id").references(() => users.id, {
       onDelete: "set null"

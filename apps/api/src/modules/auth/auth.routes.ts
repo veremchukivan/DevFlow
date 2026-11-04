@@ -1,6 +1,11 @@
 import {
+  accountSessionListResponseSchema,
+  accountSessionParamsSchema,
   emailVerificationTokenRequestSchema,
   changePasswordRequestSchema,
+  changeEmailRequestSchema,
+  createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
+  deleteAccountRequestSchema,
   loginRequestSchema,
   passwordResetConfirmRequestSchema,
   passwordResetRequestSchema,
@@ -17,11 +22,14 @@ import {
 } from "../../core/email/mailer.js";
 import { AppError } from "../../core/errors/app-error.js";
 import { authRateLimiter } from "../../core/http/rate-limiter.js";
+import { imageUpload } from "../../core/uploads/images.js";
 import { type AuthenticatedRequest, requireAuth } from "./auth.middleware.js";
 import { clearSessionCookie, setSessionCookie } from "./auth.cookies.js";
 import {
   getCurrentUser,
+  exportAccountData,
   changePassword,
+  deleteAccount,
   issueEmailVerificationToken,
   login,
   logout,
@@ -29,6 +37,13 @@ import {
   register,
   resetPassword,
   updateProfile,
+  updateProfileAvatar,
+  removeProfileAvatar,
+  listAccountSessions,
+  revokeAccountSession,
+  revokeOtherAccountSessions,
+  requestEmailChange,
+  createPersonalApiToken, getPersonalApiTokens, revokePersonalApiToken,
   verifyEmail,
 } from "./auth.service.js";
 
@@ -69,6 +84,97 @@ authRouter.patch("/profile", requireAuth, async (req, res) => {
   res.json(toAuthResponse(user));
 });
 
+authRouter.put(
+  "/profile/avatar",
+  requireAuth,
+  imageUpload.single("image"),
+  async (req, res) => {
+    if (!req.file) {
+      throw new AppError(400, "IMAGE_REQUIRED", "Choose an image to upload");
+    }
+    const user = await updateProfileAvatar(
+      getAuthenticatedUser(req).id,
+      req.file,
+    );
+    res.json(toAuthResponse(user));
+  },
+);
+
+authRouter.delete("/profile/avatar", requireAuth, async (req, res) => {
+  const user = await removeProfileAvatar(getAuthenticatedUser(req).id);
+  res.json(toAuthResponse(user));
+});
+
+authRouter.get("/data-export", requireAuth, async (req, res) => {
+  const data = await exportAccountData(getAuthenticatedUser(req).id);
+  const exportedAt = new Date().toISOString();
+  const filename = `devflow-data-export-${exportedAt.slice(0, 10)}.json`;
+
+  res
+    .set({
+      "Cache-Control": "private, no-store",
+      "Content-Disposition": `attachment; filename=${filename}`,
+      "Content-Type": "application/json; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
+    })
+    .send(JSON.stringify({ exportedAt, ...data }, null, 2));
+});
+
+authRouter.get("/sessions", requireAuth, async (req, res) => {
+  const token = getSessionToken(req);
+  if (!token) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  const sessions = await listAccountSessions({
+    sessionToken: token,
+    userId: getAuthenticatedUser(req).id,
+  });
+
+  res.json(
+    accountSessionListResponseSchema.parse({
+      sessions: sessions.map((session) => ({
+        ...session,
+        createdAt: session.createdAt.toISOString(),
+        expiresAt: session.expiresAt.toISOString(),
+        lastSeenAt: session.lastSeenAt.toISOString(),
+      })),
+    }),
+  );
+});
+
+authRouter.delete("/sessions/:sessionId", requireAuth, async (req, res) => {
+  const input = accountSessionParamsSchema.parse(req.params);
+  const token = getSessionToken(req);
+  if (!token) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  const result = await revokeAccountSession({
+    sessionId: input.sessionId,
+    sessionToken: token,
+    userId: getAuthenticatedUser(req).id,
+  });
+
+  if (result.current) {
+    clearSessionCookie(res);
+  }
+  res.status(204).send();
+});
+
+authRouter.post("/sessions/revoke-others", requireAuth, async (req, res) => {
+  const token = getSessionToken(req);
+  if (!token) {
+    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
+  }
+
+  await revokeOtherAccountSessions({
+    sessionToken: token,
+    userId: getAuthenticatedUser(req).id,
+  });
+  res.status(204).send();
+});
+
 authRouter.post(
   "/password/change",
   requireAuth,
@@ -81,6 +187,47 @@ authRouter.post(
     res.status(204).send();
   },
 );
+
+authRouter.post(
+  "/email/change",
+  requireAuth,
+  authRateLimiter,
+  async (req, res) => {
+    const input = changeEmailRequestSchema.parse(req.body);
+    const result = await requestEmailChange(getAuthenticatedUser(req).id, input);
+    await sendEmailVerificationEmail({
+      displayName: result.user.displayName,
+      email: result.email,
+      token: result.token,
+    });
+    res.status(204).send();
+  },
+);
+
+authRouter.delete(
+  "/account",
+  requireAuth,
+  authRateLimiter,
+  async (req, res) => {
+    const input = deleteAccountRequestSchema.parse(req.body);
+    await deleteAccount(getAuthenticatedUser(req).id, input.currentPassword);
+    clearSessionCookie(res);
+    res.status(204).send();
+  },
+);
+
+authRouter.get("/api-tokens", requireAuth, async (req, res) => {
+  res.json(apiTokenListResponseSchema.parse({ tokens: await getPersonalApiTokens(getAuthenticatedUser(req).id) }));
+});
+authRouter.post("/api-tokens", requireAuth, authRateLimiter, async (req, res) => {
+  const result = await createPersonalApiToken(getAuthenticatedUser(req).id, createApiTokenRequestSchema.parse(req.body));
+  res.status(201).json(createApiTokenResponseSchema.parse(result));
+});
+authRouter.delete("/api-tokens/:tokenId", requireAuth, async (req, res) => {
+  const tokenId = String(req.params.tokenId ?? "");
+  await revokePersonalApiToken(getAuthenticatedUser(req).id, tokenId);
+  res.status(204).send();
+});
 
 authRouter.post(
   "/email-verification/resend",
@@ -132,16 +279,8 @@ authRouter.post(
   },
 );
 
-authRouter.get("/me", async (req, res) => {
-  const token = getSessionToken(req);
-
-  if (!token) {
-    throw new AppError(401, "UNAUTHENTICATED", "Authentication is required");
-  }
-
-  const user = await getCurrentUser(token);
-
-  res.json(toAuthResponse(user));
+authRouter.get("/me", requireAuth, (req, res) => {
+  res.json(toAuthResponse(getAuthenticatedUser(req)));
 });
 
 function getSessionToken(req: Request) {
@@ -160,6 +299,7 @@ function getRequestMeta(req: Request) {
 }
 
 function toAuthResponse(user: {
+  avatarUrl: string | null;
   createdAt: Date;
   displayName: string;
   email: string;
@@ -169,6 +309,7 @@ function toAuthResponse(user: {
 }): AuthResponse {
   return {
     user: {
+      avatarUrl: user.avatarUrl,
       createdAt: user.createdAt.toISOString(),
       displayName: user.displayName,
       email: user.email,

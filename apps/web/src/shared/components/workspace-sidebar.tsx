@@ -1,11 +1,12 @@
 "use client";
 
-import { FolderKanban, LayoutDashboard, Plus, Users } from "lucide-react";
+import { FileText, FolderKanban, History, LayoutDashboard, ListTodo, PhoneCall, Settings, Users } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { getWorkspaces } from "@/shared/lib/api-client";
+import { getApiAssetUrl, getWorkspaces } from "@/shared/lib/api-client";
 import { subscribeToWorkspaceChanges } from "@/shared/lib/workspace-events";
 import type { Workspace } from "@devflow/shared";
 
@@ -53,7 +54,17 @@ export function WorkspaceSidebar() {
       {activeWorkspace ? (
         <div className={styles.activeWorkspace}>
           <span className={styles.workspaceAvatar}>
-            {initials(activeWorkspace.name)}
+            {activeWorkspace.iconUrl ? (
+              <Image
+                alt=""
+                height={42}
+                src={getApiAssetUrl(activeWorkspace.iconUrl)!}
+                unoptimized
+                width={42}
+              />
+            ) : (
+              initials(activeWorkspace.name)
+            )}
           </span>
           <span>
             <strong>{activeWorkspace.name}</strong>
@@ -62,18 +73,7 @@ export function WorkspaceSidebar() {
         </div>
       ) : null}
 
-      <nav aria-label="Workspace navigation" className={styles.navigation}>
-        <Link
-          className={styles.navigationLink}
-          href={
-            activeWorkspace
-              ? `/workspaces/${activeWorkspace.id}`
-              : "/workspaces"
-          }
-        >
-          <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
-          Workspaces
-        </Link>
+      <nav aria-label="Main navigation" className={styles.navigation}>
         {activeWorkspace ? (
           <>
             <Link
@@ -84,6 +84,42 @@ export function WorkspaceSidebar() {
               }
               className={styles.navigationLink}
               href={`/workspaces/${activeWorkspace.id}`}
+            >
+              <LayoutDashboard aria-hidden="true" size={19} strokeWidth={1.8} />
+              Dashboard
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/my-tasks`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/my-tasks`}
+            >
+              <ListTodo aria-hidden="true" size={19} strokeWidth={1.8} />
+              My tasks
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/calls`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/calls`}
+            >
+              <PhoneCall aria-hidden="true" size={19} strokeWidth={1.8} />
+              Calls
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/projects`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/projects`}
             >
               <FolderKanban aria-hidden="true" size={19} strokeWidth={1.8} />
               Projects
@@ -100,36 +136,45 @@ export function WorkspaceSidebar() {
               <Users aria-hidden="true" size={19} strokeWidth={1.8} />
               Team
             </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/agreements`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/agreements`}
+            >
+              <FileText aria-hidden="true" size={19} strokeWidth={1.8} />
+              Agreements
+            </Link>
+            <Link
+              aria-current={
+                pathname === `/workspaces/${activeWorkspace.id}/change-log`
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/change-log`}
+            >
+              <History aria-hidden="true" size={19} strokeWidth={1.8} />
+              Change log
+            </Link>
+            <Link
+              aria-current={
+                pathname.startsWith(`/workspaces/${activeWorkspace.id}/settings`)
+                  ? "page"
+                  : undefined
+              }
+              className={styles.navigationLink}
+              href={`/workspaces/${activeWorkspace.id}/settings/automation`}
+            >
+              <Settings aria-hidden="true" size={19} strokeWidth={1.8} />
+              Settings
+            </Link>
           </>
         ) : null}
       </nav>
-
-      <div className={styles.projects}>
-        <div className={styles.projectsHeading}>
-          <span>Workspaces</span>
-          <Link
-            aria-label="Create workspace"
-            href="/workspaces"
-            title="Create workspace"
-          >
-            <Plus aria-hidden="true" size={18} strokeWidth={1.8} />
-          </Link>
-        </div>
-        <div className={styles.workspaceList}>
-          {workspaces.map((workspace) => (
-            <Link
-              aria-current={
-                workspace.id === activeWorkspace?.id ? "page" : undefined
-              }
-              className={styles.workspaceLink}
-              href={`/workspaces/${workspace.id}`}
-              key={workspace.id}
-            >
-              {workspace.name}
-            </Link>
-          ))}
-        </div>
-      </div>
     </aside>
   );
 }

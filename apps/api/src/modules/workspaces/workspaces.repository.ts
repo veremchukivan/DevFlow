@@ -26,7 +26,7 @@ export async function createWorkspaceWithOwner(input: {
       .values({
         name: input.name,
         ownerUserId: input.ownerUserId,
-        slug: input.slug
+        slug: input.slug,
       })
       .returning();
 
@@ -38,12 +38,12 @@ export async function createWorkspaceWithOwner(input: {
       role: "owner",
       status: "active",
       userId: input.ownerUserId,
-      workspaceId: workspace.id
+      workspaceId: workspace.id,
     });
 
     return {
       ...workspace,
-      role: "owner" as const
+      role: "owner" as const,
     };
   });
 }
@@ -55,17 +55,17 @@ export async function listWorkspacesForUser(input: {
   const conditions = and(
     eq(workspaceMembers.userId, input.userId),
     eq(workspaceMembers.status, "active"),
-    isNull(workspaces.deletedAt)
+    isNull(workspaces.deletedAt),
   );
 
   const [totalRow] = await db
     .select({
-      total: sql<number>`count(*)::int`
+      total: sql<number>`count(*)::int`,
     })
     .from(workspaces)
     .innerJoin(
       workspaceMembers,
-      eq(workspaceMembers.workspaceId, workspaces.id)
+      eq(workspaceMembers.workspaceId, workspaces.id),
     )
     .where(conditions);
 
@@ -73,16 +73,17 @@ export async function listWorkspacesForUser(input: {
     .select({
       createdAt: workspaces.createdAt,
       id: workspaces.id,
+      iconUrl: workspaces.iconUrl,
       name: workspaces.name,
       ownerUserId: workspaces.ownerUserId,
       role: workspaceMembers.role,
       slug: workspaces.slug,
-      updatedAt: workspaces.updatedAt
+      updatedAt: workspaces.updatedAt,
     })
     .from(workspaces)
     .innerJoin(
       workspaceMembers,
-      eq(workspaceMembers.workspaceId, workspaces.id)
+      eq(workspaceMembers.workspaceId, workspaces.id),
     )
     .where(conditions)
     .orderBy(desc(workspaces.createdAt), desc(workspaces.id))
@@ -91,7 +92,7 @@ export async function listWorkspacesForUser(input: {
 
   return {
     total: totalRow?.total ?? 0,
-    workspaces: rows
+    workspaces: rows,
   };
 }
 
@@ -103,24 +104,25 @@ export async function findWorkspaceForUser(input: {
     .select({
       createdAt: workspaces.createdAt,
       id: workspaces.id,
+      iconUrl: workspaces.iconUrl,
       name: workspaces.name,
       ownerUserId: workspaces.ownerUserId,
       role: workspaceMembers.role,
       slug: workspaces.slug,
-      updatedAt: workspaces.updatedAt
+      updatedAt: workspaces.updatedAt,
     })
     .from(workspaces)
     .innerJoin(
       workspaceMembers,
-      eq(workspaceMembers.workspaceId, workspaces.id)
+      eq(workspaceMembers.workspaceId, workspaces.id),
     )
     .where(
       and(
         eq(workspaces.id, input.workspaceId),
         eq(workspaceMembers.userId, input.userId),
         eq(workspaceMembers.status, "active"),
-        isNull(workspaces.deletedAt)
-      )
+        isNull(workspaces.deletedAt),
+      ),
     )
     .limit(1);
 
@@ -128,6 +130,7 @@ export async function findWorkspaceForUser(input: {
 }
 
 export async function updateWorkspaceInDb(input: {
+  iconUrl?: string | null;
   name?: string;
   slug?: string;
   workspaceId: string;
@@ -135,15 +138,13 @@ export async function updateWorkspaceInDb(input: {
   const [workspace] = await db
     .update(workspaces)
     .set({
+      ...(input.iconUrl !== undefined ? { iconUrl: input.iconUrl } : {}),
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.slug !== undefined ? { slug: input.slug } : {}),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     })
     .where(
-      and(
-        eq(workspaces.id, input.workspaceId),
-        isNull(workspaces.deletedAt)
-      )
+      and(eq(workspaces.id, input.workspaceId), isNull(workspaces.deletedAt)),
     )
     .returning();
 
@@ -156,15 +157,71 @@ export async function softDeleteWorkspaceInDb(workspaceId: string) {
     .update(workspaces)
     .set({
       deletedAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
-    .where(
-      and(
-        eq(workspaces.id, workspaceId),
-        isNull(workspaces.deletedAt)
-      )
-    )
+    .where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt)))
     .returning();
 
   return workspace;
+}
+
+export async function softDeleteWorkspaceAndEnsureReplacement(input: {
+  name: string;
+  ownerUserId: string;
+  slug: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const [deletedWorkspace] = await tx
+      .update(workspaces)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(
+        and(eq(workspaces.id, input.workspaceId), isNull(workspaces.deletedAt)),
+      )
+      .returning({ id: workspaces.id });
+
+    if (!deletedWorkspace) return null;
+
+    const [remainingWorkspace] = await tx
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .innerJoin(
+        workspaceMembers,
+        eq(workspaceMembers.workspaceId, workspaces.id),
+      )
+      .where(
+        and(
+          eq(workspaceMembers.userId, input.userId),
+          eq(workspaceMembers.status, "active"),
+          isNull(workspaces.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (remainingWorkspace) return { replacementWorkspaceId: null };
+
+    const [replacementWorkspace] = await tx
+      .insert(workspaces)
+      .values({
+        name: input.name,
+        ownerUserId: input.ownerUserId,
+        slug: input.slug,
+      })
+      .returning({ id: workspaces.id });
+
+    if (!replacementWorkspace) {
+      throw new Error("Failed to create replacement workspace");
+    }
+
+    await tx.insert(workspaceMembers).values({
+      role: "owner",
+      status: "active",
+      userId: input.userId,
+      workspaceId: replacementWorkspace.id,
+    });
+
+    return { replacementWorkspaceId: replacementWorkspace.id };
+  });
 }

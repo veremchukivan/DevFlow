@@ -36,6 +36,7 @@ const envSchema = z
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    E2E_TEST_MODE: booleanFromEnv.default(false),
     SESSION_COOKIE_NAME: z.string().min(1).default("devflow_session"),
     SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
     SESSION_CLEANUP_INTERVAL_HOURS: z.coerce
@@ -81,6 +82,21 @@ const envSchema = z
     SMTP_USER: optionalNonEmptyString,
     SMTP_PASSWORD: optionalNonEmptyString,
     SMTP_FROM: optionalNonEmptyString,
+    FIGMA_CLIENT_ID: optionalNonEmptyString,
+    FIGMA_CLIENT_SECRET: optionalNonEmptyString,
+    FIGMA_REDIRECT_URI: z.url().optional(),
+    GITHUB_CLIENT_ID: optionalNonEmptyString,
+    GITHUB_CLIENT_SECRET: optionalNonEmptyString,
+    GITHUB_REDIRECT_URI: z.url().optional(),
+    GITLAB_CLIENT_ID: optionalNonEmptyString,
+    GITLAB_CLIENT_SECRET: optionalNonEmptyString,
+    GITLAB_REDIRECT_URI: z.url().optional(),
+    INTEGRATION_WEBHOOK_URL: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.url().optional(),
+    ),
+    INTEGRATION_ENCRYPTION_KEY: optionalNonEmptyString,
+    UPLOADS_DIR: z.string().min(1).default("uploads"),
   })
   .superRefine((value, context) => {
     if (value.NODE_ENV === "production" && !value.REDIS_URL) {
@@ -89,6 +105,9 @@ const envSchema = z
         message: "REDIS_URL is required in production",
         path: ["REDIS_URL"],
       });
+    }
+    if (value.NODE_ENV === "production" && value.E2E_TEST_MODE) {
+      context.addIssue({ code: "custom", message: "E2E_TEST_MODE cannot be enabled in production", path: ["E2E_TEST_MODE"] });
     }
 
     if (value.NODE_ENV === "production") {

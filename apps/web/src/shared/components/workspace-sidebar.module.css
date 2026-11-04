@@ -43,7 +43,9 @@
   background: #e7effa;
   color: #4077bc;
   font-size: 13px;
+  overflow: hidden;
 }
+.workspaceAvatar img { height: 100%; object-fit: cover; width: 100%; }
 .activeWorkspace span:last-child {
   display: grid;
   gap: 3px;
@@ -55,18 +57,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.activeWorkspace small,
-.projectsHeading {
+.activeWorkspace small {
   color: var(--muted);
   font-size: 12px;
 }
-.navigation,
-.workspaceList {
+.navigation {
   display: grid;
   gap: 4px;
 }
-.navigationLink,
-.workspaceLink {
+.navigationLink {
   align-items: center;
   border-radius: 6px;
   color: #607086;
@@ -78,39 +77,76 @@
   padding: 0 14px;
   text-decoration: none;
 }
-.navigationLink:hover,
-.workspaceLink:hover {
+.navigationLink:hover {
   background: #f1f5fa;
   color: #316bb1;
 }
-.navigationLink[aria-current="page"],
-.workspaceLink[aria-current="page"] {
+.navigationLink[aria-current="page"] {
   background: #e5effb;
   color: #316bb1;
 }
-.projects {
+.projectsNavigation {
+  border-top: 1px solid var(--line);
   display: grid;
-  gap: 12px;
+  gap: 4px;
+  padding-top: 20px;
 }
-.projectsHeading {
-  align-items: center;
-  display: flex;
-  font-weight: 700;
-  justify-content: space-between;
-  letter-spacing: 0;
-  padding: 0 14px;
+.projectsNavigation > p:first-child {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin: 0 0 6px 12px;
   text-transform: uppercase;
 }
-.projectsHeading a {
+.projectLink {
   align-items: center;
-  color: var(--muted);
-  display: inline-flex;
-  height: 28px;
-  justify-content: center;
-  width: 28px;
+  border-radius: 6px;
+  color: #607086;
+  display: flex;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 10px;
+  text-decoration: none;
 }
-.projectsHeading a:hover {
-  color: var(--brand);
+.projectLink:hover {
+  background: #f1f5fa;
+  color: #316bb1;
+}
+.projectLink[aria-current="page"] {
+  background: #e5effb;
+  color: #316bb1;
+}
+.projectLink > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projectIcon {
+  align-items: center;
+  background: #e7effa;
+  border-radius: 5px;
+  color: #4077bc;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 800;
+  height: 26px;
+  justify-content: center;
+  overflow: hidden;
+  text-transform: uppercase;
+  width: 26px;
+}
+.projectIcon img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+.emptyProjects {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 2px 0 0 12px;
 }
 @media (max-width: 840px) {
   .sidebar {

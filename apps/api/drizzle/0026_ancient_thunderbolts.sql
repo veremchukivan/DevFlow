@@ -1,0 +1,2 @@
+ALTER TABLE "tasks" ADD COLUMN "position" integer DEFAULT 1000 NOT NULL;--> statement-breakpoint
+CREATE INDEX "tasks_project_status_position_idx" ON "tasks" USING btree ("workspace_id","project_id","status_id","position");

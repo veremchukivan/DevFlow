@@ -6,11 +6,23 @@ import type {
 
 import { db } from "../../core/db/client.js";
 import { AppError } from "../../core/errors/app-error.js";
+import {
+  extractEmbeddedAttachmentReferences,
+  sanitizeOptionalRichText,
+} from "../../core/rich-text/sanitize.js";
 import { buildPageInfo } from "../../core/pagination.js";
 import { recordTaskActivity } from "../task-activity/task-activity.service.js";
+import {
+  notifyTaskAssigned,
+  notifyTaskWatchers,
+} from "../notifications/notifications.service.js";
+import { listTaskWatcherUserIds } from "../task-watchers/task-watchers.repository.js";
 import { canCreateTask, canDeleteTask, canUpdateTask } from "./tasks.policy.js";
+import { findProjectSprint } from "../project-sprints/project-sprints.repository.js";
 import {
   createTaskWithNextNumber,
+  createTaskFigmaLinkInDb,
+  deleteTaskFigmaLinkInDb,
   findActiveWorkspaceMember,
   findActiveWorkspaceMembership,
   findDefaultProjectStatus,
@@ -18,11 +30,16 @@ import {
   findProjectStatusInProject,
   findTaskInProject,
   listTasksForProject,
-  listLabelsForTaskIds,
+  listTaskFigmaLinks,
   softDeleteTaskInProject,
   restoreTaskInProject,
+  repositionTaskInProject,
   updateTaskInProject,
 } from "./tasks.repository.js";
+import { findTaskAttachment } from "../task-attachments/task-attachments.repository.js";
+import { runWorkspaceAutomation, runWorkspaceAutomationForTaskTransition } from "../workspace-automation/workspace-automation.engine.js";
+import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
+import { assertTaskCanMoveToDone } from "../task-development-flows/task-development-flows.service.js";
 
 export async function createTask(input: {
   input: CreateTaskRequest;
@@ -41,18 +58,43 @@ export async function createTask(input: {
   }
 
   const project = await requireProject(input);
+  const workspaceSettings = await getWorkspaceSettings(input.workspaceId);
+  const assigneeUserId =
+    input.input.assigneeUserId ?? workspaceSettings.defaultAssigneeUserId ?? undefined;
   const status = await resolveTaskStatus({
     projectId: input.projectId,
     statusId: input.input.statusId,
     workspaceId: input.workspaceId,
   });
 
-  if (input.input.assigneeUserId) {
+  if (assigneeUserId) {
     await requireAssignableWorkspaceMember({
-      userId: input.input.assigneeUserId,
+      userId: assigneeUserId,
       workspaceId: input.workspaceId,
     });
   }
+  if (input.input.sprintId) {
+    await requireProjectSprint({
+      projectId: input.projectId,
+      sprintId: input.input.sprintId,
+      workspaceId: input.workspaceId,
+    });
+  }
+  if (input.input.parentTaskId) {
+    await requireParentTask({
+      parentTaskId: input.input.parentTaskId,
+      projectId: input.projectId,
+      workspaceId: input.workspaceId,
+    });
+  }
+  await requireWorkspaceTaskType({
+    type: input.input.type ?? "task",
+    workspaceId: input.workspaceId,
+  });
+  await validateCustomFields({
+    customFields: input.input.customFields,
+    workspaceId: input.workspaceId,
+  });
 
   // createTaskWithNextNumber uses SELECT FOR UPDATE on the project row, which
   // serialises concurrent task creation for the same project and makes a
@@ -63,22 +105,46 @@ export async function createTask(input: {
       actorUserId: input.userId,
       projectKey: project.key,
     },
-    assigneeUserId: input.input.assigneeUserId,
-    description: input.input.description,
+    assigneeUserId,
+    description: input.input.description
+      ? (sanitizeOptionalRichText(input.input.description) ?? undefined)
+      : undefined,
+    customFields: input.input.customFields,
     dueDate: input.input.dueDate,
+    estimateMinutes: input.input.estimateMinutes,
+    parentTaskId: input.input.parentTaskId,
     priority: input.input.priority,
     projectId: input.projectId,
     reporterUserId: input.userId,
     statusId: status.id,
+    sprintId: input.input.sprintId,
     title: input.input.title,
+    type: input.input.type,
     workspaceId: input.workspaceId,
   });
 
-  return {
+  const createdTask = {
     ...task,
     projectKey: project.key,
     status,
   };
+  await notifyTaskAssigned({
+    actorUserId: input.userId,
+    projectId: input.projectId,
+    recipientUserId: createdTask.assigneeUserId,
+    taskId: createdTask.id,
+    taskKey: `${project.key}-${createdTask.number}`,
+    taskTitle: createdTask.title,
+    workspaceId: input.workspaceId,
+  });
+  if (workspaceSettings.features.automation !== false) {
+    try {
+      await runWorkspaceAutomation({ actorUserId: input.userId, projectId: input.projectId, taskId: createdTask.id, triggerType: "task_created", workspaceId: input.workspaceId });
+    } catch {
+      // Automation failures are recorded independently and cannot undo task creation.
+    }
+  }
+  return createdTask;
 }
 
 export async function listTasks(input: {
@@ -89,6 +155,11 @@ export async function listTasks(input: {
 }) {
   await requireWorkspaceMembership(input);
   await requireProject(input);
+  await requireWorkspaceCustomFieldFilter({
+    fieldId: input.filters.customFieldId,
+    value: input.filters.customFieldValue,
+    workspaceId: input.workspaceId,
+  });
 
   const result = await listTasksForProject({
     projectId: input.projectId,
@@ -96,31 +167,118 @@ export async function listTasks(input: {
     filters: input.filters,
   });
 
-  const labelRows = await listLabelsForTaskIds(
-    result.tasks.map((task) => task.id),
-  );
-  const labelsByTask = new Map<
-    string,
-    Array<{ id: string; name: string; color: string }>
-  >();
-  for (const label of labelRows) {
-    labelsByTask.set(label.taskId, [
-      ...(labelsByTask.get(label.taskId) ?? []),
-      { id: label.id, name: label.name, color: label.color },
-    ]);
-  }
-
   return {
     pageInfo: buildPageInfo({
       limit: input.filters.limit,
       offset: input.filters.offset,
       total: result.total,
     }),
-    tasks: result.tasks.map((task) => ({
-      ...task,
-      labels: labelsByTask.get(task.id) ?? [],
-    })),
+    tasks: result.tasks,
   };
+}
+
+export async function getTaskFigmaLinks(input: {
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  await requireWorkspaceMembership(input);
+  await requireProject(input);
+  await requireTask(input);
+  return listTaskFigmaLinks(input);
+}
+
+export async function addTaskFigmaLink(input: {
+  input: { name: string; url: string };
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateTask(membership.role)) {
+    throw new AppError(403, "TASK_UPDATE_FORBIDDEN", "You cannot update tasks in this workspace");
+  }
+  await requireProject(input);
+  await requireTask(input);
+  const link = await createTaskFigmaLinkInDb({
+    ...input.input,
+    createdByUserId: input.userId,
+    projectId: input.projectId,
+    taskId: input.taskId,
+    workspaceId: input.workspaceId,
+  });
+  if (!link) throw new Error("Failed to create task Figma link");
+  return link;
+}
+
+export async function removeTaskFigmaLink(input: {
+  linkId: string;
+  projectId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateTask(membership.role)) {
+    throw new AppError(403, "TASK_UPDATE_FORBIDDEN", "You cannot update tasks in this workspace");
+  }
+  await requireProject(input);
+  await requireTask(input);
+  const deleted = await deleteTaskFigmaLinkInDb(input);
+  if (!deleted) {
+    throw new AppError(404, "TASK_FIGMA_LINK_NOT_FOUND", "Task Figma link not found");
+  }
+}
+
+export async function repositionTask(input: {
+  beforeTaskId?: string | null;
+  projectId: string;
+  statusId: string;
+  taskId: string;
+  userId: string;
+  workspaceId: string;
+}) {
+  const membership = await requireWorkspaceMembership(input);
+  if (!canUpdateTask(membership.role)) {
+    throw new AppError(
+      403,
+      "TASK_UPDATE_FORBIDDEN",
+      "You cannot update tasks in this workspace",
+    );
+  }
+
+  await requireProject(input);
+  const task = await requireTask(input);
+  const status = await resolveTaskStatus(input);
+  if (status.category === "done") {
+    await assertTaskCanMoveToDone(input);
+  }
+  const repositioned = await repositionTaskInProject(input);
+  if (!repositioned) {
+    throw new AppError(
+      400,
+      "TASK_POSITION_INVALID",
+      "The reference task must belong to the target status",
+    );
+  }
+
+  if (task.statusId !== input.statusId) {
+    await recordTaskActivity({
+      actorUserId: input.userId,
+      data: {
+        fields: ["statusId"],
+        statusName: status.name,
+        taskKey: `${task.projectKey}-${task.number}`,
+        title: task.title,
+      },
+      eventType: "task_updated",
+      projectId: input.projectId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId,
+    });
+  }
 }
 
 export async function getTask(input: {
@@ -163,12 +321,30 @@ export async function updateTask(input: {
   const existingTask = await requireTask(input);
 
   if (input.input.statusId) {
-    await resolveTaskStatus({
+    const targetStatus = await resolveTaskStatus({
       projectId: input.projectId,
       statusId: input.input.statusId,
       workspaceId: input.workspaceId,
     });
+    if (
+      targetStatus.category === "done" &&
+      input.input.statusId !== existingTask.statusId
+    ) {
+      await assertTaskCanMoveToDone(input);
+    }
   }
+
+  if (input.input.type !== undefined) {
+    await requireWorkspaceTaskType({
+      type: input.input.type,
+      workspaceId: input.workspaceId,
+    });
+  }
+
+  await validateCustomFields({
+    customFields: input.input.customFields,
+    workspaceId: input.workspaceId,
+  });
 
   if (input.input.assigneeUserId) {
     await requireAssignableWorkspaceMember({
@@ -176,18 +352,45 @@ export async function updateTask(input: {
       workspaceId: input.workspaceId,
     });
   }
+  if (input.input.sprintId)
+    await requireProjectSprint({ ...input, sprintId: input.input.sprintId });
+  if (input.input.parentTaskId !== undefined) {
+    if (input.input.parentTaskId === input.taskId) {
+      throw new AppError(
+        400,
+        "TASK_PARENT_INVALID",
+        "A task cannot be its own parent",
+      );
+    }
+    if (input.input.parentTaskId) {
+      await requireParentTask({
+        parentTaskId: input.input.parentTaskId,
+        projectId: input.projectId,
+        workspaceId: input.workspaceId,
+      });
+    }
+  }
 
-  return db.transaction(async (tx) => {
+  const description = sanitizeOptionalRichText(input.input.description);
+  if (description)
+    await requireValidDescriptionAttachments({ ...input, description });
+
+  const result = await db.transaction(async (tx) => {
     const updatedTask = await updateTaskInProject(
       {
         assigneeUserId: input.input.assigneeUserId,
-        description: input.input.description,
+        description,
+        customFields: input.input.customFields,
         dueDate: input.input.dueDate,
+        estimateMinutes: input.input.estimateMinutes,
+        parentTaskId: input.input.parentTaskId,
         priority: input.input.priority,
         projectId: input.projectId,
         statusId: input.input.statusId,
+        sprintId: input.input.sprintId,
         taskId: input.taskId,
         title: input.input.title,
+        type: input.input.type,
         version: input.expectedVersion,
         workspaceId: input.workspaceId,
       },
@@ -211,6 +414,10 @@ export async function updateTask(input: {
           fields: updatedTaskFields(input.input),
           taskKey: `${existingTask.projectKey}-${existingTask.number}`,
           title: updatedTaskWithRelations.title,
+          ...(input.input.statusId !== undefined &&
+          input.input.statusId !== existingTask.statusId
+            ? { statusName: updatedTaskWithRelations.status.name }
+            : {}),
         },
         eventType: "task_updated",
         projectId: input.projectId,
@@ -222,6 +429,89 @@ export async function updateTask(input: {
 
     return updatedTaskWithRelations;
   });
+  if (
+    input.input.assigneeUserId !== undefined &&
+    input.input.assigneeUserId !== existingTask.assigneeUserId
+  ) {
+    await notifyTaskAssigned({
+      actorUserId: input.userId,
+      projectId: input.projectId,
+      recipientUserId: result.assigneeUserId,
+      taskId: result.id,
+      taskKey: `${existingTask.projectKey}-${result.number}`,
+      taskTitle: result.title,
+      workspaceId: input.workspaceId,
+    });
+  }
+  if (
+    input.input.statusId !== undefined &&
+    input.input.statusId !== existingTask.statusId &&
+    input.input.assigneeUserId === undefined
+  ) {
+    const watcherUserIds = await listTaskWatcherUserIds(input);
+    await notifyTaskWatchers({
+      actorUserId: input.userId,
+      projectId: input.projectId,
+      recipientUserIds: [result.assigneeUserId, ...watcherUserIds],
+      statusName: result.status.name,
+      taskId: result.id,
+      taskKey: `${existingTask.projectKey}-${result.number}`,
+      taskTitle: result.title,
+      type: "task_status_changed",
+      workspaceId: input.workspaceId,
+    });
+  }
+  if (
+    input.input.statusId !== undefined &&
+    input.input.statusId !== existingTask.statusId
+  ) {
+    // Automation must never make a successful user update look like a failed
+    // request. Individual flow failures are persisted in the flow audit log.
+    const settings = await getWorkspaceSettings(input.workspaceId);
+    if (settings.features.automation !== false) {
+      try {
+        await runWorkspaceAutomationForTaskTransition({
+          actorUserId: input.userId,
+          projectId: input.projectId,
+          taskId: result.id,
+          workspaceId: input.workspaceId,
+        });
+      } catch {
+        // The task update is already durable. A transient automation issue must
+        // not turn a successful task change into a client-visible failure.
+      }
+    }
+  }
+  return result;
+}
+
+async function requireValidDescriptionAttachments(input: {
+  description: string;
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  for (const reference of extractEmbeddedAttachmentReferences(
+    input.description,
+  )) {
+    const attachment = await findTaskAttachment({
+      attachmentId: reference.attachmentId,
+      projectId: input.projectId,
+      taskId: input.taskId,
+      workspaceId: input.workspaceId,
+    });
+    const matchesMediaType =
+      (reference.kind === "img" && attachment?.mimeType.startsWith("image/")) ||
+      (reference.kind === "video" && attachment?.mimeType.startsWith("video/"));
+
+    if (!attachment || attachment.commentId || !matchesMediaType) {
+      throw new AppError(
+        400,
+        "DESCRIPTION_ATTACHMENT_INVALID",
+        "Description media must be an image or video attached to this task",
+      );
+    }
+  }
 }
 
 export async function deleteTask(input: {
@@ -413,6 +703,106 @@ async function requireAssignableWorkspaceMember(input: {
       400,
       "TASK_ASSIGNEE_INVALID",
       "Assignee must be an active workspace member",
+    );
+  }
+}
+
+async function requireWorkspaceTaskType(input: {
+  type: "epic" | "bug" | "feature" | "story" | "task";
+  workspaceId: string;
+}) {
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  if (!settings.enabledTaskTypes.includes(input.type)) {
+    throw new AppError(
+      400,
+      "TASK_TYPE_DISABLED",
+      "This work type is disabled in the workspace settings",
+    );
+  }
+}
+
+async function validateCustomFields(input: {
+  customFields: Record<string, string | number | null> | undefined;
+  workspaceId: string;
+}) {
+  if (input.customFields === undefined) return;
+
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  const definitions = new Map(settings.customFields.map((field) => [field.id, field]));
+
+  for (const [fieldId, value] of Object.entries(input.customFields)) {
+    const field = definitions.get(fieldId);
+    if (!field) {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_UNKNOWN", "A custom field does not belong to this workspace");
+    }
+    if (value === null) continue;
+    if (field.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_INVALID", `${field.name} must be a number`);
+    }
+    if (field.type === "text" && typeof value !== "string") {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_INVALID", `${field.name} must be text`);
+    }
+    if (field.type === "select" && (typeof value !== "string" || !field.options.includes(value))) {
+      throw new AppError(400, "TASK_CUSTOM_FIELD_INVALID", `${field.name} must use one of the configured options`);
+    }
+  }
+}
+
+async function requireWorkspaceCustomFieldFilter(input: {
+  fieldId: string | undefined;
+  value: string | undefined;
+  workspaceId: string;
+}) {
+  if (!input.fieldId || !input.value) return;
+
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  const field = settings.customFields.find((item) => item.id === input.fieldId);
+  if (!field || field.type !== "select") {
+    throw new AppError(400, "TASK_CUSTOM_FIELD_FILTER_INVALID", "Only select custom fields can be used as task filters");
+  }
+  if (!field.options.includes(input.value)) {
+    throw new AppError(400, "TASK_CUSTOM_FIELD_FILTER_INVALID", "The selected custom field option is not configured in this workspace");
+  }
+}
+
+async function requireProjectSprint(input: {
+  projectId: string;
+  sprintId: string;
+  workspaceId: string;
+}) {
+  if (!(await findProjectSprint(input))) {
+    throw new AppError(
+      400,
+      "TASK_SPRINT_INVALID",
+      "Sprint must belong to this project",
+    );
+  }
+}
+
+async function requireParentTask(input: {
+  parentTaskId: string;
+  projectId: string;
+  workspaceId: string;
+}) {
+  const parentTask = await findTaskInProject({
+    projectId: input.projectId,
+    taskId: input.parentTaskId,
+    workspaceId: input.workspaceId,
+  });
+
+  if (!parentTask) {
+    throw new AppError(
+      400,
+      "TASK_PARENT_INVALID",
+      "Parent task must belong to this project",
+    );
+  }
+
+  if (parentTask.parentTaskId) {
+    throw new AppError(
+      400,
+      "TASK_PARENT_NESTING_NOT_SUPPORTED",
+      "A subtask cannot have its own subtasks",
     );
   }
 }

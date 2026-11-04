@@ -14,9 +14,12 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { type DbExecutor, db } from "../../core/db/client.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
+import { taskAttachments } from "../../core/db/schema/task-attachments.js";
+import { taskChecklistItems } from "../../core/db/schema/task-checklist-items.js";
+import { taskComments } from "../../core/db/schema/task-comments.js";
+import { taskFigmaLinks } from "../../core/db/schema/task-figma-links.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
-import { labels, taskLabels } from "../../core/db/schema/labels.js";
 import { users } from "../../core/db/schema/users.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
@@ -26,6 +29,7 @@ const assigneeUsers = alias(users, "assignee_users");
 const reporterUsers = alias(users, "reporter_users");
 
 type TaskPriority = "low" | "medium" | "high" | "urgent";
+type TaskType = "epic" | "bug" | "feature" | "story" | "task";
 
 export async function findActiveWorkspaceMembership(input: {
   userId: string;
@@ -95,6 +99,56 @@ export async function findProjectInWorkspace(input: {
   return project;
 }
 
+export async function listTaskFigmaLinks(input: {
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  return db
+    .select()
+    .from(taskFigmaLinks)
+    .where(
+      and(
+        eq(taskFigmaLinks.workspaceId, input.workspaceId),
+        eq(taskFigmaLinks.projectId, input.projectId),
+        eq(taskFigmaLinks.taskId, input.taskId),
+      ),
+    )
+    .orderBy(desc(taskFigmaLinks.createdAt));
+}
+
+export async function createTaskFigmaLinkInDb(input: {
+  createdByUserId: string;
+  name: string;
+  projectId: string;
+  taskId: string;
+  url: string;
+  workspaceId: string;
+}) {
+  const [link] = await db.insert(taskFigmaLinks).values(input).returning();
+  return link;
+}
+
+export async function deleteTaskFigmaLinkInDb(input: {
+  linkId: string;
+  projectId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  const [link] = await db
+    .delete(taskFigmaLinks)
+    .where(
+      and(
+        eq(taskFigmaLinks.id, input.linkId),
+        eq(taskFigmaLinks.workspaceId, input.workspaceId),
+        eq(taskFigmaLinks.projectId, input.projectId),
+        eq(taskFigmaLinks.taskId, input.taskId),
+      ),
+    )
+    .returning();
+  return link;
+}
+
 export async function findProjectStatusInProject(input: {
   projectId: string;
   statusId: string;
@@ -144,8 +198,13 @@ export async function createTaskWithNextNumber(input: {
   };
   assigneeUserId?: string;
   description?: string;
+  customFields?: Record<string, string | number | null>;
   dueDate?: string;
+  estimateMinutes?: number;
+  parentTaskId?: string;
   priority?: TaskPriority;
+  sprintId?: string;
+  type?: TaskType;
   projectId: string;
   reporterUserId: string;
   statusId: string;
@@ -179,8 +238,24 @@ export async function createTaskWithNextNumber(input: {
         ),
       );
 
+    const [nextPosition] = await tx
+      .select({
+        value: sql<number>`coalesce(max(${tasks.position}), 0) + 1000`,
+      })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.workspaceId, input.workspaceId),
+          eq(tasks.projectId, input.projectId),
+          eq(tasks.statusId, input.statusId),
+          isNull(tasks.deletedAt),
+        ),
+      );
+
     const values = {
       number: nextNumber?.value ?? 1,
+      position: nextPosition?.value ?? 1000,
+      ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
       projectId: input.projectId,
       reporterUserId: input.reporterUserId,
       statusId: input.statusId,
@@ -188,8 +263,14 @@ export async function createTaskWithNextNumber(input: {
       workspaceId: input.workspaceId,
       ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
       ...(input.description ? { description: input.description } : {}),
+      ...(input.customFields ? { customFields: input.customFields } : {}),
       ...(input.dueDate ? { dueDate: input.dueDate } : {}),
+      ...(input.estimateMinutes !== undefined
+        ? { estimateMinutes: input.estimateMinutes }
+        : {}),
       ...(input.priority ? { priority: input.priority } : {}),
+      ...(input.sprintId ? { sprintId: input.sprintId } : {}),
+      ...(input.type ? { type: input.type } : {}),
     };
 
     const [task] = await tx.insert(tasks).values(values).returning();
@@ -239,15 +320,17 @@ export async function listTasksForProject(input: {
   workspaceId: string;
   filters: {
     statusId?: string;
+    sprintId?: string | "backlog";
+    customFieldId?: string;
+    customFieldValue?: string;
     priority?: TaskPriority;
-    labelId?: string;
     due?: "overdue" | "today" | "week" | "none";
     assigneeUserId?: string | "none";
     search?: string;
     archived?: boolean;
     limit: number;
     offset: number;
-    sortBy?: "createdAt" | "updatedAt" | "priority" | "number";
+    sortBy?: "createdAt" | "updatedAt" | "priority" | "number" | "position";
     sortOrder?: "asc" | "desc";
   };
 }) {
@@ -268,14 +351,12 @@ export async function listTasksForProject(input: {
   if (f.statusId !== undefined) {
     conditions.push(eq(tasks.statusId, f.statusId));
   }
+  if (f.sprintId === "backlog") conditions.push(isNull(tasks.sprintId));
+  else if (f.sprintId !== undefined)
+    conditions.push(eq(tasks.sprintId, f.sprintId));
 
   if (f.priority !== undefined) {
     conditions.push(eq(tasks.priority, f.priority));
-  }
-  if (f.labelId !== undefined) {
-    conditions.push(
-      sql`exists (select 1 from ${taskLabels} where ${taskLabels.taskId} = ${tasks.id} and ${taskLabels.labelId} = ${f.labelId})`,
-    );
   }
   if (f.due === "none") conditions.push(isNull(tasks.dueDate));
   if (f.due === "overdue")
@@ -294,6 +375,11 @@ export async function listTasksForProject(input: {
 
   if (f.search !== undefined) {
     conditions.push(ilike(tasks.title, `%${escapeLikePattern(f.search)}%`));
+  }
+  if (f.customFieldId !== undefined && f.customFieldValue !== undefined) {
+    conditions.push(
+      sql`${tasks.customFields} ->> ${f.customFieldId} = ${f.customFieldValue}`,
+    );
   }
 
   // Build ORDER BY
@@ -328,23 +414,8 @@ export async function listTasksForProject(input: {
   };
 }
 
-export async function listLabelsForTaskIds(taskIds: string[]) {
-  if (!taskIds.length) return [];
-  return db
-    .select({
-      taskId: taskLabels.taskId,
-      id: labels.id,
-      name: labels.name,
-      color: labels.color,
-    })
-    .from(taskLabels)
-    .innerJoin(labels, eq(labels.id, taskLabels.labelId))
-    .where(inArray(taskLabels.taskId, taskIds))
-    .orderBy(asc(labels.name));
-}
-
 function toSortColumn(
-  field: "createdAt" | "updatedAt" | "priority" | "number",
+  field: "createdAt" | "updatedAt" | "priority" | "number" | "position",
 ) {
   switch (field) {
     case "updatedAt":
@@ -360,6 +431,8 @@ function toSortColumn(
       END`;
     case "number":
       return tasks.number;
+    case "position":
+      return tasks.position;
     default:
       return tasks.createdAt;
   }
@@ -392,12 +465,17 @@ export async function updateTaskInProject(
   input: {
     assigneeUserId?: string | null;
     description?: string | null;
+    customFields?: Record<string, string | number | null>;
     dueDate?: string | null;
+    estimateMinutes?: number | null;
+    parentTaskId?: string | null;
     priority?: TaskPriority;
     projectId: string;
     statusId?: string;
+    sprintId?: string | null;
     taskId: string;
     title?: string;
+    type?: TaskType;
     version: number;
     workspaceId: string;
   },
@@ -421,6 +499,62 @@ export async function updateTaskInProject(
     .returning();
 
   return task;
+}
+
+export async function repositionTaskInProject(input: {
+  beforeTaskId?: string | null;
+  projectId: string;
+  statusId: string;
+  taskId: string;
+  workspaceId: string;
+}) {
+  return db.transaction(async (tx) => {
+    const statusTasks = await tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.workspaceId, input.workspaceId),
+          eq(tasks.projectId, input.projectId),
+          eq(tasks.statusId, input.statusId),
+          isNull(tasks.deletedAt),
+        ),
+      )
+      .orderBy(asc(tasks.position), asc(tasks.id))
+      .for("update");
+
+    const orderedIds = statusTasks
+      .map((task) => task.id)
+      .filter((taskId) => taskId !== input.taskId);
+    const insertAt = input.beforeTaskId
+      ? orderedIds.indexOf(input.beforeTaskId)
+      : orderedIds.length;
+
+    if (insertAt < 0) return false;
+    orderedIds.splice(insertAt, 0, input.taskId);
+
+    for (const [index, taskId] of orderedIds.entries()) {
+      await tx
+        .update(tasks)
+        .set({
+          ...(taskId === input.taskId ? { statusId: input.statusId } : {}),
+          position: (index + 1) * 1000,
+          updatedAt: new Date(),
+          ...(taskId === input.taskId
+            ? { version: sql`${tasks.version} + 1` }
+            : {}),
+        })
+        .where(
+          and(
+            eq(tasks.id, taskId),
+            eq(tasks.workspaceId, input.workspaceId),
+            eq(tasks.projectId, input.projectId),
+            isNull(tasks.deletedAt),
+          ),
+        );
+    }
+    return true;
+  });
 }
 
 export async function softDeleteTaskInProject(
@@ -455,13 +589,30 @@ export async function softDeleteTaskInProject(
 }
 
 export async function restoreTaskInProject(
-  input: { projectId: string; taskId: string; version: number; workspaceId: string },
+  input: {
+    projectId: string;
+    taskId: string;
+    version: number;
+    workspaceId: string;
+  },
   executor: DbExecutor = db,
 ) {
   const [task] = await executor
     .update(tasks)
-    .set({ deletedAt: null, updatedAt: new Date(), version: sql`${tasks.version} + 1` })
-    .where(and(eq(tasks.id, input.taskId), eq(tasks.workspaceId, input.workspaceId), eq(tasks.projectId, input.projectId), eq(tasks.version, input.version), isNotNull(tasks.deletedAt)))
+    .set({
+      deletedAt: null,
+      updatedAt: new Date(),
+      version: sql`${tasks.version} + 1`,
+    })
+    .where(
+      and(
+        eq(tasks.id, input.taskId),
+        eq(tasks.workspaceId, input.workspaceId),
+        eq(tasks.projectId, input.projectId),
+        eq(tasks.version, input.version),
+        isNotNull(tasks.deletedAt),
+      ),
+    )
     .returning();
   return task;
 }
@@ -479,9 +630,17 @@ function taskSelect(executor: DbExecutor = db) {
       assigneeUserId: tasks.assigneeUserId,
       createdAt: tasks.createdAt,
       description: tasks.description,
+      customFields: tasks.customFields,
       dueDate: tasks.dueDate,
+      estimateMinutes: tasks.estimateMinutes,
+      attachmentCount: sql<number>`(select count(*)::int from ${taskAttachments} where ${taskAttachments.taskId} = ${tasks.id})`,
+      checklistCompletedCount: sql<number>`(select count(*)::int from ${taskChecklistItems} where ${taskChecklistItems.taskId} = ${tasks.id} and ${taskChecklistItems.isCompleted} = true)`,
+      checklistTotalCount: sql<number>`(select count(*)::int from ${taskChecklistItems} where ${taskChecklistItems.taskId} = ${tasks.id})`,
+      commentCount: sql<number>`(select count(*)::int from ${taskComments} where ${taskComments.taskId} = ${tasks.id} and ${taskComments.deletedAt} is null)`,
       id: tasks.id,
       number: tasks.number,
+      position: tasks.position,
+      parentTaskId: tasks.parentTaskId,
       priority: tasks.priority,
       projectId: tasks.projectId,
       projectKey: projects.key,
@@ -490,6 +649,7 @@ function taskSelect(executor: DbExecutor = db) {
       reporterId: reporterUsers.id,
       reporterUserId: tasks.reporterUserId,
       statusId: tasks.statusId,
+      sprintId: tasks.sprintId,
       status: {
         category: projectStatuses.category,
         color: projectStatuses.color,
@@ -500,6 +660,7 @@ function taskSelect(executor: DbExecutor = db) {
         workspaceId: projectStatuses.workspaceId,
       },
       title: tasks.title,
+      type: tasks.type,
       updatedAt: tasks.updatedAt,
       version: tasks.version,
       workspaceId: tasks.workspaceId,
@@ -539,18 +700,28 @@ function taskSelect(executor: DbExecutor = db) {
 function toTaskUpdateValues(input: {
   assigneeUserId?: string | null;
   description?: string | null;
+  customFields?: Record<string, string | number | null>;
   dueDate?: string | null;
+  estimateMinutes?: number | null;
+  parentTaskId?: string | null;
   priority?: TaskPriority;
   statusId?: string;
+  sprintId?: string | null;
   title?: string;
+  type?: TaskType;
 }) {
   const values: {
     assigneeUserId?: string | null;
     description?: string | null;
+    customFields?: Record<string, string | number | null>;
     dueDate?: string | null;
+    estimateMinutes?: number | null;
+    parentTaskId?: string | null;
     priority?: TaskPriority;
     statusId?: string;
+    sprintId?: string | null;
     title?: string;
+    type?: TaskType;
     updatedAt: Date;
   } = {
     updatedAt: new Date(),
@@ -564,8 +735,20 @@ function toTaskUpdateValues(input: {
     values.description = input.description;
   }
 
+  if (input.customFields !== undefined) {
+    values.customFields = input.customFields;
+  }
+
   if (input.dueDate !== undefined) {
     values.dueDate = input.dueDate;
+  }
+
+  if (input.estimateMinutes !== undefined) {
+    values.estimateMinutes = input.estimateMinutes;
+  }
+
+  if (input.parentTaskId !== undefined) {
+    values.parentTaskId = input.parentTaskId;
   }
 
   // Use strict undefined check (not falsy) so that valid enum values such as
@@ -577,6 +760,9 @@ function toTaskUpdateValues(input: {
   if (input.statusId !== undefined) {
     values.statusId = input.statusId;
   }
+  if (input.sprintId !== undefined) values.sprintId = input.sprintId;
+
+  if (input.type !== undefined) values.type = input.type;
 
   // Use strict undefined check so that a non-empty title update is always saved.
   if (input.title !== undefined) {
