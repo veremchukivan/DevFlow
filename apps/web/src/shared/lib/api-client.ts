@@ -88,6 +88,7 @@ import {
   workspaceMemberResponseSchema,
   workspaceResponseSchema,
   workspaceAutomationRuleResponseSchema,
+  createWorkspaceAutomationRuleRequestSchema,
   workspaceAutomationRulesResponseSchema,
   workspaceAutomationRunsResponseSchema,
   workspaceAutomationTemplatesResponseSchema,
@@ -183,6 +184,7 @@ import {
   type UpdateProfileRequest,
   type UpdateWorkspaceMemberRequest,
   type UpdateWorkspaceAutomationRuleRequest,
+  type CreateWorkspaceAutomationRuleRequest,
   type WorkspaceAutomationRulesResponse,
   type WorkspaceAutomationRunsResponse,
   type UpdateWorkspaceSettingsRequest,
@@ -1926,6 +1928,18 @@ export function updateWorkspaceAutomationRule(
     { body: JSON.stringify(input), method: "PATCH" },
     workspaceAutomationRuleResponseSchema,
   );
+}
+
+export function createWorkspaceAutomationRule(workspaceId: string, input: CreateWorkspaceAutomationRuleRequest) {
+  return request(`/api/v1/workspaces/${workspaceId}/automation/rules`, { body: JSON.stringify(createWorkspaceAutomationRuleRequestSchema.parse(input)), method: "POST" }, workspaceAutomationRuleResponseSchema);
+}
+
+export function deleteWorkspaceAutomationRule(workspaceId: string, ruleId: string) {
+  return requestNoContent(`/api/v1/workspaces/${workspaceId}/automation/rules/${ruleId}`, { method: "DELETE" });
+}
+
+export function retryWorkspaceAutomationRun(workspaceId: string, ruleId: string, runId: string) {
+  return request(`/api/v1/workspaces/${workspaceId}/automation/rules/${ruleId}/runs/${runId}/retry`, { method: "POST" }, z.object({ ok: z.literal(true) }));
 }
 
 export function getWorkspaceAutomationRuns(
