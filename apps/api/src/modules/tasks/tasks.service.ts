@@ -269,7 +269,11 @@ export async function repositionTask(input: {
       actorUserId: input.userId,
       data: {
         fields: ["statusId"],
+        fromStatusCategory: task.status.category,
+        fromStatusId: task.statusId,
         statusName: status.name,
+        toStatusCategory: status.category,
+        toStatusId: status.id,
         taskKey: `${task.projectKey}-${task.number}`,
         title: task.title,
       },
@@ -416,7 +420,13 @@ export async function updateTask(input: {
           title: updatedTaskWithRelations.title,
           ...(input.input.statusId !== undefined &&
           input.input.statusId !== existingTask.statusId
-            ? { statusName: updatedTaskWithRelations.status.name }
+            ? {
+                fromStatusCategory: existingTask.status.category,
+                fromStatusId: existingTask.statusId,
+                statusName: updatedTaskWithRelations.status.name,
+                toStatusCategory: updatedTaskWithRelations.status.category,
+                toStatusId: updatedTaskWithRelations.status.id,
+              }
             : {}),
         },
         eventType: "task_updated",
