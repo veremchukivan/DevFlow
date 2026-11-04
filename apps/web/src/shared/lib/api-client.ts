@@ -102,6 +102,11 @@ import {
   workspaceCallAttendanceRequestSchema,
   workspaceCallListResponseSchema,
   workspaceCallResponseSchema,
+  createWorkspaceCallDecisionRequestSchema,
+  promoteWorkspaceCallDecisionRequestSchema,
+  workspaceCallDecisionResponseSchema,
+  workspaceCallDecisionsResponseSchema,
+  workspaceCalendarFeedResponseSchema,
   type AuthResponse,
   type AiSettings,
   type AccountSessionListResponse,
@@ -128,6 +133,9 @@ import {
   type WorkspaceInvitationResponse,
   type WorkspaceMemberListResponse,
   type WorkspaceMemberResponse,
+  type WorkspaceCallDecisionResponse,
+  type WorkspaceCallDecisionsResponse,
+  type WorkspaceCalendarFeedResponse,
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateProjectSprintRequest,
@@ -810,6 +818,11 @@ export function getWorkspaceCalls(
   );
 }
 
+export function getWorkspaceCalendarFeed(workspaceId: string, query: { from: string; to: string }): Promise<WorkspaceCalendarFeedResponse> {
+  const params = new URLSearchParams({ from: query.from, to: query.to });
+  return request(`/api/v1/workspaces/${workspaceId}/calls/calendar?${params.toString()}`, { method: "GET" }, workspaceCalendarFeedResponseSchema);
+}
+
 export function createWorkspaceCall(
   workspaceId: string,
   input: CreateWorkspaceCallRequest,
@@ -849,6 +862,18 @@ export function respondToWorkspaceCall(
     { body: JSON.stringify(workspaceCallAttendanceRequestSchema.parse(input)), method: "PATCH" },
     workspaceCallResponseSchema,
   );
+}
+
+export function getWorkspaceCallDecisions(workspaceId: string, callId: string): Promise<WorkspaceCallDecisionsResponse> {
+  return request(`/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions`, { method: "GET" }, workspaceCallDecisionsResponseSchema);
+}
+
+export function createWorkspaceCallDecision(workspaceId: string, callId: string, input: { body: string }): Promise<WorkspaceCallDecisionResponse> {
+  return request(`/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions`, { body: JSON.stringify(createWorkspaceCallDecisionRequestSchema.parse(input)), method: "POST" }, workspaceCallDecisionResponseSchema);
+}
+
+export function createTaskFromWorkspaceCallDecision(workspaceId: string, callId: string, decisionId: string, input: { projectId: string; title?: string }): Promise<WorkspaceCallDecisionResponse & { taskId: string }> {
+  return request(`/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions/${decisionId}/create-task`, { body: JSON.stringify(promoteWorkspaceCallDecisionRequestSchema.parse(input)), method: "POST" }, workspaceCallDecisionResponseSchema.extend({ taskId: z.string().uuid() }));
 }
 
 export function createProject(

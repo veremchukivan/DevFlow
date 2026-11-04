@@ -1,9 +1,13 @@
-import { and, asc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 
 import { type DbExecutor, db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
+import { projectReleases } from "../../core/db/schema/project-releases.js";
+import { projectSprints } from "../../core/db/schema/project-sprints.js";
+import { tasks } from "../../core/db/schema/tasks.js";
 import {
   workspaceCallAttendees,
+  workspaceCallDecisions,
   workspaceCalls,
 } from "../../core/db/schema/workspace-calls.js";
 import { users } from "../../core/db/schema/users.js";
@@ -65,6 +69,25 @@ export async function listCalls(input: {
   return hydrateCalls(calls);
 }
 
+export async function listCalendarItems(input: { from: Date; to: Date; workspaceId: string }) {
+  const [calls, dueTasks, sprints, releases] = await Promise.all([
+    listCalls(input),
+    db.select({ dueDate: tasks.dueDate, id: tasks.id, projectId: tasks.projectId, title: tasks.title }).from(tasks).where(and(
+      eq(tasks.workspaceId, input.workspaceId), isNull(tasks.deletedAt), isNotNull(tasks.dueDate),
+      gte(tasks.dueDate, input.from.toISOString().slice(0, 10)), lte(tasks.dueDate, input.to.toISOString().slice(0, 10)),
+    )),
+    db.select({ endDate: projectSprints.endDate, id: projectSprints.id, projectId: projectSprints.projectId, name: projectSprints.name, startDate: projectSprints.startDate }).from(projectSprints).where(and(eq(projectSprints.workspaceId, input.workspaceId), isNotNull(projectSprints.startDate), isNotNull(projectSprints.endDate), lte(projectSprints.startDate, input.to.toISOString().slice(0, 10)), gte(projectSprints.endDate, input.from.toISOString().slice(0, 10)))),
+    db.select({ id: projectReleases.id, projectId: projectReleases.projectId, name: projectReleases.name, releaseDate: projectReleases.releaseDate }).from(projectReleases).where(and(eq(projectReleases.workspaceId, input.workspaceId), isNotNull(projectReleases.releaseDate), gte(projectReleases.releaseDate, input.from.toISOString().slice(0, 10)), lte(projectReleases.releaseDate, input.to.toISOString().slice(0, 10)))),
+  ]);
+  const atNoon = (date: string) => new Date(`${date}T12:00:00.000Z`).toISOString();
+  return [
+    ...calls.map((call) => ({ endsAt: call.endsAt.toISOString(), id: `call:${call.id}`, projectId: call.projectId, startsAt: call.startsAt.toISOString(), title: call.title, type: "call" as const, url: `/calls?call=${call.id}` })),
+    ...dueTasks.filter((task) => task.dueDate).map((task) => ({ endsAt: null, id: `task:${task.id}`, projectId: task.projectId, startsAt: atNoon(task.dueDate!), title: task.title, type: "task_due" as const, url: `/projects/${task.projectId}/tasks/${task.id}` })),
+    ...sprints.filter((sprint) => sprint.startDate && sprint.endDate).map((sprint) => ({ endsAt: atNoon(sprint.endDate!), id: `sprint:${sprint.id}`, projectId: sprint.projectId, startsAt: atNoon(sprint.startDate!), title: sprint.name, type: "sprint" as const, url: `/projects/${sprint.projectId}` })),
+    ...releases.filter((release) => release.releaseDate).map((release) => ({ endsAt: null, id: `release:${release.id}`, projectId: release.projectId, startsAt: atNoon(release.releaseDate!), title: release.name, type: "release" as const, url: `/projects/${release.projectId}/planning` })),
+  ].sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+}
+
 export async function findCall(input: { callId: string; workspaceId: string }) {
   const [call] = await callSelect()
     .where(
@@ -86,6 +109,8 @@ export async function createCall(
     endsAt: Date;
     location?: string | null;
     meetingUrl?: string | null;
+    recurrenceRule?: "daily" | "weekly" | "monthly" | null;
+    reminderMinutes?: number | null;
     projectId?: string | null;
     startsAt: Date;
     status?: "scheduled" | "completed" | "cancelled";
@@ -103,6 +128,8 @@ export async function createCall(
       endsAt: input.endsAt,
       location: input.location ?? null,
       meetingUrl: input.meetingUrl ?? null,
+      recurrenceRule: input.recurrenceRule ?? null,
+      reminderMinutes: input.reminderMinutes ?? null,
       projectId: input.projectId ?? null,
       startsAt: input.startsAt,
       status: input.status ?? "scheduled",
@@ -132,6 +159,8 @@ export async function updateCall(
     endsAt?: Date;
     location?: string | null;
     meetingUrl?: string | null;
+    recurrenceRule?: "daily" | "weekly" | "monthly" | null;
+    reminderMinutes?: number | null;
     projectId?: string | null;
     startsAt?: Date;
     status?: "scheduled" | "completed" | "cancelled";
@@ -148,6 +177,8 @@ export async function updateCall(
       ...(input.endsAt ? { endsAt: input.endsAt } : {}),
       ...(input.location !== undefined ? { location: input.location } : {}),
       ...(input.meetingUrl !== undefined ? { meetingUrl: input.meetingUrl } : {}),
+      ...(input.recurrenceRule !== undefined ? { recurrenceRule: input.recurrenceRule } : {}),
+      ...(input.reminderMinutes !== undefined ? { reminderMinutes: input.reminderMinutes } : {}),
       ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
       ...(input.startsAt ? { startsAt: input.startsAt } : {}),
       ...(input.status ? { status: input.status } : {}),
@@ -175,6 +206,26 @@ export async function updateCall(
     );
   }
   return call.id;
+}
+
+export async function listCallDecisions(input: { callId: string; workspaceId: string }) {
+  return db.select().from(workspaceCallDecisions).where(and(
+    eq(workspaceCallDecisions.callId, input.callId),
+    eq(workspaceCallDecisions.workspaceId, input.workspaceId),
+  )).orderBy(asc(workspaceCallDecisions.createdAt));
+}
+
+export async function createCallDecision(input: { body: string; callId: string; createdByUserId: string; workspaceId: string }) {
+  const [decision] = await db.insert(workspaceCallDecisions).values(input).returning();
+  return decision;
+}
+
+export async function promoteCallDecision(input: { decisionId: string; taskId: string; workspaceId: string }) {
+  const [decision] = await db.update(workspaceCallDecisions).set({ promotedTaskId: input.taskId, updatedAt: new Date() }).where(and(
+    eq(workspaceCallDecisions.id, input.decisionId),
+    eq(workspaceCallDecisions.workspaceId, input.workspaceId),
+  )).returning();
+  return decision;
 }
 
 export async function removeCall(input: { callId: string; workspaceId: string }) {
@@ -258,6 +309,8 @@ function callSelect() {
     id: workspaceCalls.id,
     location: workspaceCalls.location,
     meetingUrl: workspaceCalls.meetingUrl,
+    recurrenceRule: workspaceCalls.recurrenceRule,
+    reminderMinutes: workspaceCalls.reminderMinutes,
     projectId: workspaceCalls.projectId,
     startsAt: workspaceCalls.startsAt,
     status: workspaceCalls.status,

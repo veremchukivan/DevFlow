@@ -12,6 +12,8 @@ export const workspaceCallAttendeeStatusSchema = z.enum([
   "declined",
 ]);
 
+export const workspaceCallRecurrenceSchema = z.enum(["daily", "weekly", "monthly"]);
+
 const callDateSchema = z.string().datetime({ offset: true });
 
 export const workspaceCallAttendeeSchema = z.object({
@@ -32,6 +34,8 @@ export const workspaceCallSchema = z.object({
   id: z.uuid(),
   location: z.string().nullable(),
   meetingUrl: z.url().nullable(),
+  recurrenceRule: workspaceCallRecurrenceSchema.nullable(),
+  reminderMinutes: z.number().int().min(0).max(10_080).nullable(),
   projectId: z.uuid().nullable(),
   startsAt: callDateSchema,
   status: workspaceCallStatusSchema,
@@ -47,6 +51,8 @@ const callFieldsSchema = z.object({
   endsAt: callDateSchema.optional(),
   location: z.string().trim().max(300).nullable().optional(),
   meetingUrl: z.url().nullable().optional(),
+  recurrenceRule: workspaceCallRecurrenceSchema.nullable().optional(),
+  reminderMinutes: z.number().int().min(0).max(10_080).nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   startsAt: callDateSchema.optional(),
   status: workspaceCallStatusSchema.optional(),
@@ -92,6 +98,32 @@ export const workspaceCallListResponseSchema = z.object({
   calls: z.array(workspaceCallSchema),
 });
 
+export const workspaceCalendarItemSchema = z.object({
+  endsAt: callDateSchema.nullable(),
+  id: z.string(),
+  projectId: z.uuid().nullable(),
+  startsAt: callDateSchema,
+  title: z.string(),
+  type: z.enum(["call", "task_due", "sprint", "release"]),
+  url: z.string().nullable(),
+});
+export const workspaceCalendarFeedResponseSchema = z.object({ items: z.array(workspaceCalendarItemSchema) });
+
+export const workspaceCallDecisionSchema = z.object({
+  body: z.string(),
+  callId: z.uuid(),
+  createdAt: callDateSchema,
+  createdByUserId: z.uuid().nullable(),
+  id: z.uuid(),
+  promotedTaskId: z.uuid().nullable(),
+  updatedAt: callDateSchema,
+  workspaceId: z.uuid(),
+});
+export const createWorkspaceCallDecisionRequestSchema = z.object({ body: z.string().trim().min(1).max(10_000) });
+export const workspaceCallDecisionResponseSchema = z.object({ decision: workspaceCallDecisionSchema });
+export const workspaceCallDecisionsResponseSchema = z.object({ decisions: z.array(workspaceCallDecisionSchema) });
+export const promoteWorkspaceCallDecisionRequestSchema = z.object({ projectId: z.uuid(), title: z.string().trim().min(1).max(200).optional() });
+
 export type WorkspaceCall = z.infer<typeof workspaceCallSchema>;
 export type CreateWorkspaceCallRequest = z.infer<
   typeof createWorkspaceCallRequestSchema
@@ -106,3 +138,8 @@ export type WorkspaceCallResponse = z.infer<typeof workspaceCallResponseSchema>;
 export type WorkspaceCallListResponse = z.infer<
   typeof workspaceCallListResponseSchema
 >;
+export type WorkspaceCallDecision = z.infer<typeof workspaceCallDecisionSchema>;
+export type WorkspaceCallDecisionResponse = z.infer<typeof workspaceCallDecisionResponseSchema>;
+export type WorkspaceCallDecisionsResponse = z.infer<typeof workspaceCallDecisionsResponseSchema>;
+export type WorkspaceCalendarItem = z.infer<typeof workspaceCalendarItemSchema>;
+export type WorkspaceCalendarFeedResponse = z.infer<typeof workspaceCalendarFeedResponseSchema>;

@@ -6,6 +6,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  integer,
   text,
   timestamp,
   uuid,
@@ -46,6 +47,8 @@ export const workspaceCalls = pgTable(
     timezone: varchar("timezone", { length: 80 }).notNull().default("UTC"),
     location: varchar("location", { length: 300 }),
     meetingUrl: varchar("meeting_url", { length: 2048 }),
+    recurrenceRule: varchar("recurrence_rule", { length: 120 }).$type<"daily" | "weekly" | "monthly" | null>(),
+    reminderMinutes: integer("reminder_minutes"),
     status: workspaceCallStatusEnum("status").notNull().default("scheduled"),
     ...timestampColumns(),
   },
@@ -67,6 +70,22 @@ export const workspaceCalls = pgTable(
       "workspace_calls_dates_valid_check",
       sql`${table.startsAt} < ${table.endsAt}`,
     ),
+  ],
+);
+
+export const workspaceCallDecisions = pgTable(
+  "workspace_call_decisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    callId: uuid("call_id").notNull().references(() => workspaceCalls.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    promotedTaskId: uuid("promoted_task_id"),
+    ...timestampColumns(),
+  },
+  (table) => [
+    index("workspace_call_decisions_call_created_idx").on(table.workspaceId, table.callId, table.createdAt),
   ],
 );
 

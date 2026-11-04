@@ -11,16 +11,21 @@ import {
   canRemoveWorkspaceCall,
 } from "./workspace-calls.policy.js";
 import {
+  createCallDecision,
   createCall,
   findActiveWorkspaceMemberIds,
   findActiveWorkspaceMembership,
   findCall,
   findProjectInWorkspace,
   listCalls,
+  listCalendarItems,
+  listCallDecisions,
+  promoteCallDecision,
   removeCall,
   updateAttendeeResponse,
   updateCall,
 } from "./workspace-calls.repository.js";
+import { createTask } from "../tasks/tasks.service.js";
 
 type CallScope = { userId: string; workspaceId: string };
 
@@ -38,6 +43,11 @@ export async function listWorkspaceCalls(
     to: input.to ? new Date(input.to) : undefined,
     workspaceId: input.workspaceId,
   });
+}
+
+export async function getWorkspaceCalendarFeed(input: CallScope & { from: string; to: string }) {
+  await requireWorkspaceMembership(input);
+  return listCalendarItems({ from: new Date(input.from), to: new Date(input.to), workspaceId: input.workspaceId });
 }
 
 export async function createWorkspaceCall(
@@ -128,6 +138,38 @@ export async function respondToWorkspaceCall(input: CallScope & {
     throw new AppError(403, "CALL_ATTENDEE_REQUIRED", "You are not invited to this call");
   }
   return requireCall(input);
+}
+
+export async function getWorkspaceCallDecisions(input: CallScope & { callId: string }) {
+  await requireWorkspaceMembership(input);
+  await requireCall(input);
+  return listCallDecisions(input);
+}
+
+export async function createWorkspaceCallDecision(input: CallScope & { callId: string; body: string }) {
+  await requireWorkspaceMembership(input);
+  await requireCall(input);
+  const decision = await createCallDecision({ ...input, createdByUserId: input.userId });
+  if (!decision) throw new Error("Failed to save call decision");
+  return decision;
+}
+
+export async function promoteWorkspaceCallDecisionToTask(input: CallScope & { callId: string; decisionId: string; projectId: string; title?: string }) {
+  await requireWorkspaceMembership(input);
+  const call = await requireCall(input);
+  const decisions = await listCallDecisions(input);
+  const decision = decisions.find((item) => item.id === input.decisionId);
+  if (!decision) throw new AppError(404, "CALL_DECISION_NOT_FOUND", "Call decision not found");
+  if (decision.promotedTaskId) throw new AppError(409, "CALL_DECISION_ALREADY_PROMOTED", "This decision is already linked to a task");
+  const task = await createTask({
+    input: { description: decision.body, title: input.title ?? `Decision: ${call.title}`, type: "task" },
+    projectId: input.projectId,
+    userId: input.userId,
+    workspaceId: input.workspaceId,
+  });
+  const updated = await promoteCallDecision({ decisionId: decision.id, taskId: task.id, workspaceId: input.workspaceId });
+  if (!updated) throw new Error("Failed to link decision to task");
+  return { decision: updated, taskId: task.id };
 }
 
 async function requireWorkspaceMembership(input: CallScope) {
