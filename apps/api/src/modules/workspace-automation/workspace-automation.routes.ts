@@ -1,7 +1,10 @@
 import {
+  createWorkspaceAutomationRuleRequestSchema,
   updateWorkspaceAutomationRuleRequestSchema,
   workspaceAutomationParamsSchema,
   workspaceAutomationRuleParamsSchema,
+  workspaceAutomationRuleSchema,
+  workspaceAutomationRunParamsSchema,
   workspaceAutomationRuleResponseSchema,
   workspaceAutomationRulesResponseSchema,
   workspaceAutomationRunsResponseSchema,
@@ -15,11 +18,14 @@ import {
   requireAuth,
 } from "../auth/auth.middleware.js";
 import {
+  createWorkspaceAutomationRuleForUser,
+  deleteWorkspaceAutomationRuleForUser,
   getWorkspaceAutomationRules,
   getWorkspaceAutomationRuns,
   getWorkspaceAutomationTemplates,
   getWorkspaceAutomationUsageForUser,
   patchWorkspaceAutomationRule,
+  retryWorkspaceAutomationRun,
 } from "./workspace-automation.service.js";
 
 export const workspaceAutomationRouter = Router({ mergeParams: true });
@@ -36,6 +42,12 @@ workspaceAutomationRouter.get("/rules", async (req, res) => {
   } satisfies typeof workspaceAutomationRulesResponseSchema._output);
 });
 
+workspaceAutomationRouter.post("/rules", async (req, res) => {
+  const { workspaceId } = workspaceAutomationParamsSchema.parse(req.params);
+  const rule = await createWorkspaceAutomationRuleForUser({ input: createWorkspaceAutomationRuleRequestSchema.parse(req.body), userId: getUserId(req), workspaceId });
+  res.status(201).json({ rule: toRuleResponse(rule) } satisfies typeof workspaceAutomationRuleResponseSchema._output);
+});
+
 workspaceAutomationRouter.patch("/rules/:ruleId", async (req, res) => {
   const { ruleId, workspaceId } = workspaceAutomationRuleParamsSchema.parse(req.params);
   const rule = await patchWorkspaceAutomationRule({
@@ -45,6 +57,12 @@ workspaceAutomationRouter.patch("/rules/:ruleId", async (req, res) => {
     workspaceId,
   });
   res.json({ rule: toRuleResponse(rule) } satisfies typeof workspaceAutomationRuleResponseSchema._output);
+});
+
+workspaceAutomationRouter.delete("/rules/:ruleId", async (req, res) => {
+  const { ruleId, workspaceId } = workspaceAutomationRuleParamsSchema.parse(req.params);
+  await deleteWorkspaceAutomationRuleForUser({ ruleId, userId: getUserId(req), workspaceId });
+  res.status(204).end();
 });
 
 workspaceAutomationRouter.get("/runs", async (req, res) => {
@@ -60,6 +78,12 @@ workspaceAutomationRouter.get("/runs", async (req, res) => {
       triggerTaskId: run.triggerTaskId ?? null,
     })),
   } satisfies typeof workspaceAutomationRunsResponseSchema._output);
+});
+
+workspaceAutomationRouter.post("/rules/:ruleId/runs/:runId/retry", async (req, res) => {
+  const { runId, workspaceId } = workspaceAutomationRunParamsSchema.parse(req.params);
+  await retryWorkspaceAutomationRun({ runId, userId: getUserId(req), workspaceId });
+  res.status(202).json({ ok: true });
 });
 
 workspaceAutomationRouter.get("/templates", async (req, res) => {
@@ -84,13 +108,30 @@ function getUserId(req: unknown) {
   return (req as AuthenticatedRequest).auth.user.id;
 }
 
-function toRuleResponse(rule: Awaited<ReturnType<typeof getWorkspaceAutomationRules>>[number]) {
-  return {
+function toRuleResponse(rule: {
+  actions: Array<Record<string, unknown>>;
+  conditions: Record<string, unknown>;
+  configuration: Record<string, unknown>;
+  createdAt: Date;
+  enabled: boolean;
+  id: string;
+  lastError: string | null;
+  name: string;
+  ruleType: string;
+  triggerType: string;
+  updatedAt: Date;
+}) {
+  return workspaceAutomationRuleSchema.parse({
     configuration: rule.configuration ?? {},
+    actions: rule.actions ?? [],
+    conditions: rule.conditions ?? {},
     createdAt: rule.createdAt.toISOString(),
     enabled: rule.enabled,
     id: rule.id,
-    ruleType: rule.ruleType as "children_completed_close_parent" | "task_transition_assign" | "parent_completed_close_children",
+    lastError: rule.lastError ?? null,
+    name: rule.name,
+    ruleType: rule.ruleType,
+    triggerType: rule.triggerType as "task_created" | "task_status_changed" | "task_due" | "comment_created" | "pull_request_merged",
     updatedAt: rule.updatedAt.toISOString(),
-  };
+  });
 }

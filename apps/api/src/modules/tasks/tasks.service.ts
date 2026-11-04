@@ -37,7 +37,7 @@ import {
   updateTaskInProject,
 } from "./tasks.repository.js";
 import { findTaskAttachment } from "../task-attachments/task-attachments.repository.js";
-import { runWorkspaceAutomationForTaskTransition } from "../workspace-automation/workspace-automation.engine.js";
+import { runWorkspaceAutomation, runWorkspaceAutomationForTaskTransition } from "../workspace-automation/workspace-automation.engine.js";
 import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
 import { assertTaskCanMoveToDone } from "../task-development-flows/task-development-flows.service.js";
 
@@ -137,6 +137,13 @@ export async function createTask(input: {
     taskTitle: createdTask.title,
     workspaceId: input.workspaceId,
   });
+  if (workspaceSettings.features.automation !== false) {
+    try {
+      await runWorkspaceAutomation({ actorUserId: input.userId, projectId: input.projectId, taskId: createdTask.id, triggerType: "task_created", workspaceId: input.workspaceId });
+    } catch {
+      // Automation failures are recorded independently and cannot undo task creation.
+    }
+  }
   return createdTask;
 }
 

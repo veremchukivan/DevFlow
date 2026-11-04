@@ -6,20 +6,27 @@ import {
   workspaceAutomationRuns,
 } from "../../core/db/schema/workspace-automation-rules.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
+import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 
 export const DEFAULT_AUTOMATION_RULES = [
   {
     ruleType: "children_completed_close_parent",
+    name: "Close parent when all child work items are complete",
+    triggerType: "task_status_changed",
     configuration: {},
   },
   {
     ruleType: "task_transition_assign",
+    name: "Automatically assign on transition",
+    triggerType: "task_status_changed",
     configuration: { onlyWhenUnassigned: true },
   },
   {
     ruleType: "parent_completed_close_children",
+    name: "Close child work items when the parent is complete",
+    triggerType: "task_status_changed",
     configuration: {},
   },
 ] as const;
@@ -65,9 +72,38 @@ export async function listEnabledWorkspaceAutomationRules(workspaceId: string) {
     );
 }
 
+export async function listEnabledWorkspaceAutomationRulesForTrigger(input: {
+  triggerType: string;
+  workspaceId: string;
+}) {
+  return db
+    .select()
+    .from(workspaceAutomationRules)
+    .where(and(
+      eq(workspaceAutomationRules.workspaceId, input.workspaceId),
+      eq(workspaceAutomationRules.enabled, true),
+      eq(workspaceAutomationRules.triggerType, input.triggerType),
+    ));
+}
+
+export async function createWorkspaceAutomationRule(input: {
+  actions: Array<Record<string, unknown>>;
+  conditions: Record<string, unknown>;
+  createdByUserId: string;
+  enabled: boolean;
+  name: string;
+  ruleType: string;
+  triggerType: string;
+  workspaceId: string;
+}) {
+  const [rule] = await db.insert(workspaceAutomationRules).values(input).returning();
+  return rule;
+}
+
 export async function createWorkspaceAutomationRun(input: {
   actorUserId: string;
   data?: Record<string, unknown>;
+  dedupeKey?: string;
   outcome: "succeeded" | "skipped" | "failed";
   ruleId: string;
   summary: string;
@@ -77,7 +113,7 @@ export async function createWorkspaceAutomationRun(input: {
   await db.insert(workspaceAutomationRuns).values({
     ...input,
     data: input.data ?? {},
-  });
+  }).onConflictDoNothing();
 }
 
 export async function findAutomationTask(input: {
@@ -88,12 +124,16 @@ export async function findAutomationTask(input: {
   const [task] = await db
     .select({
       assigneeUserId: tasks.assigneeUserId,
+      dueDate: tasks.dueDate,
       id: tasks.id,
       parentTaskId: tasks.parentTaskId,
       projectId: tasks.projectId,
       statusCategory: projectStatuses.category,
       statusId: tasks.statusId,
+      sprintId: tasks.sprintId,
       title: tasks.title,
+      priority: tasks.priority,
+      type: tasks.type,
       workspaceId: tasks.workspaceId,
     })
     .from(tasks)
@@ -167,8 +207,26 @@ export async function findProjectDoneStatus(input: {
   return status;
 }
 
+export async function findAutomationProject(input: { projectId: string; workspaceId: string }) {
+  const [project] = await db.select({ key: projects.key }).from(projects).where(and(
+    eq(projects.id, input.projectId),
+    eq(projects.workspaceId, input.workspaceId),
+    isNull(projects.deletedAt),
+  )).limit(1);
+  return project;
+}
+
+export async function findProjectDefaultStatus(input: { projectId: string; workspaceId: string }) {
+  const [status] = await db.select({ id: projectStatuses.id }).from(projectStatuses).where(and(
+    eq(projectStatuses.projectId, input.projectId),
+    eq(projectStatuses.workspaceId, input.workspaceId),
+  )).orderBy(projectStatuses.position).limit(1);
+  return status;
+}
+
 export async function updateAutomationTask(input: {
   assigneeUserId?: string;
+  sprintId?: string | null;
   statusId?: string;
   taskId: string;
   workspaceId: string;
@@ -180,6 +238,7 @@ export async function updateAutomationTask(input: {
         ? { assigneeUserId: input.assigneeUserId }
         : {}),
       ...(input.statusId !== undefined ? { statusId: input.statusId } : {}),
+      ...(input.sprintId !== undefined ? { sprintId: input.sprintId } : {}),
       updatedAt: new Date(),
       version: sql`${tasks.version} + 1`,
     })
@@ -213,9 +272,14 @@ export async function isActiveWorkspaceMember(input: {
 }
 
 export async function updateWorkspaceAutomationRule(input: {
+  actions?: Array<Record<string, unknown>>;
+  conditions?: Record<string, unknown>;
   configuration?: Record<string, unknown>;
   enabled?: boolean;
+  lastError?: string | null;
+  name?: string;
   ruleId: string;
+  triggerType?: string;
   workspaceId: string;
 }) {
   const [rule] = await db
@@ -224,7 +288,12 @@ export async function updateWorkspaceAutomationRule(input: {
       ...(input.configuration !== undefined
         ? { configuration: input.configuration }
         : {}),
+      ...(input.conditions !== undefined ? { conditions: input.conditions } : {}),
+      ...(input.actions !== undefined ? { actions: input.actions } : {}),
       ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.triggerType !== undefined ? { triggerType: input.triggerType } : {}),
+      ...(input.lastError !== undefined ? { lastError: input.lastError } : {}),
       updatedAt: new Date(),
     })
     .where(
@@ -236,6 +305,22 @@ export async function updateWorkspaceAutomationRule(input: {
     .returning();
 
   return rule;
+}
+
+export async function deleteWorkspaceAutomationRule(input: { ruleId: string; workspaceId: string }) {
+  const [rule] = await db.delete(workspaceAutomationRules).where(and(
+    eq(workspaceAutomationRules.id, input.ruleId),
+    eq(workspaceAutomationRules.workspaceId, input.workspaceId),
+  )).returning({ id: workspaceAutomationRules.id });
+  return rule;
+}
+
+export async function findWorkspaceAutomationRun(input: { runId: string; workspaceId: string }) {
+  const [run] = await db.select().from(workspaceAutomationRuns).where(and(
+    eq(workspaceAutomationRuns.id, input.runId),
+    eq(workspaceAutomationRuns.workspaceId, input.workspaceId),
+  )).limit(1);
+  return run;
 }
 
 export async function listWorkspaceAutomationRuns(input: {

@@ -26,6 +26,8 @@ import {
   updateTaskComment,
 } from "./task-comments.repository.js";
 import { listCommentAttachments } from "../task-attachments/task-attachments.repository.js";
+import { getWorkspaceSettings } from "../workspace-settings/workspace-settings.repository.js";
+import { runWorkspaceAutomation } from "../workspace-automation/workspace-automation.engine.js";
 
 export async function createComment(input: {
   input: CreateTaskCommentRequest;
@@ -89,6 +91,14 @@ export async function createComment(input: {
     type: "task_commented",
     workspaceId: input.workspaceId,
   });
+  const settings = await getWorkspaceSettings(input.workspaceId);
+  if (settings.features.automation !== false) {
+    try {
+      await runWorkspaceAutomation({ actorUserId: input.userId, projectId: input.projectId, taskId: input.taskId, triggerType: "comment_created", workspaceId: input.workspaceId });
+    } catch {
+      // A comment must remain created even if a configured flow fails.
+    }
+  }
   return (await hydrateComments([comment], input))[0]!;
 }
 
