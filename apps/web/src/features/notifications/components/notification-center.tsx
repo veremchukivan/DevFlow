@@ -52,7 +52,9 @@ export function NotificationCenter() {
     router.push(
       item.type === "workspace_invited"
         ? `/invitations/id/${item.invitationId}`
-        : `/workspaces/${item.workspaceId}/projects/${item.projectId}/tasks/${item.taskId}`,
+        : item.type === "agreement_overdue"
+          ? `/workspaces/${item.workspaceId}/agreements#${item.agreementId}`
+          : `/workspaces/${item.workspaceId}/projects/${item.projectId}/tasks/${item.taskId}`,
     );
   }
 
@@ -115,6 +117,7 @@ export function NotificationCenter() {
               ["taskStatusChanged", "Status changes"],
               ["taskDueToday", "Due today"],
               ["taskOverdue", "Overdue tasks"],
+              ["agreementOverdue", "Overdue agreements"],
             ] as const
           ).map(([key, label]) => (
             <label key={key}>
@@ -145,7 +148,9 @@ export function NotificationCenter() {
                   <em>
                     {item.type === "workspace_invited"
                       ? "Open invitation"
-                      : `${item.taskKey}: ${item.taskTitle}`}
+                      : item.type === "agreement_overdue"
+                        ? `Agreement: ${item.taskTitle}`
+                        : `${item.taskKey}: ${item.taskTitle}`}
                   </em>
                   <time>{relativeTime(item.createdAt)}</time>
                 </span>
@@ -169,7 +174,8 @@ function message(
     | "task_due_today"
     | "task_overdue"
     | "task_status_changed"
-    | "workspace_invited",
+    | "workspace_invited"
+    | "agreement_overdue",
   actor?: string,
 ) {
   const name = actor ?? "A workspace member";
@@ -183,7 +189,9 @@ function message(
           ? "Task is due today"
           : type === "task_overdue"
             ? "Task is overdue"
-            : `${name} assigned you a task`;
+            : type === "agreement_overdue"
+              ? "Agreement is overdue"
+              : `${name} assigned you a task`;
 }
 function relativeTime(value: string) {
   const minutes = Math.max(

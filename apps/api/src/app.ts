@@ -44,6 +44,7 @@ import { workspaceCallsRouter } from "./modules/workspace-calls/workspace-calls.
 import { gitIntegrationsRouter, projectRepositoryRouter, taskGitRouter } from "./modules/git-integrations/git-integrations.routes.js";
 import { projectKnowledgeRouter } from "./modules/project-knowledge/project-knowledge.routes.js";
 import { projectPlanningRouter } from "./modules/project-planning/project-planning.routes.js";
+import { workspaceAgreementsRouter } from "./modules/workspace-agreements/workspace-agreements.routes.js";
 
 export function createApp() {
   const app = express();
@@ -116,6 +117,7 @@ export function createApp() {
   app.use("/api/v1/workspaces/:workspaceId/members", workspaceMembersRouter);
   app.use("/api/v1/workspaces/:workspaceId/settings", workspaceSettingsRouter);
   app.use("/api/v1/workspaces/:workspaceId/calls", workspaceCallsRouter);
+  app.use("/api/v1/workspaces/:workspaceId/agreements", workspaceAgreementsRouter);
   app.use(
     "/api/v1/workspaces/:workspaceId/automation",
     workspaceAutomationRouter,

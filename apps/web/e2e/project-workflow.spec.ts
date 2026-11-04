@@ -96,3 +96,23 @@ test("member can update notification preferences", async ({ page }) => {
   await comments.uncheck();
   await expect(comments).not.toBeChecked();
 });
+
+test("member can confirm an agreement", async ({ page }) => {
+  await register(page);
+  const workspaceUrl = page.url();
+
+  await page.goto(`${workspaceUrl}/agreements`);
+  await page.getByPlaceholder("New agreement").fill("Confirm release criteria");
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Confirm release criteria" }),
+  ).toBeVisible();
+
+  await page
+    .getByLabel("Status for Confirm release criteria")
+    .selectOption("pending_confirmation");
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(
+    page.getByLabel("Status for Confirm release criteria"),
+  ).toHaveValue("accepted");
+});

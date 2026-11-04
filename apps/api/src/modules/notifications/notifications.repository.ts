@@ -8,18 +8,43 @@ import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { users } from "../../core/db/schema/users.js";
+import {
+  workspaceAgreements,
+  workspaceAgreementParticipants,
+} from "../../core/db/schema/workspace-agreements.js";
 
 const actorUsers = alias(users, "notification_actor_users");
 
 export async function getNotificationPreferences(userId: string) {
-  await db.insert(notificationPreferences).values({ userId }).onConflictDoNothing();
-  const [preferences] = await db.select().from(notificationPreferences).where(eq(notificationPreferences.userId, userId));
+  await db
+    .insert(notificationPreferences)
+    .values({ userId })
+    .onConflictDoNothing();
+  const [preferences] = await db
+    .select()
+    .from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, userId));
   return preferences!;
 }
 
-export async function updateNotificationPreferences(input: { userId: string; taskAssigned?: boolean; taskCommented?: boolean; taskDueToday?: boolean; taskOverdue?: boolean; taskStatusChanged?: boolean }) {
-  await db.insert(notificationPreferences).values({ userId: input.userId }).onConflictDoNothing();
-  const [preferences] = await db.update(notificationPreferences).set({ ...input, updatedAt: new Date() }).where(eq(notificationPreferences.userId, input.userId)).returning();
+export async function updateNotificationPreferences(input: {
+  userId: string;
+  taskAssigned?: boolean;
+  taskCommented?: boolean;
+  taskDueToday?: boolean;
+  taskOverdue?: boolean;
+  taskStatusChanged?: boolean;
+  agreementOverdue?: boolean;
+}) {
+  await db
+    .insert(notificationPreferences)
+    .values({ userId: input.userId })
+    .onConflictDoNothing();
+  const [preferences] = await db
+    .update(notificationPreferences)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(notificationPreferences.userId, input.userId))
+    .returning();
   return preferences!;
 }
 
@@ -29,6 +54,7 @@ export async function createNotification(input: {
   projectId?: string;
   recipientUserId: string;
   taskId?: string;
+  agreementId?: string;
   invitationId?: string;
   taskKey?: string;
   taskTitle?: string;
@@ -37,7 +63,9 @@ export async function createNotification(input: {
     | "task_commented"
     | "task_due_today"
     | "task_overdue"
-    | "task_status_changed" | "workspace_invited";
+    | "task_status_changed"
+    | "workspace_invited"
+    | "agreement_overdue";
   workspaceId: string;
 }) {
   const [notification] = await db
@@ -111,6 +139,7 @@ export async function listNotifications(input: {
       ),
     db
       .select({
+        agreementId: notifications.agreementId,
         actor: { displayName: actorUsers.displayName, id: actorUsers.id },
         actorUserId: notifications.actorUserId,
         createdAt: notifications.createdAt,
@@ -136,6 +165,37 @@ export async function listNotifications(input: {
     total: totalRow[0]?.total ?? 0,
     unreadCount: unreadRow[0]?.total ?? 0,
   };
+}
+
+export async function findOverdueAgreementNotificationCandidates() {
+  return db
+    .select({
+      agreementId: workspaceAgreements.id,
+      dueDate: workspaceAgreements.dueDate,
+      ownerUserId: workspaceAgreements.ownerUserId,
+      title: workspaceAgreements.title,
+      workspaceId: workspaceAgreements.workspaceId,
+    })
+    .from(workspaceAgreements)
+    .where(
+      and(
+        isNotNull(workspaceAgreements.dueDate),
+        ne(workspaceAgreements.status, "completed"),
+        ne(workspaceAgreements.status, "cancelled"),
+      ),
+    );
+}
+
+export async function findAgreementReminderRecipients(agreementId: string) {
+  return db
+    .select({ userId: workspaceAgreementParticipants.userId })
+    .from(workspaceAgreementParticipants)
+    .where(
+      and(
+        eq(workspaceAgreementParticipants.agreementId, agreementId),
+        ne(workspaceAgreementParticipants.confirmation, "declined"),
+      ),
+    );
 }
 
 export async function markNotificationRead(input: {

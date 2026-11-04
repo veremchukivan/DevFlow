@@ -12,6 +12,7 @@ import { createdAtColumn } from "./_common.js";
 import { projects } from "./projects.js";
 import { tasks } from "./tasks.js";
 import { users } from "./users.js";
+import { workspaceAgreements } from "./workspace-agreements.js";
 import { workspaces } from "./workspaces.js";
 
 export const notificationTypeEnum = pgEnum("notification_type", [
@@ -21,6 +22,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "task_overdue",
   "task_status_changed",
   "workspace_invited",
+  "agreement_overdue",
 ]);
 
 export const notifications = pgTable(
@@ -36,10 +38,13 @@ export const notifications = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .references(() => projects.id, { onDelete: "cascade" }),
-    taskId: uuid("task_id")
-      .references(() => tasks.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+    agreementId: uuid("agreement_id").references(() => workspaceAgreements.id, {
+      onDelete: "cascade",
+    }),
     type: notificationTypeEnum("type").notNull(),
     invitationId: uuid("invitation_id"),
     taskKey: varchar("task_key", { length: 64 }),

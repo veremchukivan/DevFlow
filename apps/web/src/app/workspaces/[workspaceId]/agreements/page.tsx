@@ -1,10 +1,5 @@
-import { WorkspaceEmptyModule } from "@/features/workspaces/components/workspace-utility-pages";
+import { WorkspaceAgreements } from "@/features/workspaces/components/workspace-agreements";
 
 export default function WorkspaceAgreementsPage() {
-  return (
-    <WorkspaceEmptyModule
-      description="Keep team decisions and agreements in one searchable place."
-      title="Agreements"
-    />
-  );
+  return <WorkspaceAgreements />;
 }

@@ -5,6 +5,8 @@ import { buildPageInfo } from "../../core/pagination.js";
 import {
   createNotification,
   findDeadlineNotificationCandidates,
+  findOverdueAgreementNotificationCandidates,
+  findAgreementReminderRecipients,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -13,23 +15,57 @@ import {
 } from "./notifications.repository.js";
 
 const preferenceByType = {
-  task_assigned: "taskAssigned", task_commented: "taskCommented", task_due_today: "taskDueToday", task_overdue: "taskOverdue", task_status_changed: "taskStatusChanged",
+  task_assigned: "taskAssigned",
+  task_commented: "taskCommented",
+  task_due_today: "taskDueToday",
+  task_overdue: "taskOverdue",
+  task_status_changed: "taskStatusChanged",
+  agreement_overdue: "agreementOverdue",
 } as const;
 
-async function createPreferredNotification(input: Parameters<typeof createNotification>[0]) {
+async function createPreferredNotification(
+  input: Parameters<typeof createNotification>[0],
+) {
   if (input.type === "workspace_invited") return createNotification(input);
-  const preferences = await getNotificationPreferencesFromDb(input.recipientUserId);
+  const preferences = await getNotificationPreferencesFromDb(
+    input.recipientUserId,
+  );
   if (!preferences[preferenceByType[input.type]]) return;
   return createNotification(input);
 }
 
-export async function getNotificationPreferences(userId: string) { return getNotificationPreferencesFromDb(userId); }
-export async function updateNotificationPreferences(input: { userId: string; taskAssigned?: boolean; taskCommented?: boolean; taskDueToday?: boolean; taskOverdue?: boolean; taskStatusChanged?: boolean }) { return updateNotificationPreferencesInDb(input); }
+export async function getNotificationPreferences(userId: string) {
+  return getNotificationPreferencesFromDb(userId);
+}
+export async function updateNotificationPreferences(input: {
+  userId: string;
+  taskAssigned?: boolean;
+  taskCommented?: boolean;
+  taskDueToday?: boolean;
+  taskOverdue?: boolean;
+  taskStatusChanged?: boolean;
+  agreementOverdue?: boolean;
+}) {
+  return updateNotificationPreferencesInDb(input);
+}
 
-export async function notifyWorkspaceInvited(input: { actorUserId: string; invitationId: string; recipientUserId: string | null; workspaceId: string }) {
-  if (!input.recipientUserId || input.recipientUserId === input.actorUserId) return;
+export async function notifyWorkspaceInvited(input: {
+  actorUserId: string;
+  invitationId: string;
+  recipientUserId: string | null;
+  workspaceId: string;
+}) {
+  if (!input.recipientUserId || input.recipientUserId === input.actorUserId)
+    return;
   const recipientUserId = input.recipientUserId;
-  await createNotification({ actorUserId: input.actorUserId, invitationId: input.invitationId, recipientUserId, type: "workspace_invited", taskTitle: "You were invited to a workspace", workspaceId: input.workspaceId });
+  await createNotification({
+    actorUserId: input.actorUserId,
+    invitationId: input.invitationId,
+    recipientUserId,
+    type: "workspace_invited",
+    taskTitle: "You were invited to a workspace",
+    workspaceId: input.workspaceId,
+  });
 }
 
 export async function notifyTaskAssigned(input: {
@@ -79,9 +115,11 @@ export async function notifyTaskWatchers(input: {
   type: "task_commented" | "task_status_changed";
   workspaceId: string;
 }) {
-  const recipients = [...new Set(input.recipientUserIds.filter((id): id is string => Boolean(id)))].filter(
-    (recipientUserId) => recipientUserId !== input.actorUserId,
-  );
+  const recipients = [
+    ...new Set(
+      input.recipientUserIds.filter((id): id is string => Boolean(id)),
+    ),
+  ].filter((recipientUserId) => recipientUserId !== input.actorUserId);
   await Promise.all(
     recipients.map((recipientUserId) =>
       createPreferredNotification({
@@ -147,6 +185,39 @@ export async function sendDeadlineNotifications(
       workspaceId: task.workspaceId,
     });
     if (notification) sent += 1;
+  }
+
+  return sent;
+}
+
+export async function sendAgreementOverdueNotifications(
+  today = new Date().toISOString().slice(0, 10),
+) {
+  const candidates = await findOverdueAgreementNotificationCandidates();
+  let sent = 0;
+
+  for (const agreement of candidates) {
+    if (!agreement.dueDate || agreement.dueDate >= today) continue;
+    const recipients = new Set<string>(
+      [
+        agreement.ownerUserId,
+        ...(await findAgreementReminderRecipients(agreement.agreementId)).map(
+          (item) => item.userId,
+        ),
+      ].filter((userId): userId is string => Boolean(userId)),
+    );
+    for (const recipientUserId of recipients) {
+      const notification = await createPreferredNotification({
+        actorUserId: null,
+        agreementId: agreement.agreementId,
+        dedupeKey: `agreement-overdue:${agreement.agreementId}:${agreement.dueDate}`,
+        recipientUserId,
+        taskTitle: agreement.title,
+        type: "agreement_overdue",
+        workspaceId: agreement.workspaceId,
+      });
+      if (notification) sent += 1;
+    }
   }
 
   return sent;

@@ -107,13 +107,20 @@ import {
   workspaceCallDecisionResponseSchema,
   workspaceCallDecisionsResponseSchema,
   workspaceCalendarFeedResponseSchema,
+  createWorkspaceAgreementRequestSchema,
+  updateWorkspaceAgreementRequestSchema,
+  agreementConfirmationRequestSchema,
+  workspaceAgreementListResponseSchema,
+  workspaceAgreementResponseSchema,
   type AuthResponse,
   type AiSettings,
   type AccountSessionListResponse,
   type AcceptInvitationResponse,
   type ChangePasswordRequest,
   type ChangeEmailRequest,
-  createApiTokenRequestSchema, apiTokenListResponseSchema, createApiTokenResponseSchema,
+  createApiTokenRequestSchema,
+  apiTokenListResponseSchema,
+  createApiTokenResponseSchema,
   type DeleteAccountRequest,
   type HealthResponse,
   type FigmaFilePreview,
@@ -136,6 +143,10 @@ import {
   type WorkspaceCallDecisionResponse,
   type WorkspaceCallDecisionsResponse,
   type WorkspaceCalendarFeedResponse,
+  type WorkspaceAgreementListResponse,
+  type WorkspaceAgreementResponse,
+  type CreateWorkspaceAgreementRequest,
+  type UpdateWorkspaceAgreementRequest,
   type WorkspaceResponse,
   type CreateProjectRequest,
   type CreateProjectSprintRequest,
@@ -528,9 +539,28 @@ export function requestEmailChange(input: ChangeEmailRequest): Promise<void> {
   });
 }
 
-export function getApiTokens() { return request("/api/v1/auth/api-tokens", { method: "GET" }, apiTokenListResponseSchema); }
-export function createApiToken(input: unknown) { return request("/api/v1/auth/api-tokens", { body: JSON.stringify(createApiTokenRequestSchema.parse(input)), method: "POST" }, createApiTokenResponseSchema); }
-export function revokeApiToken(tokenId: string): Promise<void> { return requestNoContent(`/api/v1/auth/api-tokens/${tokenId}`, { method: "DELETE" }); }
+export function getApiTokens() {
+  return request(
+    "/api/v1/auth/api-tokens",
+    { method: "GET" },
+    apiTokenListResponseSchema,
+  );
+}
+export function createApiToken(input: unknown) {
+  return request(
+    "/api/v1/auth/api-tokens",
+    {
+      body: JSON.stringify(createApiTokenRequestSchema.parse(input)),
+      method: "POST",
+    },
+    createApiTokenResponseSchema,
+  );
+}
+export function revokeApiToken(tokenId: string): Promise<void> {
+  return requestNoContent(`/api/v1/auth/api-tokens/${tokenId}`, {
+    method: "DELETE",
+  });
+}
 const figmaConnectionSchema = z.object({
   configured: z.boolean(),
   connected: z.boolean(),
@@ -804,7 +834,11 @@ export function getProjects(workspaceId: string): Promise<ProjectListResponse> {
 
 export function getWorkspaceCalls(
   workspaceId: string,
-  query?: { from?: string; status?: "scheduled" | "completed" | "cancelled"; to?: string },
+  query?: {
+    from?: string;
+    status?: "scheduled" | "completed" | "cancelled";
+    to?: string;
+  },
 ): Promise<WorkspaceCallListResponse> {
   const params = new URLSearchParams();
   if (query?.from) params.set("from", query.from);
@@ -818,9 +852,69 @@ export function getWorkspaceCalls(
   );
 }
 
-export function getWorkspaceCalendarFeed(workspaceId: string, query: { from: string; to: string }): Promise<WorkspaceCalendarFeedResponse> {
+export function getWorkspaceCalendarFeed(
+  workspaceId: string,
+  query: { from: string; to: string },
+): Promise<WorkspaceCalendarFeedResponse> {
   const params = new URLSearchParams({ from: query.from, to: query.to });
-  return request(`/api/v1/workspaces/${workspaceId}/calls/calendar?${params.toString()}`, { method: "GET" }, workspaceCalendarFeedResponseSchema);
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls/calendar?${params.toString()}`,
+    { method: "GET" },
+    workspaceCalendarFeedResponseSchema,
+  );
+}
+
+export function getWorkspaceAgreements(
+  workspaceId: string,
+): Promise<WorkspaceAgreementListResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/agreements`,
+    { method: "GET" },
+    workspaceAgreementListResponseSchema,
+  );
+}
+export function createWorkspaceAgreement(
+  workspaceId: string,
+  input: CreateWorkspaceAgreementRequest,
+): Promise<WorkspaceAgreementResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/agreements`,
+    {
+      body: JSON.stringify(createWorkspaceAgreementRequestSchema.parse(input)),
+      method: "POST",
+    },
+    workspaceAgreementResponseSchema,
+  );
+}
+export function updateWorkspaceAgreement(
+  workspaceId: string,
+  agreementId: string,
+  input: UpdateWorkspaceAgreementRequest,
+): Promise<WorkspaceAgreementResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/agreements/${agreementId}`,
+    {
+      body: JSON.stringify(updateWorkspaceAgreementRequestSchema.parse(input)),
+      method: "PATCH",
+    },
+    workspaceAgreementResponseSchema,
+  );
+}
+export function confirmWorkspaceAgreement(
+  workspaceId: string,
+  agreementId: string,
+  confirmation: "confirmed" | "declined",
+): Promise<WorkspaceAgreementResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/agreements/${agreementId}/confirmation`,
+    {
+      body: JSON.stringify(
+        agreementConfirmationRequestSchema.parse({ confirmation }),
+      ),
+      method: "POST",
+    },
+    workspaceAgreementResponseSchema,
+  );
 }
 
 export function createWorkspaceCall(
@@ -829,7 +923,10 @@ export function createWorkspaceCall(
 ): Promise<WorkspaceCallResponse> {
   return request(
     `/api/v1/workspaces/${workspaceId}/calls`,
-    { body: JSON.stringify(createWorkspaceCallRequestSchema.parse(input)), method: "POST" },
+    {
+      body: JSON.stringify(createWorkspaceCallRequestSchema.parse(input)),
+      method: "POST",
+    },
     workspaceCallResponseSchema,
   );
 }
@@ -841,12 +938,18 @@ export function updateWorkspaceCall(
 ): Promise<WorkspaceCallResponse> {
   return request(
     `/api/v1/workspaces/${workspaceId}/calls/${callId}`,
-    { body: JSON.stringify(updateWorkspaceCallRequestSchema.parse(input)), method: "PATCH" },
+    {
+      body: JSON.stringify(updateWorkspaceCallRequestSchema.parse(input)),
+      method: "PATCH",
+    },
     workspaceCallResponseSchema,
   );
 }
 
-export function deleteWorkspaceCall(workspaceId: string, callId: string): Promise<void> {
+export function deleteWorkspaceCall(
+  workspaceId: string,
+  callId: string,
+): Promise<void> {
   return requestNoContent(`/api/v1/workspaces/${workspaceId}/calls/${callId}`, {
     method: "DELETE",
   });
@@ -859,21 +962,58 @@ export function respondToWorkspaceCall(
 ): Promise<WorkspaceCallResponse> {
   return request(
     `/api/v1/workspaces/${workspaceId}/calls/${callId}/attendance`,
-    { body: JSON.stringify(workspaceCallAttendanceRequestSchema.parse(input)), method: "PATCH" },
+    {
+      body: JSON.stringify(workspaceCallAttendanceRequestSchema.parse(input)),
+      method: "PATCH",
+    },
     workspaceCallResponseSchema,
   );
 }
 
-export function getWorkspaceCallDecisions(workspaceId: string, callId: string): Promise<WorkspaceCallDecisionsResponse> {
-  return request(`/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions`, { method: "GET" }, workspaceCallDecisionsResponseSchema);
+export function getWorkspaceCallDecisions(
+  workspaceId: string,
+  callId: string,
+): Promise<WorkspaceCallDecisionsResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions`,
+    { method: "GET" },
+    workspaceCallDecisionsResponseSchema,
+  );
 }
 
-export function createWorkspaceCallDecision(workspaceId: string, callId: string, input: { body: string }): Promise<WorkspaceCallDecisionResponse> {
-  return request(`/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions`, { body: JSON.stringify(createWorkspaceCallDecisionRequestSchema.parse(input)), method: "POST" }, workspaceCallDecisionResponseSchema);
+export function createWorkspaceCallDecision(
+  workspaceId: string,
+  callId: string,
+  input: { body: string },
+): Promise<WorkspaceCallDecisionResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions`,
+    {
+      body: JSON.stringify(
+        createWorkspaceCallDecisionRequestSchema.parse(input),
+      ),
+      method: "POST",
+    },
+    workspaceCallDecisionResponseSchema,
+  );
 }
 
-export function createTaskFromWorkspaceCallDecision(workspaceId: string, callId: string, decisionId: string, input: { projectId: string; title?: string }): Promise<WorkspaceCallDecisionResponse & { taskId: string }> {
-  return request(`/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions/${decisionId}/create-task`, { body: JSON.stringify(promoteWorkspaceCallDecisionRequestSchema.parse(input)), method: "POST" }, workspaceCallDecisionResponseSchema.extend({ taskId: z.string().uuid() }));
+export function createTaskFromWorkspaceCallDecision(
+  workspaceId: string,
+  callId: string,
+  decisionId: string,
+  input: { projectId: string; title?: string },
+): Promise<WorkspaceCallDecisionResponse & { taskId: string }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/calls/${callId}/decisions/${decisionId}/create-task`,
+    {
+      body: JSON.stringify(
+        promoteWorkspaceCallDecisionRequestSchema.parse(input),
+      ),
+      method: "POST",
+    },
+    workspaceCallDecisionResponseSchema.extend({ taskId: z.string().uuid() }),
+  );
 }
 
 export function createProject(
@@ -1271,92 +1411,279 @@ export function getTask(
 }
 
 export function getGitConnections(): Promise<GitConnectionsResponse> {
-  return request("/api/v1/integrations/git/connections", { method: "GET" }, gitConnectionsResponseSchema);
+  return request(
+    "/api/v1/integrations/git/connections",
+    { method: "GET" },
+    gitConnectionsResponseSchema,
+  );
 }
 
 export function disconnectGitConnection(connectionId: string): Promise<void> {
-  return requestNoContent(`/api/v1/integrations/git/connections/${connectionId}`, { method: "DELETE" });
+  return requestNoContent(
+    `/api/v1/integrations/git/connections/${connectionId}`,
+    { method: "DELETE" },
+  );
 }
 
 export function startGitConnection(provider: "github" | "gitlab") {
   if (typeof window === "undefined") return;
-  window.location.assign(`${getApiUrl()}/api/v1/integrations/git/${provider}/connect`);
+  window.location.assign(
+    `${getApiUrl()}/api/v1/integrations/git/${provider}/connect`,
+  );
 }
 
-export function getProjectRepository(workspaceId: string, projectId: string): Promise<{ repository: ProjectRepository | null }> {
-  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`, { method: "GET" }, projectRepositoryResponseSchema);
+export function getProjectRepository(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ repository: ProjectRepository | null }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`,
+    { method: "GET" },
+    projectRepositoryResponseSchema,
+  );
 }
 
-export function connectProjectRepository(workspaceId: string, projectId: string, input: { connectionId: string; fullName: string }): Promise<{ repository: ProjectRepository }> {
-  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`, { body: JSON.stringify(input), method: "PUT" }, projectRepositoryResponseSchema.transform((value) => ({ repository: value.repository! })));
+export function connectProjectRepository(
+  workspaceId: string,
+  projectId: string,
+  input: { connectionId: string; fullName: string },
+): Promise<{ repository: ProjectRepository }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`,
+    { body: JSON.stringify(input), method: "PUT" },
+    projectRepositoryResponseSchema.transform((value) => ({
+      repository: value.repository!,
+    })),
+  );
 }
 
-export function removeProjectRepository(workspaceId: string, projectId: string): Promise<void> {
-  return requestNoContent(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`, { method: "DELETE" });
+export function removeProjectRepository(
+  workspaceId: string,
+  projectId: string,
+): Promise<void> {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository`,
+    { method: "DELETE" },
+  );
 }
 
-export function getProjectReleaseNotes(workspaceId: string, projectId: string): Promise<{ generatedAt: string; markdown: string; mergedChanges: number }> {
-  return request(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository/release-notes`, { method: "GET" }, z.object({ generatedAt: z.string().datetime(), markdown: z.string(), mergedChanges: z.number().int().nonnegative() }));
+export function getProjectReleaseNotes(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ generatedAt: string; markdown: string; mergedChanges: number }> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/projects/${projectId}/repository/release-notes`,
+    { method: "GET" },
+    z.object({
+      generatedAt: z.string().datetime(),
+      markdown: z.string(),
+      mergedChanges: z.number().int().nonnegative(),
+    }),
+  );
 }
 
-const projectKnowledgePath = (workspaceId: string, projectId: string) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/knowledge`;
+const projectKnowledgePath = (workspaceId: string, projectId: string) =>
+  `/api/v1/workspaces/${workspaceId}/projects/${projectId}/knowledge`;
 
-export function getProjectKnowledge(workspaceId: string, projectId: string): Promise<{ entries: import("@devflow/shared").ProjectKnowledgeEntry[] }> {
-  return request(projectKnowledgePath(workspaceId, projectId), { method: "GET" }, (awaitedProjectKnowledgeSchemas()).list);
+export function getProjectKnowledge(
+  workspaceId: string,
+  projectId: string,
+): Promise<{ entries: import("@devflow/shared").ProjectKnowledgeEntry[] }> {
+  return request(
+    projectKnowledgePath(workspaceId, projectId),
+    { method: "GET" },
+    awaitedProjectKnowledgeSchemas().list,
+  );
 }
 
-export function getProjectKnowledgeContext(workspaceId: string, projectId: string): Promise<{ entries: import("@devflow/shared").ProjectKnowledgeEntry[]; generatedAt: string }> {
-  return request(`${projectKnowledgePath(workspaceId, projectId)}/context`, { method: "GET" }, (awaitedProjectKnowledgeSchemas()).context);
+export function getProjectKnowledgeContext(
+  workspaceId: string,
+  projectId: string,
+): Promise<{
+  entries: import("@devflow/shared").ProjectKnowledgeEntry[];
+  generatedAt: string;
+}> {
+  return request(
+    `${projectKnowledgePath(workspaceId, projectId)}/context`,
+    { method: "GET" },
+    awaitedProjectKnowledgeSchemas().context,
+  );
 }
 
-export function createProjectKnowledgeEntry(workspaceId: string, projectId: string, input: import("@devflow/shared").CreateProjectKnowledgeEntryRequest): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
-  return request(projectKnowledgePath(workspaceId, projectId), { body: JSON.stringify(input), method: "POST" }, (awaitedProjectKnowledgeSchemas()).entry);
+export function createProjectKnowledgeEntry(
+  workspaceId: string,
+  projectId: string,
+  input: import("@devflow/shared").CreateProjectKnowledgeEntryRequest,
+): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
+  return request(
+    projectKnowledgePath(workspaceId, projectId),
+    { body: JSON.stringify(input), method: "POST" },
+    awaitedProjectKnowledgeSchemas().entry,
+  );
 }
 
-export function updateProjectKnowledgeEntry(workspaceId: string, projectId: string, entryId: string, input: Partial<import("@devflow/shared").CreateProjectKnowledgeEntryRequest>): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
-  return request(`${projectKnowledgePath(workspaceId, projectId)}/${entryId}`, { body: JSON.stringify(input), method: "PATCH" }, (awaitedProjectKnowledgeSchemas()).entry);
+export function updateProjectKnowledgeEntry(
+  workspaceId: string,
+  projectId: string,
+  entryId: string,
+  input: Partial<import("@devflow/shared").CreateProjectKnowledgeEntryRequest>,
+): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
+  return request(
+    `${projectKnowledgePath(workspaceId, projectId)}/${entryId}`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    awaitedProjectKnowledgeSchemas().entry,
+  );
 }
 
-export function deleteProjectKnowledgeEntry(workspaceId: string, projectId: string, entryId: string): Promise<void> {
-  return requestNoContent(`${projectKnowledgePath(workspaceId, projectId)}/${entryId}`, { method: "DELETE" });
+export function deleteProjectKnowledgeEntry(
+  workspaceId: string,
+  projectId: string,
+  entryId: string,
+): Promise<void> {
+  return requestNoContent(
+    `${projectKnowledgePath(workspaceId, projectId)}/${entryId}`,
+    { method: "DELETE" },
+  );
 }
 
-export function addProjectKnowledgeLink(workspaceId: string, projectId: string, entryId: string, input: { kind: "task" | "pull_request" | "figma" | "release" | "external"; label: string; url: string; externalId?: string | null }): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
-  return request(`${projectKnowledgePath(workspaceId, projectId)}/${entryId}/links`, { body: JSON.stringify(input), method: "POST" }, (awaitedProjectKnowledgeSchemas()).entry);
+export function addProjectKnowledgeLink(
+  workspaceId: string,
+  projectId: string,
+  entryId: string,
+  input: {
+    kind: "task" | "pull_request" | "figma" | "release" | "external";
+    label: string;
+    url: string;
+    externalId?: string | null;
+  },
+): Promise<{ entry: import("@devflow/shared").ProjectKnowledgeEntry }> {
+  return request(
+    `${projectKnowledgePath(workspaceId, projectId)}/${entryId}/links`,
+    { body: JSON.stringify(input), method: "POST" },
+    awaitedProjectKnowledgeSchemas().entry,
+  );
 }
 
-const projectPlanningPath = (workspaceId: string, projectId: string) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/planning`;
-export function getProjectPlanning(workspaceId: string, projectId: string): Promise<import("@devflow/shared").ProjectPlanningResponse> { return request(projectPlanningPath(workspaceId, projectId), { method: "GET" }, projectPlanningResponseSchema); }
-export function createProjectRelease(workspaceId: string, projectId: string, input: { name: string; description?: string | null; startDate?: string | null; releaseDate?: string | null }): Promise<{ release: import("@devflow/shared").ProjectRelease }> { return request(`${projectPlanningPath(workspaceId, projectId)}/releases`, { body: JSON.stringify(input), method: "POST" }, z.object({ release: projectReleaseSchema })); }
-export function updateProjectPlanningTask(workspaceId: string, projectId: string, taskId: string, input: { epicId?: string | null; releaseId?: string | null; complexityPoints?: number | null }): Promise<{ task: import("@devflow/shared").ProjectPlanningTask }> { return request(`${projectPlanningPath(workspaceId, projectId)}/tasks/${taskId}`, { body: JSON.stringify(input), method: "PATCH" }, z.object({ task: projectPlanningResponseSchema.shape.tasks.element })); }
+const projectPlanningPath = (workspaceId: string, projectId: string) =>
+  `/api/v1/workspaces/${workspaceId}/projects/${projectId}/planning`;
+export function getProjectPlanning(
+  workspaceId: string,
+  projectId: string,
+): Promise<import("@devflow/shared").ProjectPlanningResponse> {
+  return request(
+    projectPlanningPath(workspaceId, projectId),
+    { method: "GET" },
+    projectPlanningResponseSchema,
+  );
+}
+export function createProjectRelease(
+  workspaceId: string,
+  projectId: string,
+  input: {
+    name: string;
+    description?: string | null;
+    startDate?: string | null;
+    releaseDate?: string | null;
+  },
+): Promise<{ release: import("@devflow/shared").ProjectRelease }> {
+  return request(
+    `${projectPlanningPath(workspaceId, projectId)}/releases`,
+    { body: JSON.stringify(input), method: "POST" },
+    z.object({ release: projectReleaseSchema }),
+  );
+}
+export function updateProjectPlanningTask(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: {
+    epicId?: string | null;
+    releaseId?: string | null;
+    complexityPoints?: number | null;
+  },
+): Promise<{ task: import("@devflow/shared").ProjectPlanningTask }> {
+  return request(
+    `${projectPlanningPath(workspaceId, projectId)}/tasks/${taskId}`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    z.object({ task: projectPlanningResponseSchema.shape.tasks.element }),
+  );
+}
 
 function awaitedProjectKnowledgeSchemas() {
-  return { context: projectKnowledgeContextResponseSchema, entry: projectKnowledgeEntryResponseSchema, list: projectKnowledgeListResponseSchema };
+  return {
+    context: projectKnowledgeContextResponseSchema,
+    entry: projectKnowledgeEntryResponseSchema,
+    list: projectKnowledgeListResponseSchema,
+  };
 }
 
-const taskGitPath = (workspaceId: string, projectId: string, taskId: string) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/git`;
+const taskGitPath = (workspaceId: string, projectId: string, taskId: string) =>
+  `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/git`;
 
-export function getTaskGitLinks(workspaceId: string, projectId: string, taskId: string): Promise<{ links: TaskGitLink[] }> {
-  return request(taskGitPath(workspaceId, projectId, taskId), { method: "GET" }, taskGitLinksResponseSchema);
+export function getTaskGitLinks(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<{ links: TaskGitLink[] }> {
+  return request(
+    taskGitPath(workspaceId, projectId, taskId),
+    { method: "GET" },
+    taskGitLinksResponseSchema,
+  );
 }
 
-export function createTaskGitBranch(workspaceId: string, projectId: string, taskId: string, input: { name: string; baseBranch?: string }): Promise<{ link: TaskGitLink }> {
-  return request(`${taskGitPath(workspaceId, projectId, taskId)}/branch`, { body: JSON.stringify(input), method: "POST" }, taskGitLinkResponseSchema);
+export function createTaskGitBranch(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: { name: string; baseBranch?: string },
+): Promise<{ link: TaskGitLink }> {
+  return request(
+    `${taskGitPath(workspaceId, projectId, taskId)}/branch`,
+    { body: JSON.stringify(input), method: "POST" },
+    taskGitLinkResponseSchema,
+  );
 }
 
-export function createTaskPullRequest(workspaceId: string, projectId: string, taskId: string, input: { baseBranch?: string; body?: string; title?: string }): Promise<{ link: TaskGitLink }> {
-  return request(`${taskGitPath(workspaceId, projectId, taskId)}/pull-request`, { body: JSON.stringify(input), method: "POST" }, taskGitLinkResponseSchema);
+export function createTaskPullRequest(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  input: { baseBranch?: string; body?: string; title?: string },
+): Promise<{ link: TaskGitLink }> {
+  return request(
+    `${taskGitPath(workspaceId, projectId, taskId)}/pull-request`,
+    { body: JSON.stringify(input), method: "POST" },
+    taskGitLinkResponseSchema,
+  );
 }
 
-export function syncTaskGitLinks(workspaceId: string, projectId: string, taskId: string): Promise<{ links: TaskGitLink[]; ciStatus: "not_configured" | "pending" | "passing" | "failing"; synchronizedAt: string }> {
-  return request(`${taskGitPath(workspaceId, projectId, taskId)}/sync`, { method: "POST" }, z.object({ links: z.array(taskGitLinkResponseSchema.shape.link), ciStatus: z.enum(["not_configured", "pending", "passing", "failing"]), synchronizedAt: z.string().datetime() }));
+export function syncTaskGitLinks(
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+): Promise<{
+  links: TaskGitLink[];
+  ciStatus: "not_configured" | "pending" | "passing" | "failing";
+  synchronizedAt: string;
+}> {
+  return request(
+    `${taskGitPath(workspaceId, projectId, taskId)}/sync`,
+    { method: "POST" },
+    z.object({
+      links: z.array(taskGitLinkResponseSchema.shape.link),
+      ciStatus: z.enum(["not_configured", "pending", "passing", "failing"]),
+      synchronizedAt: z.string().datetime(),
+    }),
+  );
 }
 
 const developmentFlowPath = (
   workspaceId: string,
   projectId: string,
   taskId: string,
-) => `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/development-flow`;
+) =>
+  `/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/development-flow`;
 
 export function getTaskDevelopmentFlow(
   workspaceId: string,
@@ -1378,7 +1705,10 @@ export function createTaskDevelopmentFlow(
 ): Promise<TaskDevelopmentFlowResponse> {
   return request(
     developmentFlowPath(workspaceId, projectId, taskId),
-    { body: JSON.stringify(createTaskDevelopmentFlowRequestSchema.parse(input)), method: "POST" },
+    {
+      body: JSON.stringify(createTaskDevelopmentFlowRequestSchema.parse(input)),
+      method: "POST",
+    },
     taskDevelopmentFlowResponseSchema,
   );
 }
@@ -1391,7 +1721,10 @@ export function updateTaskDevelopmentFlow(
 ): Promise<TaskDevelopmentFlowResponse> {
   return request(
     developmentFlowPath(workspaceId, projectId, taskId),
-    { body: JSON.stringify(updateTaskDevelopmentFlowRequestSchema.parse(input)), method: "PATCH" },
+    {
+      body: JSON.stringify(updateTaskDevelopmentFlowRequestSchema.parse(input)),
+      method: "PATCH",
+    },
     taskDevelopmentFlowResponseSchema,
   );
 }
@@ -1400,11 +1733,23 @@ export function transitionTaskDevelopmentFlow(
   workspaceId: string,
   projectId: string,
   taskId: string,
-  state: "idea" | "planning" | "approval" | "ready" | "in_progress" | "review" | "done",
+  state:
+    | "idea"
+    | "planning"
+    | "approval"
+    | "ready"
+    | "in_progress"
+    | "review"
+    | "done",
 ): Promise<TaskDevelopmentFlowResponse> {
   return request(
     `${developmentFlowPath(workspaceId, projectId, taskId)}/transition`,
-    { body: JSON.stringify(transitionTaskDevelopmentFlowRequestSchema.parse({ state })), method: "POST" },
+    {
+      body: JSON.stringify(
+        transitionTaskDevelopmentFlowRequestSchema.parse({ state }),
+      ),
+      method: "POST",
+    },
     taskDevelopmentFlowResponseSchema,
   );
 }
@@ -1419,17 +1764,53 @@ function actOnTaskDevelopmentFlow(
   return request(
     `${developmentFlowPath(workspaceId, projectId, taskId)}/${action}`,
     {
-      body: comment ? JSON.stringify(rejectTaskDevelopmentFlowRequestSchema.parse({ comment })) : undefined,
+      body: comment
+        ? JSON.stringify(
+            rejectTaskDevelopmentFlowRequestSchema.parse({ comment }),
+          )
+        : undefined,
       method: "POST",
     },
     taskDevelopmentFlowResponseSchema,
   );
 }
 
-export const approveTaskDevelopmentPlan = (workspaceId: string, projectId: string, taskId: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "approve-plan");
-export const rejectTaskDevelopmentPlan = (workspaceId: string, projectId: string, taskId: string, comment: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "reject-plan", comment);
-export const approveTaskDevelopmentReview = (workspaceId: string, projectId: string, taskId: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "approve-review");
-export const rejectTaskDevelopmentReview = (workspaceId: string, projectId: string, taskId: string, comment: string) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "reject-review", comment);
+export const approveTaskDevelopmentPlan = (
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "approve-plan");
+export const rejectTaskDevelopmentPlan = (
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  comment: string,
+) =>
+  actOnTaskDevelopmentFlow(
+    workspaceId,
+    projectId,
+    taskId,
+    "reject-plan",
+    comment,
+  );
+export const approveTaskDevelopmentReview = (
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+) => actOnTaskDevelopmentFlow(workspaceId, projectId, taskId, "approve-review");
+export const rejectTaskDevelopmentReview = (
+  workspaceId: string,
+  projectId: string,
+  taskId: string,
+  comment: string,
+) =>
+  actOnTaskDevelopmentFlow(
+    workspaceId,
+    projectId,
+    taskId,
+    "reject-review",
+    comment,
+  );
 
 export function createTaskDevelopmentFlowSession(
   workspaceId: string,
@@ -1439,7 +1820,12 @@ export function createTaskDevelopmentFlowSession(
 ): Promise<TaskDevelopmentFlowSessionResponse> {
   return request(
     `${developmentFlowPath(workspaceId, projectId, taskId)}/sessions`,
-    { body: JSON.stringify(createTaskDevelopmentFlowSessionRequestSchema.parse(input)), method: "POST" },
+    {
+      body: JSON.stringify(
+        createTaskDevelopmentFlowSessionRequestSchema.parse(input),
+      ),
+      method: "POST",
+    },
     taskDevelopmentFlowSessionResponseSchema,
   );
 }
@@ -1449,11 +1835,19 @@ export function updateTaskDevelopmentFlowSession(
   projectId: string,
   taskId: string,
   sessionId: string,
-  input: { status?: "active" | "paused" | "completed" | "failed"; summary?: string | null },
+  input: {
+    status?: "active" | "paused" | "completed" | "failed";
+    summary?: string | null;
+  },
 ): Promise<TaskDevelopmentFlowSessionResponse> {
   return request(
     `${developmentFlowPath(workspaceId, projectId, taskId)}/sessions/${sessionId}`,
-    { body: JSON.stringify(updateTaskDevelopmentFlowSessionRequestSchema.parse(input)), method: "PATCH" },
+    {
+      body: JSON.stringify(
+        updateTaskDevelopmentFlowSessionRequestSchema.parse(input),
+      ),
+      method: "PATCH",
+    },
     taskDevelopmentFlowSessionResponseSchema,
   );
 }
@@ -1937,11 +2331,54 @@ export function getWorkspaceAutomationRules(
   );
 }
 
-export function getWorkspaceSettings(workspaceId: string) { return request(`/api/v1/workspaces/${workspaceId}/settings`, { method: "GET" }, workspaceSettingsResponseSchema); }
-export function updateWorkspaceSettings(workspaceId: string, input: UpdateWorkspaceSettingsRequest) { return request(`/api/v1/workspaces/${workspaceId}/settings`, { body: JSON.stringify(input), method: "PATCH" }, workspaceSettingsResponseSchema); }
-export function getWorkspaceSavedFilters(workspaceId: string) { return request(`/api/v1/workspaces/${workspaceId}/settings/filters`, { method: "GET" }, workspaceSavedFiltersResponseSchema); }
-export function createWorkspaceSavedFilter(workspaceId: string, input: unknown) { return request(`/api/v1/workspaces/${workspaceId}/settings/filters`, { body: JSON.stringify(createWorkspaceSavedFilterRequestSchema.parse(input)), method: "POST" }, workspaceSavedFilterResponseSchema); }
-export function deleteWorkspaceSavedFilter(workspaceId: string, filterId: string) { return requestNoContent(`/api/v1/workspaces/${workspaceId}/settings/filters/${filterId}`, { method: "DELETE" }); }
+export function getWorkspaceSettings(workspaceId: string) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/settings`,
+    { method: "GET" },
+    workspaceSettingsResponseSchema,
+  );
+}
+export function updateWorkspaceSettings(
+  workspaceId: string,
+  input: UpdateWorkspaceSettingsRequest,
+) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/settings`,
+    { body: JSON.stringify(input), method: "PATCH" },
+    workspaceSettingsResponseSchema,
+  );
+}
+export function getWorkspaceSavedFilters(workspaceId: string) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/settings/filters`,
+    { method: "GET" },
+    workspaceSavedFiltersResponseSchema,
+  );
+}
+export function createWorkspaceSavedFilter(
+  workspaceId: string,
+  input: unknown,
+) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/settings/filters`,
+    {
+      body: JSON.stringify(
+        createWorkspaceSavedFilterRequestSchema.parse(input),
+      ),
+      method: "POST",
+    },
+    workspaceSavedFilterResponseSchema,
+  );
+}
+export function deleteWorkspaceSavedFilter(
+  workspaceId: string,
+  filterId: string,
+) {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/settings/filters/${filterId}`,
+    { method: "DELETE" },
+  );
+}
 
 export function updateWorkspaceAutomationRule(
   workspaceId: string,
@@ -1955,16 +2392,42 @@ export function updateWorkspaceAutomationRule(
   );
 }
 
-export function createWorkspaceAutomationRule(workspaceId: string, input: CreateWorkspaceAutomationRuleRequest) {
-  return request(`/api/v1/workspaces/${workspaceId}/automation/rules`, { body: JSON.stringify(createWorkspaceAutomationRuleRequestSchema.parse(input)), method: "POST" }, workspaceAutomationRuleResponseSchema);
+export function createWorkspaceAutomationRule(
+  workspaceId: string,
+  input: CreateWorkspaceAutomationRuleRequest,
+) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/automation/rules`,
+    {
+      body: JSON.stringify(
+        createWorkspaceAutomationRuleRequestSchema.parse(input),
+      ),
+      method: "POST",
+    },
+    workspaceAutomationRuleResponseSchema,
+  );
 }
 
-export function deleteWorkspaceAutomationRule(workspaceId: string, ruleId: string) {
-  return requestNoContent(`/api/v1/workspaces/${workspaceId}/automation/rules/${ruleId}`, { method: "DELETE" });
+export function deleteWorkspaceAutomationRule(
+  workspaceId: string,
+  ruleId: string,
+) {
+  return requestNoContent(
+    `/api/v1/workspaces/${workspaceId}/automation/rules/${ruleId}`,
+    { method: "DELETE" },
+  );
 }
 
-export function retryWorkspaceAutomationRun(workspaceId: string, ruleId: string, runId: string) {
-  return request(`/api/v1/workspaces/${workspaceId}/automation/rules/${ruleId}/runs/${runId}/retry`, { method: "POST" }, z.object({ ok: z.literal(true) }));
+export function retryWorkspaceAutomationRun(
+  workspaceId: string,
+  ruleId: string,
+  runId: string,
+) {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/automation/rules/${ruleId}/runs/${runId}/retry`,
+    { method: "POST" },
+    z.object({ ok: z.literal(true) }),
+  );
 }
 
 export function getWorkspaceAutomationRuns(

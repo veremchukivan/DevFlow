@@ -11,6 +11,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
   taskDueToday: boolean("task_due_today").notNull().default(true),
   taskOverdue: boolean("task_overdue").notNull().default(true),
   taskStatusChanged: boolean("task_status_changed").notNull().default(true),
+  agreementOverdue: boolean("agreement_overdue").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

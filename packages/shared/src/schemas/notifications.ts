@@ -9,6 +9,7 @@ export const notificationTypeSchema = z.enum([
   "task_overdue",
   "task_status_changed",
   "workspace_invited",
+  "agreement_overdue",
 ]);
 
 export const notificationSchema = z.object({
@@ -19,6 +20,7 @@ export const notificationSchema = z.object({
   projectId: z.uuid().nullable(),
   readAt: z.string().datetime().nullable(),
   taskId: z.uuid().nullable(),
+  agreementId: z.uuid().nullable(),
   invitationId: z.uuid().nullable(),
   taskKey: z.string().nullable(),
   taskTitle: z.string().nullable(),

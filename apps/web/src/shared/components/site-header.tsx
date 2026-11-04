@@ -183,7 +183,9 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     router.push(
       notification.type === "workspace_invited"
         ? `/invitations/id/${notification.invitationId}`
-        : `/workspaces/${notification.workspaceId}/projects/${notification.projectId}/tasks/${notification.taskId}`,
+        : notification.type === "agreement_overdue"
+          ? `/workspaces/${notification.workspaceId}/agreements#${notification.agreementId}`
+          : `/workspaces/${notification.workspaceId}/projects/${notification.projectId}/tasks/${notification.taskId}`,
     );
   }
 
@@ -485,7 +487,8 @@ function notificationMessage(
     | "task_due_today"
     | "task_overdue"
     | "task_status_changed"
-    | "workspace_invited",
+    | "workspace_invited"
+    | "agreement_overdue",
   actorName: string | undefined,
 ) {
   const actor = actorName ?? "A workspace member";
@@ -495,6 +498,7 @@ function notificationMessage(
   if (type === "task_status_changed") return `${actor} changed a task status`;
   if (type === "task_due_today") return "Task is due today";
   if (type === "task_overdue") return "Task is overdue";
+  if (type === "agreement_overdue") return "Agreement is overdue";
   return `${actor} assigned you a task`;
 }
 
