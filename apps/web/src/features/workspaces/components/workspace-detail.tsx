@@ -18,6 +18,7 @@ import {
   getApiAssetUrl,
   getWorkspace,
   getWorkspaceMembers,
+  getWorkspaceAnalytics,
   getProjectSprints,
   getTasks,
 } from "@/shared/lib/api-client";
@@ -31,6 +32,7 @@ import {
   type Task,
   type Workspace,
   type WorkspaceMember,
+  type WorkspaceAnalyticsResponse,
 } from "@devflow/shared";
 import styles from "@/shared/styles/ui.module.css";
 
@@ -54,6 +56,7 @@ export function WorkspaceDetail() {
   const [analyticsProjectId, setAnalyticsProjectId] = useState("all");
   const [analyticsAssigneeId, setAnalyticsAssigneeId] = useState("all");
   const [analyticsSprintId, setAnalyticsSprintId] = useState("all");
+  const [serverAnalytics, setServerAnalytics] = useState<WorkspaceAnalyticsResponse>();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
 
@@ -121,6 +124,25 @@ export function WorkspaceDetail() {
       active = false;
     };
   }, [router, workspaceId]);
+
+  useEffect(() => {
+    let active = true;
+    void getWorkspaceAnalytics(workspaceId, {
+      assigneeUserId: analyticsAssigneeId,
+      period: analyticsPeriod,
+      projectId: analyticsProjectId,
+      sprintId: analyticsSprintId,
+    })
+      .then((result) => {
+        if (active) setServerAnalytics(result);
+      })
+      .catch(() => {
+        if (active) setServerAnalytics(undefined);
+      });
+    return () => {
+      active = false;
+    };
+  }, [analyticsAssigneeId, analyticsPeriod, analyticsProjectId, analyticsSprintId, workspaceId]);
 
   useEffect(() => {
     if (searchParams.get("newProject") !== "1") return;
@@ -447,6 +469,20 @@ export function WorkspaceDetail() {
           {activeProjects} active projects · {analyticsTasks.length} tasks ·{" "}
           {completedTasks.length} completed in the selected view
         </p>
+        {serverAnalytics ? (
+          <section className={styles.analyticsGrid} aria-label="Delivery intelligence">
+            <article className={styles.analyticsCard}>
+              <div><h3>Flow timing</h3><p>Measured from actual status transitions.</p></div>
+              <strong>{serverAnalytics.cycle.averageCycleHours ?? "—"} h cycle time</strong>
+              <span>{serverAnalytics.cycle.averageLeadHours ?? "—"} h lead time · {serverAnalytics.cycle.completedWithMeasurements} measured</span>
+            </article>
+            <article className={styles.analyticsCard}>
+              <div><h3>Engineering signals</h3><p>Git and AI activity in this filtered view.</p></div>
+              <strong>{serverAnalytics.git.pullRequests} PRs · {serverAnalytics.git.pipelinesFailing} failing CI</strong>
+              <span>{serverAnalytics.git.linkedTasks} tasks linked to Git · {serverAnalytics.ai.activeSessions} active AI sessions</span>
+            </article>
+          </section>
+        ) : null}
         <div className={styles.analyticsGrid}>
           <section
             className={styles.analyticsCard}

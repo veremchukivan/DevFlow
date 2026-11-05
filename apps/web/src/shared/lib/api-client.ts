@@ -112,6 +112,7 @@ import {
   agreementConfirmationRequestSchema,
   workspaceAgreementListResponseSchema,
   workspaceAgreementResponseSchema,
+  workspaceAnalyticsResponseSchema,
   type AuthResponse,
   type AiSettings,
   type AccountSessionListResponse,
@@ -145,6 +146,7 @@ import {
   type WorkspaceCalendarFeedResponse,
   type WorkspaceAgreementListResponse,
   type WorkspaceAgreementResponse,
+  type WorkspaceAnalyticsResponse,
   type CreateWorkspaceAgreementRequest,
   type UpdateWorkspaceAgreementRequest,
   type WorkspaceResponse,
@@ -829,6 +831,27 @@ export function getProjects(workspaceId: string): Promise<ProjectListResponse> {
     `/api/v1/workspaces/${workspaceId}/projects?limit=100&offset=0`,
     { method: "GET" },
     projectListResponseSchema,
+  );
+}
+
+export function getWorkspaceAnalytics(
+  workspaceId: string,
+  query: {
+    assigneeUserId?: string;
+    period?: "7d" | "30d" | "90d" | "all";
+    projectId?: string;
+    sprintId?: string;
+  },
+): Promise<WorkspaceAnalyticsResponse> {
+  const params = new URLSearchParams();
+  if (query.period) params.set("period", query.period);
+  if (query.projectId) params.set("projectId", query.projectId);
+  if (query.assigneeUserId) params.set("assigneeUserId", query.assigneeUserId);
+  if (query.sprintId) params.set("sprintId", query.sprintId);
+  return request(
+    `/api/v1/workspaces/${workspaceId}/analytics?${params.toString()}`,
+    { method: "GET" },
+    workspaceAnalyticsResponseSchema,
   );
 }
 
