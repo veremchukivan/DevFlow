@@ -17,6 +17,7 @@ import {
   findProjectSprint,
   listProjectSprints,
   listSprintTaskMetrics,
+  listSprintStatusTransitions,
   updateProjectSprint,
 } from "./project-sprints.repository.js";
 
@@ -137,8 +138,8 @@ export async function getSprintAnalytics(
   input: SprintScope & { sprintId: string },
 ) {
   await requireProject(input);
-  await requireSprint(input);
-  const tasks = await listSprintTaskMetrics(input);
+  const [tasks, sprint] = await Promise.all([listSprintTaskMetrics(input), requireSprint(input)]);
+  const transitions = await listSprintStatusTransitions({ ...input, taskIds: tasks.map((task) => task.id) });
   const today = new Date().toISOString().slice(0, 10);
   const statusDistribution = [
     ...new Map(
@@ -156,7 +157,31 @@ export async function getSprintAnalytics(
     (task) => task.statusCategory === "done",
   ).length;
   const open = tasks.length - completed;
+  const rangeStart = sprint.startDate ?? sprint.createdAt.toISOString().slice(0, 10);
+  const rangeEnd = sprint.endDate ?? today;
+  const visibleEnd = rangeEnd < today ? rangeEnd : today;
+  const dates = calendarDates(rangeStart, visibleEnd);
+  const completionsByDate = new Map<string, number>();
+  for (const transition of transitions) {
+    if (transition.data.toStatusCategory !== "done" || transition.data.fromStatusCategory === "done") continue;
+    const date = transition.createdAt.toISOString().slice(0, 10);
+    if (date >= rangeStart && date <= visibleEnd) completionsByDate.set(date, (completionsByDate.get(date) ?? 0) + 1);
+  }
+  const measuredCompleted = [...completionsByDate.values()].reduce((sum, value) => sum + value, 0);
+  if (completed > measuredCompleted && dates.length) {
+    const last = dates.at(-1)!;
+    completionsByDate.set(last, (completionsByDate.get(last) ?? 0) + completed - measuredCompleted);
+  }
+  let cumulative = 0;
+  const burnup = dates.map((date) => ({ date, completed: (cumulative += completionsByDate.get(date) ?? 0) }));
+  const burndown = burnup.map((point) => ({ date: point.date, remaining: Math.max(0, tasks.length - point.completed) }));
+  const averageCompletedPerDay = Number((completed / Math.max(1, dates.length)).toFixed(2));
+  const daysToFinish = averageCompletedPerDay > 0 ? Math.ceil(open / averageCompletedPerDay) : null;
+  const estimatedCompletionDate = daysToFinish === null ? null : addDays(today, daysToFinish);
+  const risk = open === 0 ? "on_track" : today > rangeEnd ? "overdue" : daysToFinish === null ? "insufficient_data" : estimatedCompletionDate! > rangeEnd ? "at_risk" : "on_track";
   return {
+    burndown,
+    burnup,
     completed,
     open,
     overdue: tasks.filter(
@@ -166,7 +191,20 @@ export async function getSprintAnalytics(
     statusDistribution,
     total: tasks.length,
     velocity: completed,
+    forecast: { averageCompletedPerDay, estimatedCompletionDate, risk },
   };
+}
+
+function calendarDates(start: string, end: string) {
+  const dates: string[] = [];
+  for (let value = start; value <= end; value = addDays(value, 1)) dates.push(value);
+  return dates;
+}
+
+function addDays(date: string, amount: number) {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
 }
 
 async function requireProject(input: SprintScope) {

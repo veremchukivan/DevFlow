@@ -6,6 +6,10 @@ const rootDir = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
+  // Registration-based journeys share one local IP. Keeping them serial avoids
+  // accidentally exercising the production anti-bruteforce limit instead of
+  // the workflow under test.
+  workers: 1,
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3001",
     trace: "on-first-retry",

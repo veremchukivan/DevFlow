@@ -1871,6 +1871,24 @@ export function ProjectBoard() {
                   <strong>{sprintAnalytics.velocity}</strong>
                   <small>completed tasks</small>
                 </article>
+                <article>
+                  <span>Forecast</span>
+                  <strong>{sprintAnalytics.forecast.risk.replaceAll("_", " ")}</strong>
+                  <small>{sprintAnalytics.forecast.estimatedCompletionDate ? `finish ${sprintAnalytics.forecast.estimatedCompletionDate}` : "need completion data"}</small>
+                </article>
+              </div>
+              <div className={styles.sprintForecast}>
+                <div>
+                  <span>Burndown</span>
+                  <strong>{sprintAnalytics.burndown.at(-1)?.remaining ?? 0} remaining</strong>
+                  <div className={styles.sparkline} aria-label="Sprint burndown">{sprintAnalytics.burndown.map((point) => <i key={point.date} style={{ height: `${Math.max(8, ((point.remaining + 1) / Math.max(sprintAnalytics.total, 1)) * 100)}%` }} title={`${point.date}: ${point.remaining} remaining`} />)}</div>
+                </div>
+                <div>
+                  <span>Burnup</span>
+                  <strong>{sprintAnalytics.burnup.at(-1)?.completed ?? 0} completed</strong>
+                  <div className={styles.sparkline} aria-label="Sprint burnup">{sprintAnalytics.burnup.map((point) => <i key={point.date} style={{ height: `${Math.max(8, ((point.completed + 1) / Math.max(sprintAnalytics.total, 1)) * 100)}%` }} title={`${point.date}: ${point.completed} completed`} />)}</div>
+                </div>
+                <p>{sprintAnalytics.forecast.averageCompletedPerDay} tasks/day · {sprintAnalytics.forecast.risk === "on_track" ? "The sprint is on track." : sprintAnalytics.forecast.risk === "at_risk" ? "Current pace puts the target date at risk." : sprintAnalytics.forecast.risk === "overdue" ? "The sprint end date has passed." : "Finish a few tasks to calculate a forecast."}</p>
               </div>
               {sprintAnalytics.statusDistribution.length ? (
                 <ul className={styles.sprintDistribution}>

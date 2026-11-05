@@ -216,6 +216,9 @@
 .calendarEvent:hover {
   background: #dceee8;
 }
+.calendarTaskDue { border-left: 3px solid #e08c29; }
+.calendarSprint { border-left: 3px solid #2c78da; }
+.calendarRelease { border-left: 3px solid #7955cf; }
 .calendarEvent time {
   font-size: 10px;
   font-variant-numeric: tabular-nums;

@@ -719,7 +719,7 @@
 .sprintMetricGrid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 .sprintMetricGrid article {
   background: #f7f9fc;
@@ -738,6 +738,27 @@
   font-size: 25px;
   line-height: 1.1;
 }
+.sprintForecast {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+.sprintForecast > div {
+  background: #f7f9fc;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+}
+.sprintForecast span,
+.sprintForecast p { color: var(--muted); font-size: 12px; margin: 0; }
+.sprintForecast strong { font-size: 15px; text-transform: capitalize; }
+.sparkline { align-items: end; display: flex; gap: 3px; height: 36px; margin-top: 5px; }
+.sparkline i { background: var(--primary); border-radius: 3px 3px 1px 1px; flex: 1; min-width: 3px; }
+.sprintForecast > div:nth-child(2) .sparkline i { background: #1b9a62; }
 .sprintDistribution {
   display: grid;
   gap: 9px;

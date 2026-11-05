@@ -29,6 +29,7 @@ import {
   getWorkspaceCalls,
   getWorkspaceCallDecisions,
   getWorkspaceMembers,
+  getWorkspaceCalendarFeed,
   respondToWorkspaceCall,
   updateWorkspaceCall,
 } from "@/shared/lib/api-client";
@@ -37,6 +38,7 @@ import type {
   WorkspaceCall,
   WorkspaceCallDecision,
   WorkspaceMember,
+  WorkspaceCalendarItem,
 } from "@devflow/shared";
 
 import styles from "./workspace-calls.module.css";
@@ -58,6 +60,7 @@ type CallDraft = {
 export function WorkspaceCalls({ workspaceId }: { workspaceId: string }) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [calls, setCalls] = useState<WorkspaceCall[]>([]);
+  const [calendarItems, setCalendarItems] = useState<WorkspaceCalendarItem[]>([]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>();
@@ -80,6 +83,7 @@ export function WorkspaceCalls({ workspaceId }: { workspaceId: string }) {
         projectsResponse,
         membersResponse,
         currentUserResponse,
+        calendarResponse,
       ] = await Promise.all([
         getWorkspaceCalls(workspaceId, {
           from: range.from.toISOString(),
@@ -88,11 +92,16 @@ export function WorkspaceCalls({ workspaceId }: { workspaceId: string }) {
         getProjects(workspaceId),
         getWorkspaceMembers(workspaceId),
         getCurrentUser(),
+        getWorkspaceCalendarFeed(workspaceId, {
+          from: range.from.toISOString(),
+          to: range.to.toISOString(),
+        }),
       ]);
       setCalls(callsResponse.calls);
       setProjects(projectsResponse.projects);
       setMembers(membersResponse.members);
       setCurrentUserId(currentUserResponse.user.id);
+      setCalendarItems(calendarResponse.items);
     } catch (caughtError) {
       setError(messageFor(caughtError, "Unable to load calendar events."));
     } finally {
@@ -338,6 +347,7 @@ export function WorkspaceCalls({ workspaceId }: { workspaceId: string }) {
           {!isLoading ? (
             <CalendarGrid
               calls={calls}
+              items={calendarItems}
               month={month}
               onOpenCall={setSelectedCall}
               onSchedule={(day) => {
@@ -433,12 +443,14 @@ export function WorkspaceCalls({ workspaceId }: { workspaceId: string }) {
 
 function CalendarGrid({
   calls,
+  items,
   month,
   onOpenCall,
   onSchedule,
   today,
 }: {
   calls: WorkspaceCall[];
+  items: WorkspaceCalendarItem[];
   month: Date;
   onOpenCall: (call: WorkspaceCall) => void;
   onSchedule: (day: Date) => void;
@@ -456,6 +468,7 @@ function CalendarGrid({
         const dayCalls = calls.filter((call) =>
           isSameDay(new Date(call.startsAt), day),
         );
+        const dayItems = items.filter((item) => item.type !== "call" && isSameDay(new Date(item.startsAt), day));
         const inMonth = day.getMonth() === month.getMonth();
         return (
           <div
@@ -486,9 +499,15 @@ function CalendarGrid({
                   <span>{call.title}</span>
                 </button>
               ))}
-              {dayCalls.length > 3 ? (
+              {dayItems.slice(0, Math.max(0, 3 - dayCalls.length)).map((item) => (
+                <a className={`${styles.calendarEvent} ${styles[`calendar${item.type.replace(/(^|_)([a-z])/g, (_, __, letter) => letter.toUpperCase())}`] ?? ""}`} href={item.url ?? undefined} key={item.id}>
+                  <time>{item.type === "task_due" ? "Due" : item.type === "release" ? "Release" : "Sprint"}</time>
+                  <span>{item.title}</span>
+                </a>
+              ))}
+              {dayCalls.length + dayItems.length > 3 ? (
                 <span className={styles.moreCalls}>
-                  +{dayCalls.length - 3} more
+                  +{dayCalls.length + dayItems.length - 3} more
                 </span>
               ) : null}
             </div>

@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "../../core/db/client.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { projectStatuses } from "../../core/db/schema/project-statuses.js";
 import { projectSprints } from "../../core/db/schema/project-sprints.js";
 import { tasks } from "../../core/db/schema/tasks.js";
+import { taskActivityEvents } from "../../core/db/schema/task-activity-events.js";
 import { workspaceMembers } from "../../core/db/schema/workspace-members.js";
 import { workspaces } from "../../core/db/schema/workspaces.js";
 
@@ -169,6 +170,8 @@ export async function listSprintTaskMetrics(
 ) {
   return db
     .select({
+      id: tasks.id,
+      createdAt: tasks.createdAt,
       dueDate: tasks.dueDate,
       statusId: tasks.statusId,
       statusName: projectStatuses.name,
@@ -191,6 +194,20 @@ export async function listSprintTaskMetrics(
         isNull(tasks.deletedAt),
       ),
     );
+}
+
+export async function listSprintStatusTransitions(input: ProjectScope & { taskIds: string[] }) {
+  if (!input.taskIds.length) return [];
+  return db
+    .select({ createdAt: taskActivityEvents.createdAt, data: taskActivityEvents.data, taskId: taskActivityEvents.taskId })
+    .from(taskActivityEvents)
+    .where(and(
+      eq(taskActivityEvents.workspaceId, input.workspaceId),
+      eq(taskActivityEvents.projectId, input.projectId),
+      inArray(taskActivityEvents.taskId, input.taskIds),
+      eq(taskActivityEvents.eventType, "task_updated"),
+    ))
+    .orderBy(asc(taskActivityEvents.createdAt));
 }
 
 export async function completeSprintAndCarryOver(

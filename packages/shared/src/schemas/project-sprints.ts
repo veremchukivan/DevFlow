@@ -66,6 +66,8 @@ export const completeProjectSprintRequestSchema = z
     message: "Choose a sprint for unfinished tasks",
   });
 export const projectSprintAnalyticsSchema = z.object({
+  burndown: z.array(z.object({ date: z.iso.date(), remaining: z.number().int().nonnegative() })),
+  burnup: z.array(z.object({ completed: z.number().int().nonnegative(), date: z.iso.date() })),
   completed: z.number().int().nonnegative(),
   overdue: z.number().int().nonnegative(),
   open: z.number().int().nonnegative(),
@@ -78,6 +80,11 @@ export const projectSprintAnalyticsSchema = z.object({
   ),
   total: z.number().int().nonnegative(),
   velocity: z.number().int().nonnegative(),
+  forecast: z.object({
+    averageCompletedPerDay: z.number().nonnegative(),
+    estimatedCompletionDate: z.iso.date().nullable(),
+    risk: z.enum(["on_track", "at_risk", "overdue", "insufficient_data"]),
+  }),
 });
 
 export const projectSprintResponseSchema = z.object({

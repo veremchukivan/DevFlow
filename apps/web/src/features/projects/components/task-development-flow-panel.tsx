@@ -12,7 +12,7 @@ import {
   Workflow,
   XCircle,
 } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   ApiClientError,
@@ -93,10 +93,10 @@ export function TaskDevelopmentFlowPanel({
   useEffect(() => void load(), [load]);
 
   const currentStageIndex = flow ? stages.indexOf(flow.state) : 0;
-  const activeSession = useMemo(
-    () => sessions.find((session) => session.status === "active"),
-    [sessions],
-  );
+  // Keep this as a plain derivation. The panel is mounted dynamically from a
+  // task deep-link, and it must retain an identical hook order during route
+  // hydration and after the flow response arrives.
+  const activeSession = sessions.find((session) => session.status === "active");
 
   async function enableFlow() {
     setIsSaving(true);

@@ -30,7 +30,6 @@ import {
   type MouseEvent,
   type ReactNode,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -108,7 +107,9 @@ export function RichTextEditor({
     setIsActive(false);
   }, [defaultValue, resetKey]);
 
-  const embeddedMedia = useMemo(() => extractEmbeddedMedia(value), [value]);
+  // This is inexpensive and avoids a memo hook in an editor that is mounted
+  // while a task deep-link replaces the board route.
+  const embeddedMedia = extractEmbeddedMedia(value);
 
   function closeIfFocusLeaves() {
     window.setTimeout(() => {

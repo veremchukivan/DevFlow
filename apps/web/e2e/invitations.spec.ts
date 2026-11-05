@@ -85,10 +85,9 @@ test("member can open an assigned task from a notification", async ({
     await owner.page.getByRole("button", { name: "New project" }).click();
     await owner.page.getByLabel("Project name").fill("Assigned task project");
     await owner.page.getByRole("button", { name: "Create project" }).click();
-    await owner.page
-      .getByRole("main")
-      .getByRole("link", { name: "A Assigned task project", exact: true })
-      .click();
+    await expect(
+      owner.page.getByRole("heading", { name: "Assigned task project" }),
+    ).toBeVisible();
 
     await owner.page.getByLabel(/Create task in/i).first().click();
     const taskForm = owner.page
@@ -104,7 +103,7 @@ test("member can open an assigned task from a notification", async ({
     await member.page
       .getByRole("button", { name: /assigned you a task/i })
       .click();
-    await member.page.waitForTimeout(500);
+    await expect(member.page).toHaveURL(/projects\/.*\?taskId=/, { timeout: 10_000 });
     expect(clientErrors).toEqual([]);
     await expect(member.page.getByRole("dialog")).toBeVisible();
     await expect(
