@@ -41,11 +41,16 @@ import { aiSettingsRouter } from "./modules/ai-settings/ai-settings.routes.js";
 import { workspaceAutomationRouter } from "./modules/workspace-automation/workspace-automation.routes.js";
 import { workspaceSettingsRouter } from "./modules/workspace-settings/workspace-settings.routes.js";
 import { workspaceCallsRouter } from "./modules/workspace-calls/workspace-calls.routes.js";
-import { gitIntegrationsRouter, projectRepositoryRouter, taskGitRouter } from "./modules/git-integrations/git-integrations.routes.js";
+import {
+  gitIntegrationsRouter,
+  projectRepositoryRouter,
+  taskGitRouter,
+} from "./modules/git-integrations/git-integrations.routes.js";
 import { projectKnowledgeRouter } from "./modules/project-knowledge/project-knowledge.routes.js";
 import { projectPlanningRouter } from "./modules/project-planning/project-planning.routes.js";
 import { workspaceAgreementsRouter } from "./modules/workspace-agreements/workspace-agreements.routes.js";
 import { workspaceAnalyticsRouter } from "./modules/workspace-analytics/workspace-analytics.routes.js";
+import { workspaceSearchRouter } from "./modules/workspace-search/workspace-search.routes.js";
 
 export function createApp() {
   const app = express();
@@ -118,8 +123,15 @@ export function createApp() {
   app.use("/api/v1/workspaces/:workspaceId/members", workspaceMembersRouter);
   app.use("/api/v1/workspaces/:workspaceId/settings", workspaceSettingsRouter);
   app.use("/api/v1/workspaces/:workspaceId/calls", workspaceCallsRouter);
-  app.use("/api/v1/workspaces/:workspaceId/agreements", workspaceAgreementsRouter);
-  app.use("/api/v1/workspaces/:workspaceId/analytics", workspaceAnalyticsRouter);
+  app.use(
+    "/api/v1/workspaces/:workspaceId/agreements",
+    workspaceAgreementsRouter,
+  );
+  app.use(
+    "/api/v1/workspaces/:workspaceId/analytics",
+    workspaceAnalyticsRouter,
+  );
+  app.use("/api/v1/workspaces/:workspaceId/search", workspaceSearchRouter);
   app.use(
     "/api/v1/workspaces/:workspaceId/automation",
     workspaceAutomationRouter,

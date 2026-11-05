@@ -115,7 +115,17 @@ type BoardFilters = {
   assigneeUserId?: string | "none";
   customFieldId?: string;
   customFieldValue?: string;
+  developmentState?:
+    | "idea"
+    | "planning"
+    | "approval"
+    | "ready"
+    | "in_progress"
+    | "review"
+    | "done";
   due?: "overdue" | "today" | "week" | "none";
+  estimate?: "none" | "set";
+  hasPullRequest?: boolean;
   search?: string;
   sortBy?: TaskSortField;
   sortOrder?: TaskSortOrder;
@@ -220,6 +230,11 @@ export function ProjectBoard() {
   const [due, setDue] = useState<"" | "overdue" | "today" | "week" | "none">(
     "",
   );
+  const [estimate, setEstimate] = useState<"" | "none" | "set">("");
+  const [developmentState, setDevelopmentState] = useState<
+    "" | NonNullable<BoardFilters["developmentState"]>
+  >("");
+  const [hasPullRequest, setHasPullRequest] = useState(false);
   const [sortBy, setSortBy] = useState<TaskSortField>("position");
   const [sortOrder, setSortOrder] = useState<TaskSortOrder>("asc");
   const [isLoading, setIsLoading] = useState(true);
@@ -309,6 +324,9 @@ export function ProjectBoard() {
     assigneeUserId,
     customFieldValue,
     due,
+    estimate,
+    developmentState,
+    hasPullRequest,
     showArchived,
     sortBy !== "position",
     sortOrder !== "asc",
@@ -638,6 +656,9 @@ export function ProjectBoard() {
         ? { customFieldId, customFieldValue }
         : {}),
       ...(due ? { due } : {}),
+      ...(estimate ? { estimate } : {}),
+      ...(developmentState ? { developmentState } : {}),
+      ...(hasPullRequest ? { hasPullRequest: true } : {}),
       ...(showArchived ? { archived: true } : {}),
       sprintId: selectedSprintId,
       sortBy,
@@ -655,6 +676,9 @@ export function ProjectBoard() {
     setCustomFieldId("");
     setCustomFieldValue("");
     setDue("");
+    setEstimate("");
+    setDevelopmentState("");
+    setHasPullRequest(false);
     setSortBy("position");
     setSortOrder("asc");
     setShowArchived(false);
@@ -681,6 +705,9 @@ export function ProjectBoard() {
           customFieldId,
           customFieldValue,
           due,
+          estimate,
+          developmentState,
+          hasPullRequest,
           showArchived,
           sortBy,
           sortOrder,
@@ -707,6 +734,23 @@ export function ProjectBoard() {
     )
       ? (criteria.due as NonNullable<BoardFilters["due"]>)
       : "";
+    const nextEstimate = ["none", "set"].includes(String(criteria.estimate))
+      ? (criteria.estimate as NonNullable<BoardFilters["estimate"]>)
+      : "";
+    const nextDevelopmentState = [
+      "idea",
+      "planning",
+      "approval",
+      "ready",
+      "in_progress",
+      "review",
+      "done",
+    ].includes(String(criteria.developmentState))
+      ? (criteria.developmentState as NonNullable<
+          BoardFilters["developmentState"]
+        >)
+      : "";
+    const nextHasPullRequest = criteria.hasPullRequest === true;
     const nextCustomField = customFields.find(
       (field) => field.type === "select" && field.id === criteria.customFieldId,
     );
@@ -731,9 +775,17 @@ export function ProjectBoard() {
       ...(nextPriority ? { priority: nextPriority } : {}),
       ...(nextAssignee ? { assigneeUserId: nextAssignee } : {}),
       ...(nextCustomField && nextCustomFieldValue
-        ? { customFieldId: nextCustomField.id, customFieldValue: nextCustomFieldValue }
+        ? {
+            customFieldId: nextCustomField.id,
+            customFieldValue: nextCustomFieldValue,
+          }
         : {}),
       ...(nextDue ? { due: nextDue } : {}),
+      ...(nextEstimate ? { estimate: nextEstimate } : {}),
+      ...(nextDevelopmentState
+        ? { developmentState: nextDevelopmentState }
+        : {}),
+      ...(nextHasPullRequest ? { hasPullRequest: true } : {}),
       ...(criteria.showArchived === true ? { archived: true } : {}),
       sprintId: selectedSprintId,
       sortBy: nextSortBy,
@@ -745,6 +797,9 @@ export function ProjectBoard() {
     setCustomFieldId(nextCustomField?.id ?? "");
     setCustomFieldValue(nextCustomFieldValue);
     setDue(nextDue);
+    setEstimate(nextEstimate);
+    setDevelopmentState(nextDevelopmentState);
+    setHasPullRequest(nextHasPullRequest);
     setShowArchived(criteria.showArchived === true);
     setSortBy(nextSortBy);
     setSortOrder(nextSortOrder);
@@ -776,6 +831,9 @@ export function ProjectBoard() {
         ? { customFieldId, customFieldValue }
         : {}),
       ...(nextDue ? { due: nextDue } : {}),
+      ...(estimate ? { estimate } : {}),
+      ...(developmentState ? { developmentState } : {}),
+      ...(hasPullRequest ? { hasPullRequest: true } : {}),
       ...(showArchived ? { archived: true } : {}),
       sprintId: selectedSprintId,
       sortBy,
@@ -783,6 +841,53 @@ export function ProjectBoard() {
     };
     setAssigneeUserId(nextAssigneeUserId);
     setDue(nextDue);
+    setFilters(nextFilters);
+    await loadTasks(nextFilters);
+  }
+
+  async function onApplyQuickView(
+    view:
+      | "myOverdue"
+      | "review"
+      | "withoutEstimate"
+      | "pullRequestReview"
+      | "sprintRisk",
+  ) {
+    if (view === "sprintRisk") {
+      if (activeSprint) await onSelectSprint(activeSprint.id);
+      return;
+    }
+
+    const nextAssignee = view === "myOverdue" ? (currentUserId ?? "") : "";
+    const nextDue = view === "myOverdue" ? "overdue" : "";
+    const nextEstimate = view === "withoutEstimate" ? "none" : "";
+    const nextDevelopmentState =
+      view === "review" || view === "pullRequestReview" ? "review" : "";
+    const nextHasPullRequest = view === "pullRequestReview";
+    const nextFilters: BoardFilters = {
+      ...(nextAssignee ? { assigneeUserId: nextAssignee } : {}),
+      ...(nextDue ? { due: nextDue } : {}),
+      ...(nextEstimate ? { estimate: nextEstimate } : {}),
+      ...(nextDevelopmentState
+        ? { developmentState: nextDevelopmentState }
+        : {}),
+      ...(nextHasPullRequest ? { hasPullRequest: true } : {}),
+      sprintId: selectedSprintId,
+      sortBy: view === "myOverdue" ? "priority" : "updatedAt",
+      sortOrder: "desc",
+    };
+    setSearch("");
+    setPriority("");
+    setAssigneeUserId(nextAssignee);
+    setCustomFieldId("");
+    setCustomFieldValue("");
+    setDue(nextDue);
+    setEstimate(nextEstimate);
+    setDevelopmentState(nextDevelopmentState);
+    setHasPullRequest(nextHasPullRequest);
+    setShowArchived(false);
+    setSortBy(nextFilters.sortBy!);
+    setSortOrder("desc");
     setFilters(nextFilters);
     await loadTasks(nextFilters);
   }
@@ -1873,22 +1978,64 @@ export function ProjectBoard() {
                 </article>
                 <article>
                   <span>Forecast</span>
-                  <strong>{sprintAnalytics.forecast.risk.replaceAll("_", " ")}</strong>
-                  <small>{sprintAnalytics.forecast.estimatedCompletionDate ? `finish ${sprintAnalytics.forecast.estimatedCompletionDate}` : "need completion data"}</small>
+                  <strong>
+                    {sprintAnalytics.forecast.risk.replaceAll("_", " ")}
+                  </strong>
+                  <small>
+                    {sprintAnalytics.forecast.estimatedCompletionDate
+                      ? `finish ${sprintAnalytics.forecast.estimatedCompletionDate}`
+                      : "need completion data"}
+                  </small>
                 </article>
               </div>
               <div className={styles.sprintForecast}>
                 <div>
                   <span>Burndown</span>
-                  <strong>{sprintAnalytics.burndown.at(-1)?.remaining ?? 0} remaining</strong>
-                  <div className={styles.sparkline} aria-label="Sprint burndown">{sprintAnalytics.burndown.map((point) => <i key={point.date} style={{ height: `${Math.max(8, ((point.remaining + 1) / Math.max(sprintAnalytics.total, 1)) * 100)}%` }} title={`${point.date}: ${point.remaining} remaining`} />)}</div>
+                  <strong>
+                    {sprintAnalytics.burndown.at(-1)?.remaining ?? 0} remaining
+                  </strong>
+                  <div
+                    className={styles.sparkline}
+                    aria-label="Sprint burndown"
+                  >
+                    {sprintAnalytics.burndown.map((point) => (
+                      <i
+                        key={point.date}
+                        style={{
+                          height: `${Math.max(8, ((point.remaining + 1) / Math.max(sprintAnalytics.total, 1)) * 100)}%`,
+                        }}
+                        title={`${point.date}: ${point.remaining} remaining`}
+                      />
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <span>Burnup</span>
-                  <strong>{sprintAnalytics.burnup.at(-1)?.completed ?? 0} completed</strong>
-                  <div className={styles.sparkline} aria-label="Sprint burnup">{sprintAnalytics.burnup.map((point) => <i key={point.date} style={{ height: `${Math.max(8, ((point.completed + 1) / Math.max(sprintAnalytics.total, 1)) * 100)}%` }} title={`${point.date}: ${point.completed} completed`} />)}</div>
+                  <strong>
+                    {sprintAnalytics.burnup.at(-1)?.completed ?? 0} completed
+                  </strong>
+                  <div className={styles.sparkline} aria-label="Sprint burnup">
+                    {sprintAnalytics.burnup.map((point) => (
+                      <i
+                        key={point.date}
+                        style={{
+                          height: `${Math.max(8, ((point.completed + 1) / Math.max(sprintAnalytics.total, 1)) * 100)}%`,
+                        }}
+                        title={`${point.date}: ${point.completed} completed`}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <p>{sprintAnalytics.forecast.averageCompletedPerDay} tasks/day · {sprintAnalytics.forecast.risk === "on_track" ? "The sprint is on track." : sprintAnalytics.forecast.risk === "at_risk" ? "Current pace puts the target date at risk." : sprintAnalytics.forecast.risk === "overdue" ? "The sprint end date has passed." : "Finish a few tasks to calculate a forecast."}</p>
+                <p>
+                  {sprintAnalytics.forecast.averageCompletedPerDay} tasks/day ·{" "}
+                  {sprintAnalytics.forecast.risk === "on_track"
+                    ? "The sprint is on track."
+                    : sprintAnalytics.forecast.risk === "at_risk"
+                      ? "Current pace puts the target date at risk."
+                      : sprintAnalytics.forecast.risk === "overdue"
+                        ? "The sprint end date has passed."
+                        : "Finish a few tasks to calculate a forecast."}
+                </p>
               </div>
               {sprintAnalytics.statusDistribution.length ? (
                 <ul className={styles.sprintDistribution}>
@@ -2840,6 +2987,51 @@ export function ProjectBoard() {
           >
             Today
           </button>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing || !currentUserId}
+            onClick={() => void onApplyQuickView("myOverdue")}
+            type="button"
+          >
+            My overdue
+          </button>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing}
+            onClick={() => void onApplyQuickView("review")}
+            type="button"
+          >
+            Waiting for review
+          </button>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing}
+            onClick={() => void onApplyQuickView("withoutEstimate")}
+            type="button"
+          >
+            No estimate
+          </button>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing}
+            onClick={() => void onApplyQuickView("pullRequestReview")}
+            type="button"
+          >
+            PR ready
+          </button>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={isRefreshing || !activeSprint}
+            onClick={() => void onApplyQuickView("sprintRisk")}
+            title={
+              activeSprint
+                ? "Open the active sprint forecast"
+                : "No active sprint"
+            }
+            type="button"
+          >
+            Sprint risk
+          </button>
         </div>
         <button
           className={styles.secondaryButton}
@@ -2928,7 +3120,9 @@ export function ProjectBoard() {
                   <label>
                     <span>Field value</span>
                     <select
-                      onChange={(event) => setCustomFieldValue(event.target.value)}
+                      onChange={(event) =>
+                        setCustomFieldValue(event.target.value)
+                      }
                       value={customFieldValue}
                     >
                       <option value="">Any value</option>
@@ -2955,6 +3149,50 @@ export function ProjectBoard() {
                 <option value="today">Today</option>
                 <option value="week">This week</option>
                 <option value="none">No due date</option>
+              </select>
+            </label>
+            <label>
+              <span>Estimate</span>
+              <select
+                onChange={(event) =>
+                  setEstimate(event.target.value as typeof estimate)
+                }
+                value={estimate}
+              >
+                <option value="">Any estimate</option>
+                <option value="none">No estimate</option>
+                <option value="set">Has estimate</option>
+              </select>
+            </label>
+            <label>
+              <span>Development Flow</span>
+              <select
+                onChange={(event) => {
+                  const value = event.target.value as typeof developmentState;
+                  setDevelopmentState(value);
+                  if (value !== "review") setHasPullRequest(false);
+                }}
+                value={developmentState}
+              >
+                <option value="">Any development state</option>
+                <option value="planning">Planning</option>
+                <option value="approval">Awaiting plan approval</option>
+                <option value="ready">Ready to start</option>
+                <option value="in_progress">In progress</option>
+                <option value="review">Ready for review</option>
+                <option value="done">Development complete</option>
+              </select>
+            </label>
+            <label>
+              <span>Pull request</span>
+              <select
+                onChange={(event) =>
+                  setHasPullRequest(event.target.value === "yes")
+                }
+                value={hasPullRequest ? "yes" : ""}
+              >
+                <option value="">Any PR state</option>
+                <option value="yes">Linked pull request</option>
               </select>
             </label>
             <label>
@@ -4158,7 +4396,9 @@ function TaskEditorModal({
                     >
                       <option value="">Not set</option>
                       {field.options.map((option) => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
                       ))}
                     </select>
                   ) : (

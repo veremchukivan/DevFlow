@@ -4,7 +4,13 @@ import { pageInfoSchema, paginationQuerySchema } from "./pagination.js";
 import { projectStatusCategorySchema } from "./projects.js";
 
 export const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
-export const taskTypeSchema = z.enum(["epic", "bug", "feature", "story", "task"]);
+export const taskTypeSchema = z.enum([
+  "epic",
+  "bug",
+  "feature",
+  "story",
+  "task",
+]);
 export const taskDueDateSchema = z.iso.date();
 export const taskCustomFieldsSchema = z.record(
   z.string().min(1).max(64),
@@ -112,25 +118,46 @@ export const taskSortFieldSchema = z.enum([
 
 export const taskSortOrderSchema = z.enum(["asc", "desc"]);
 export const taskDueFilterSchema = z.enum(["overdue", "today", "week", "none"]);
+export const taskEstimateFilterSchema = z.enum(["none", "set"]);
+export const taskDevelopmentStateFilterSchema = z.enum([
+  "idea",
+  "planning",
+  "approval",
+  "ready",
+  "in_progress",
+  "review",
+  "done",
+]);
 
-export const listTasksQuerySchema = paginationQuerySchema.extend({
-  archived: z
-    .enum(["true", "false"])
-    .transform((v) => v === "true")
-    .optional(),
-  assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
-  customFieldId: z.string().min(1).max(64).optional(),
-  customFieldValue: z.string().min(1).max(80).optional(),
-  due: taskDueFilterSchema.optional(),
-  priority: taskPrioritySchema.optional(),
-  search: z.string().trim().min(1).max(200).optional(),
-  sortBy: taskSortFieldSchema.default("position"),
-  sortOrder: taskSortOrderSchema.default("asc"),
-  statusId: z.uuid().optional(),
-  sprintId: z.union([z.uuid(), z.literal("backlog")]).optional(),
-}).refine((input) => Boolean(input.customFieldId) === Boolean(input.customFieldValue), {
-  message: "Custom field filters require both a field and value",
-});
+export const listTasksQuerySchema = paginationQuerySchema
+  .extend({
+    archived: z
+      .enum(["true", "false"])
+      .transform((v) => v === "true")
+      .optional(),
+    assigneeUserId: z.union([z.uuid(), z.literal("none")]).optional(),
+    customFieldId: z.string().min(1).max(64).optional(),
+    customFieldValue: z.string().min(1).max(80).optional(),
+    developmentState: taskDevelopmentStateFilterSchema.optional(),
+    due: taskDueFilterSchema.optional(),
+    estimate: taskEstimateFilterSchema.optional(),
+    hasPullRequest: z
+      .enum(["true"])
+      .transform(() => true)
+      .optional(),
+    priority: taskPrioritySchema.optional(),
+    search: z.string().trim().min(1).max(200).optional(),
+    sortBy: taskSortFieldSchema.default("position"),
+    sortOrder: taskSortOrderSchema.default("asc"),
+    statusId: z.uuid().optional(),
+    sprintId: z.union([z.uuid(), z.literal("backlog")]).optional(),
+  })
+  .refine(
+    (input) => Boolean(input.customFieldId) === Boolean(input.customFieldValue),
+    {
+      message: "Custom field filters require both a field and value",
+    },
+  );
 
 export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
 export type TaskSortField = z.infer<typeof taskSortFieldSchema>;

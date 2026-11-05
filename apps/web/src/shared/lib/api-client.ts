@@ -113,6 +113,7 @@ import {
   workspaceAgreementListResponseSchema,
   workspaceAgreementResponseSchema,
   workspaceAnalyticsResponseSchema,
+  workspaceSearchResponseSchema,
   type AuthResponse,
   type AiSettings,
   type AccountSessionListResponse,
@@ -147,6 +148,7 @@ import {
   type WorkspaceAgreementListResponse,
   type WorkspaceAgreementResponse,
   type WorkspaceAnalyticsResponse,
+  type WorkspaceSearchResponse,
   type CreateWorkspaceAgreementRequest,
   type UpdateWorkspaceAgreementRequest,
   type WorkspaceResponse,
@@ -887,6 +889,17 @@ export function getWorkspaceCalendarFeed(
   );
 }
 
+export function searchWorkspace(
+  workspaceId: string,
+  query: string,
+): Promise<WorkspaceSearchResponse> {
+  return request(
+    `/api/v1/workspaces/${workspaceId}/search?${new URLSearchParams({ query })}`,
+    { method: "GET" },
+    workspaceSearchResponseSchema,
+  );
+}
+
 export function getWorkspaceAgreements(
   workspaceId: string,
 ): Promise<WorkspaceAgreementListResponse> {
@@ -1375,7 +1388,17 @@ type TaskListFilters = {
   assigneeUserId?: string | "none";
   customFieldId?: string;
   customFieldValue?: string;
+  developmentState?:
+    | "idea"
+    | "planning"
+    | "approval"
+    | "ready"
+    | "in_progress"
+    | "review"
+    | "done";
   due?: "overdue" | "today" | "week" | "none";
+  estimate?: "none" | "set";
+  hasPullRequest?: boolean;
   limit?: number;
   offset?: number;
   priority?: TaskPriority;
@@ -1407,6 +1430,11 @@ export function getTasks(
     query.set("customFieldValue", filters.customFieldValue);
   }
   if (filters.due) query.set("due", filters.due);
+  if (filters.estimate) query.set("estimate", filters.estimate);
+  if (filters.developmentState) {
+    query.set("developmentState", filters.developmentState);
+  }
+  if (filters.hasPullRequest) query.set("hasPullRequest", "true");
   if (filters.archived) query.set("archived", "true");
   if (filters.sprintId) query.set("sprintId", filters.sprintId);
 

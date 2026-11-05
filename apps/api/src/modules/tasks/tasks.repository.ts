@@ -4,6 +4,7 @@ import {
   asc,
   desc,
   eq,
+  exists,
   ilike,
   inArray,
   isNotNull,
@@ -18,6 +19,7 @@ import { taskAttachments } from "../../core/db/schema/task-attachments.js";
 import { taskChecklistItems } from "../../core/db/schema/task-checklist-items.js";
 import { taskComments } from "../../core/db/schema/task-comments.js";
 import { taskFigmaLinks } from "../../core/db/schema/task-figma-links.js";
+import { taskDevelopmentFlows } from "../../core/db/schema/task-development-flows.js";
 import { projects } from "../../core/db/schema/projects.js";
 import { tasks } from "../../core/db/schema/tasks.js";
 import { users } from "../../core/db/schema/users.js";
@@ -323,8 +325,18 @@ export async function listTasksForProject(input: {
     sprintId?: string | "backlog";
     customFieldId?: string;
     customFieldValue?: string;
+    developmentState?:
+      | "idea"
+      | "planning"
+      | "approval"
+      | "ready"
+      | "in_progress"
+      | "review"
+      | "done";
     priority?: TaskPriority;
     due?: "overdue" | "today" | "week" | "none";
+    estimate?: "none" | "set";
+    hasPullRequest?: boolean;
     assigneeUserId?: string | "none";
     search?: string;
     archived?: boolean;
@@ -366,6 +378,33 @@ export async function listTasksForProject(input: {
     conditions.push(
       sql`${tasks.dueDate} >= CURRENT_DATE and ${tasks.dueDate} < CURRENT_DATE + interval '7 days'`,
     );
+
+  if (f.estimate === "none") conditions.push(isNull(tasks.estimateMinutes));
+  if (f.estimate === "set") conditions.push(isNotNull(tasks.estimateMinutes));
+
+  if (f.developmentState !== undefined || f.hasPullRequest) {
+    const developmentConditions: SQL[] = [
+      eq(taskDevelopmentFlows.taskId, tasks.id),
+    ];
+    if (f.developmentState !== undefined) {
+      developmentConditions.push(
+        eq(taskDevelopmentFlows.state, f.developmentState),
+      );
+    }
+    if (f.hasPullRequest) {
+      developmentConditions.push(
+        isNotNull(taskDevelopmentFlows.pullRequestUrl),
+      );
+    }
+    conditions.push(
+      exists(
+        db
+          .select({ id: taskDevelopmentFlows.id })
+          .from(taskDevelopmentFlows)
+          .where(and(...developmentConditions)),
+      ),
+    );
+  }
 
   if (f.assigneeUserId === "none") {
     conditions.push(isNull(tasks.assigneeUserId));

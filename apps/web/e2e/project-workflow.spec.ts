@@ -34,6 +34,15 @@ test("member can create a project and task", async ({ page }) => {
   await page.getByLabel("Task title").fill("E2E task");
   await page.getByRole("button", { name: "Create task", exact: true }).click();
   await expect(page.getByText("E2E task")).toBeVisible();
+
+  await page.keyboard.press("Control+k");
+  await expect(
+    page.getByRole("dialog", { name: "Workspace search" }),
+  ).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Search workspace" })
+    .fill("E2E task");
+  await expect(page.getByRole("button", { name: /E2E task/ })).toBeVisible();
 });
 
 test("member can move a task between board columns", async ({ page }) => {
@@ -41,7 +50,9 @@ test("member can move a task between board columns", async ({ page }) => {
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("Drag Project");
   await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByRole("heading", { name: "Drag Project" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Drag Project" }),
+  ).toBeVisible();
   await page
     .getByLabel(/Create task in/i)
     .first()
@@ -62,14 +73,18 @@ test("member can create and complete a sprint", async ({ page }) => {
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("Sprint Project");
   await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page.getByRole("heading", { name: "Sprint Project" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Sprint Project" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "New sprint" }).click();
   await page.getByLabel("Sprint name").fill("E2E Sprint");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Start sprint" })
     .click();
-  const completeActiveSprint = page.getByRole("button", { name: "Complete active sprint" });
+  const completeActiveSprint = page.getByRole("button", {
+    name: "Complete active sprint",
+  });
   await expect(completeActiveSprint).toBeEnabled();
   await completeActiveSprint.click();
   await page

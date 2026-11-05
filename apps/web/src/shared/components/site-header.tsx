@@ -15,24 +15,20 @@ import Image from "next/image";
 import {
   getApiAssetUrl,
   getNotifications,
-  getProjects,
-  getTasks,
   logout,
   markAllNotificationsRead,
   markNotificationRead,
+  searchWorkspace,
 } from "@/shared/lib/api-client";
 import type {
   AuthUser,
   NotificationListResponse,
-  ProjectSummary,
-  Task,
+  WorkspaceSearchResponse,
 } from "@devflow/shared";
 
 import styles from "./site-header.module.css";
 
-type SearchResult =
-  | { kind: "project"; project: ProjectSummary }
-  | { kind: "task"; project: ProjectSummary; task: Task };
+type SearchResult = WorkspaceSearchResponse["results"][number];
 
 export function SiteHeader({ user }: { user: AuthUser }) {
   const pathname = usePathname();
@@ -119,32 +115,9 @@ export function SiteHeader({ user }: { user: AuthUser }) {
     let active = true;
     const timer = window.setTimeout(() => {
       setIsSearching(true);
-      void getProjects(workspaceId)
-        .then(async ({ projects }) => {
-          const matchingProjects = projects
-            .filter((project) =>
-              `${project.name} ${project.key}`
-                .toLowerCase()
-                .includes(searchQuery.trim().toLowerCase()),
-            )
-            .map((project) => ({ kind: "project" as const, project }));
-          const taskResults = await Promise.all(
-            projects.map(async (project) => {
-              const response = await getTasks(workspaceId, project.id, {
-                limit: 8,
-                search: searchQuery.trim(),
-              });
-              return response.tasks.map((task) => ({
-                kind: "task" as const,
-                project,
-                task,
-              }));
-            }),
-          );
-          if (active)
-            setSearchResults(
-              [...matchingProjects, ...taskResults.flat()].slice(0, 20),
-            );
+      void searchWorkspace(workspaceId, searchQuery.trim())
+        .then((response) => {
+          if (active) setSearchResults(response.results);
         })
         .catch(() => {
           if (active) setSearchResults([]);
@@ -226,11 +199,7 @@ export function SiteHeader({ user }: { user: AuthUser }) {
   function openSearchResult(result: SearchResult) {
     setIsSearchOpen(false);
     setSearchQuery("");
-    router.push(
-      result.kind === "project"
-        ? `/workspaces/${result.project.workspaceId}/projects/${result.project.id}`
-        : `/workspaces/${result.project.workspaceId}/projects/${result.project.id}/tasks/${result.task.id}`,
-    );
+    router.push(result.url);
   }
 
   function onSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
@@ -401,7 +370,7 @@ export function SiteHeader({ user }: { user: AuthUser }) {
           role="presentation"
         >
           <section
-            aria-label="Search workspace tasks"
+            aria-label="Workspace search"
             className={styles.searchDialog}
             role="dialog"
             aria-modal="true"
@@ -409,9 +378,10 @@ export function SiteHeader({ user }: { user: AuthUser }) {
             <div className={styles.searchInputWrap}>
               <Search aria-hidden="true" size={19} />
               <input
+                aria-label="Search workspace"
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onKeyDown={onSearchKeyDown}
-                placeholder="Search tasks in this workspace…"
+                placeholder="Search tasks, projects, calls, agreements and knowledge…"
                 ref={searchInputRef}
                 value={searchQuery}
               />
@@ -425,19 +395,13 @@ export function SiteHeader({ user }: { user: AuthUser }) {
             </div>
             <div className={styles.searchResults}>
               {searchQuery.trim().length < 2 ? (
-                <p>Enter at least two characters to search tasks.</p>
+                <p>Enter at least two characters to search this workspace.</p>
               ) : isSearching ? (
                 <p>Searching…</p>
               ) : searchResults.length ? (
                 <ul>
                   {searchResults.map((result, index) => (
-                    <li
-                      key={
-                        result.kind === "project"
-                          ? result.project.id
-                          : result.task.id
-                      }
-                    >
+                    <li key={`${result.kind}-${result.id}`}>
                       <button
                         className={
                           selectedSearchIndex === index
@@ -448,29 +412,15 @@ export function SiteHeader({ user }: { user: AuthUser }) {
                         onClick={() => openSearchResult(result)}
                         type="button"
                       >
-                        {result.kind === "project" ? (
-                          <>
-                            <span>Project</span>
-                            <strong>
-                              {result.project.key}: {result.project.name}
-                            </strong>
-                            <em>Open project</em>
-                          </>
-                        ) : (
-                          <>
-                            <span>{result.project.name}</span>
-                            <strong>
-                              {result.task.key}: {result.task.title}
-                            </strong>
-                            <em>{result.task.status.name}</em>
-                          </>
-                        )}
+                        <span>{searchKindLabel(result.kind)}</span>
+                        <strong>{result.title}</strong>
+                        <em>{result.subtitle}</em>
                       </button>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p>No matching projects or tasks found.</p>
+                <p>No matching workspace records found.</p>
               )}
             </div>
           </section>
@@ -478,6 +428,19 @@ export function SiteHeader({ user }: { user: AuthUser }) {
       ) : null}
     </header>
   );
+}
+
+function searchKindLabel(kind: SearchResult["kind"]) {
+  return (
+    {
+      task: "Task",
+      project: "Project",
+      call: "Call",
+      agreement: "Agreement",
+      comment: "Comment",
+      knowledge: "Knowledge",
+    } as const
+  )[kind];
 }
 
 function notificationMessage(

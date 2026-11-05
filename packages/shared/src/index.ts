@@ -30,4 +30,5 @@ export * from "./schemas/workspace-calls.js";
 export * from "./schemas/workspace-agreements.js";
 export * from "./schemas/workspace-analytics.js";
 export * from "./schemas/workspace-settings.js";
+export * from "./schemas/workspace-search.js";
 export * from "./schemas/workspaces.js";
